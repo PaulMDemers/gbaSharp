@@ -63,6 +63,7 @@ public sealed class MemoryBus
     private readonly byte[] _eeprom = new byte[8 * 1024];
     private readonly List<int> _eepromInputBits = [];
     private readonly Queue<int> _eepromOutputBits = [];
+    private int? _eepromAddressBits;
 
     public MemoryBus()
         : this(null)
@@ -243,6 +244,9 @@ public sealed class MemoryBus
         _openBus = 0;
         _biosOpenBus = HasBios ? InitialBiosOpenBus : PostStartupBiosOpenBus;
         BiosAccessible = false;
+        _eepromInputBits.Clear();
+        _eepromOutputBits.Clear();
+        _eepromAddressBits = null;
         ResetIoRegisters();
         _hasGpio = ContainsAscii(_rom, "SIIRTC") || _cartridgeHardware.HasFlag(CartridgeHardware.Gpio);
         _rtc.Reset();
@@ -1449,6 +1453,21 @@ public sealed class MemoryBus
     private bool IsEepromAddress(uint address)
         => _saveType == SaveType.Eeprom && address >= 0x0D00_0000 && address <= GbaMemoryMap.GamePakRomEnd;
 
+    public void HintEepromTransferBitCount(int bitCount)
+    {
+        if (_saveType != SaveType.Eeprom)
+        {
+            return;
+        }
+
+        _eepromAddressBits = bitCount switch
+        {
+            9 or 73 => 6,
+            17 or 81 => 14,
+            _ => _eepromAddressBits
+        };
+    }
+
     private int ReadEepromBit()
         => _eepromOutputBits.Count == 0 ? 1 : _eepromOutputBits.Dequeue();
 
@@ -1485,7 +1504,7 @@ public sealed class MemoryBus
         }
     }
 
-    private int EepromAddressBits => _rom.Length >= 16 * 1024 * 1024 ? 14 : 6;
+    private int EepromAddressBits => _eepromAddressBits ?? (_rom.Length >= 16 * 1024 * 1024 ? 14 : 6);
 
     private int ReadEepromAddress(int addressBits)
     {

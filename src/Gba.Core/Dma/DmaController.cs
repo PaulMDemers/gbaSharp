@@ -141,10 +141,6 @@ public sealed class DmaController
 
                 if (IsEnabled(control))
                 {
-                    _channels[channel].Source = _bus.PeekIo32(SourceRegisters[channel]);
-                    var destination = _bus.PeekIo32(DestinationRegisters[channel]);
-                    _channels[channel].Destination = destination;
-                    _channels[channel].InitialDestination = destination;
                     _channels[channel].Count = _bus.PeekIo16(CountRegisters[channel]);
 
                     if (_transferDepth == 0
@@ -234,6 +230,7 @@ public sealed class DmaController
         var count = forcedCount ?? EffectiveCount(channel, state.Count);
         var source = AlignTransferAddress(state.Source, unitSize);
         var destination = AlignTransferAddress(forcedDestination ?? state.Destination, unitSize);
+        HintEepromTransferSize(source, destination, unitSize, count);
         TransferStarted?.Invoke(new DmaTransferTrace(
             channel,
             StartTiming(state.Control).ToString(),
@@ -321,6 +318,22 @@ public sealed class DmaController
     private int TransferAccessCycles(uint source, uint destination, int bytes)
         => Math.Max(1, _bus.GetCpuAccessCycles(source, bytes, sequential: false))
             + Math.Max(1, _bus.GetCpuAccessCycles(destination, bytes, sequential: false));
+
+    private void HintEepromTransferSize(uint source, uint destination, uint unitSize, int count)
+    {
+        if (unitSize != 2)
+        {
+            return;
+        }
+
+        if (IsEepromAddress(source) || IsEepromAddress(destination))
+        {
+            _bus.HintEepromTransferBitCount(count);
+        }
+    }
+
+    private static bool IsEepromAddress(uint address)
+        => address is >= 0x0D00_0000 and <= GbaMemoryMap.GamePakRomEnd;
 
     private static bool IsEnabled(ushort control) => (control & IoRegisters.DmaEnable) != 0;
 

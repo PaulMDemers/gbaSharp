@@ -242,6 +242,27 @@ public sealed class DmaControllerTests
     }
 
     [Fact]
+    public void ImmediateDmaReenableUsesPostTransferInternalAddresses()
+    {
+        var gba = new GbaSystem();
+        gba.Bus.Write32(GbaMemoryMap.IwramStart, 0x1111_2222);
+        gba.Bus.Write32(GbaMemoryMap.IwramStart + 4, 0x3333_4444);
+
+        ConfigureDma1(
+            gba,
+            GbaMemoryMap.IwramStart,
+            GbaMemoryMap.IwramStart + 0x100,
+            1,
+            IoRegisters.DmaEnable | IoRegisters.DmaWord);
+        gba.Bus.Write32(
+            IoRegisters.DMA1CNT_L,
+            ((uint)(IoRegisters.DmaEnable | IoRegisters.DmaWord) << 16) | 1);
+
+        Assert.Equal(0x1111_2222u, gba.Bus.Read32(GbaMemoryMap.IwramStart + 0x100));
+        Assert.Equal(0x3333_4444u, gba.Bus.Read32(GbaMemoryMap.IwramStart + 0x104));
+    }
+
+    [Fact]
     public void DmaWritesToDmaControlDoNotStartNestedImmediateTransfer()
     {
         var gba = new GbaSystem();
@@ -278,6 +299,39 @@ public sealed class DmaControllerTests
         WriteEepromCommandBits(gba, writeBits, 0b10, 3, 6, value);
         ConfigureDma0(gba, writeBits, 0x0D00_0000, 73, IoRegisters.DmaEnable);
         WriteEepromReadCommandBits(gba, readCommandBits, 3, 6);
+        ConfigureDma0(gba, readCommandBits, 0x0D00_0000, 9, IoRegisters.DmaEnable);
+        ConfigureDma0(gba, 0x0D00_0000, readBits, 68, IoRegisters.DmaEnable);
+
+        for (var i = 0u; i < 4; i++)
+        {
+            Assert.Equal(0, gba.Bus.Read16(readBits + i * 2) & 1);
+        }
+
+        ulong read = 0;
+        for (var i = 0u; i < 64; i++)
+        {
+            read = (read << 1) | (uint)(gba.Bus.Read16(readBits + (4 + i) * 2) & 1);
+        }
+
+        Assert.Equal(value, read);
+    }
+
+    [Fact]
+    public void ImmediateDmaInfersSixBitEepromCommandsForSixteenMiBRom()
+    {
+        var rom = new byte[16 * 1024 * 1024];
+        WriteAscii(rom, 0x100, "EEPROM_V124");
+        var gba = new GbaSystem();
+        gba.LoadCartridge(Cartridge.Load(rom));
+        const uint writeBits = GbaMemoryMap.IwramStart;
+        const uint readCommandBits = GbaMemoryMap.IwramStart + 0x100;
+        const uint readBits = GbaMemoryMap.IwramStart + 0x200;
+        const int address = 0x21;
+        const ulong value = 0xBEEF_CAFE_0123_4567ul;
+
+        WriteEepromCommandBits(gba, writeBits, 0b10, address, 6, value);
+        ConfigureDma0(gba, writeBits, 0x0D00_0000, 73, IoRegisters.DmaEnable);
+        WriteEepromReadCommandBits(gba, readCommandBits, address, 6);
         ConfigureDma0(gba, readCommandBits, 0x0D00_0000, 9, IoRegisters.DmaEnable);
         ConfigureDma0(gba, 0x0D00_0000, readBits, 68, IoRegisters.DmaEnable);
 
