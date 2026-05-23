@@ -10,6 +10,10 @@ The first post-Sonic-DMA real-BIOS curated gameplay sweep covers sorted curated 
 
 The real-BIOS boot-only timeout artifact is fixed in the compatibility harness. ROM-entry alignment now has its own minimum step allowance instead of reusing the short 120-frame boot phase cap. The focused rerun `compat-bios-boot-alignfix-001-020-20260523.csv` reports 20/20 boot, 0 crash, 0 timeout, and 0 static for the same first 20 curated titles that previously produced false `align:max-steps` rows.
 
+The full real-BIOS gameplay rerun for curated indexes 1-20 after the alignment fix (`compat-curated-bios-gameplay-001-020-after-alignfix-20260523`) reports 79/80 boot rows, 0 crashes, and 0 static rows. Wolfenstein 3D is the only timeout, reaching frame 1797/1800 in `long-input`, so it remains a near-threshold step-budget/performance retry rather than a correctness failure.
+
+The next real-BIOS gameplay slice, curated indexes 21-40 (`compat-curated-bios-gameplay-021-040-after-alignfix-20260523`), reports 78/80 boot rows, 0 crashes, and 0 timeouts. The two static rows are Fire Pro Wrestling 1/2 boot-only early-window statics; their start-probe, broad-input, and long-input phases all animate and boot.
+
 The focused real-BIOS Sonic Advance family check (`compat-sonic-advance-family-post-sonicdma-20260523`) covers Sonic Advance 1/2/3 at sorted curated indexes 125-127. All start-probe, broad-input, and long-input phases boot with no crash/static rows; only the same boot-only real-BIOS alignment timeout appears.
 
 The focused crash-cluster rerun `compat-crashcluster-biosguard-final-20260521.csv` is clean: 7 curated stress titles, 28 gameplay rows, 28 boot, 0 crash, and 0 timeout. This includes Legends of Wrestling II, Powerpuff Girls, Muppets, Scooby-Doo Unmasked, and Spy Muppets after the no-BIOS IRQ and BIOS-byte-probe fixes.
