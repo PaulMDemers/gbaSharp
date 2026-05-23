@@ -8,6 +8,8 @@ Sonic Advance's SEGA intro split and gameplay background line artifacts were tra
 
 The first post-Sonic-DMA real-BIOS curated gameplay sweep covers sorted curated indexes 1-20 in two-ROM chunks (`compat-curated-bios-gameplay-001-020-post-sonicdma-v2-20260523`). Across 80 phase rows there are 0 crashes and 0 static rows. All start-probe and broad-input phases boot, 19/20 long-input phases boot, and the single long-input timeout is Wolfenstein 3D reaching frame 1797/1800 before the current max-step cap. The 20 boot-only phase timeouts are the existing real-BIOS alignment/max-step artifact (`very-slow-timeout` after 138 active frames), not a new crash signature.
 
+The real-BIOS boot-only timeout artifact is fixed in the compatibility harness. ROM-entry alignment now has its own minimum step allowance instead of reusing the short 120-frame boot phase cap. The focused rerun `compat-bios-boot-alignfix-001-020-20260523.csv` reports 20/20 boot, 0 crash, 0 timeout, and 0 static for the same first 20 curated titles that previously produced false `align:max-steps` rows.
+
 The focused real-BIOS Sonic Advance family check (`compat-sonic-advance-family-post-sonicdma-20260523`) covers Sonic Advance 1/2/3 at sorted curated indexes 125-127. All start-probe, broad-input, and long-input phases boot with no crash/static rows; only the same boot-only real-BIOS alignment timeout appears.
 
 The focused crash-cluster rerun `compat-crashcluster-biosguard-final-20260521.csv` is clean: 7 curated stress titles, 28 gameplay rows, 28 boot, 0 crash, and 0 timeout. This includes Legends of Wrestling II, Powerpuff Girls, Muppets, Scooby-Doo Unmasked, and Spy Muppets after the no-BIOS IRQ and BIOS-byte-probe fixes.

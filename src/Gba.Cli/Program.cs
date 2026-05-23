@@ -1093,6 +1093,8 @@ static async Task<int> RunCompatibility(string[] args, byte[]? bios)
 
 static async Task<CompatibilityResult> RunCompatibilityRom(string rootFullPath, string romPath, int index, CompatibilityPhase phase, int? maxSeconds, byte[]? bios, string captureDir, IReadOnlySet<string> captureStatuses, bool errorDetails, bool profileSteps)
 {
+    const long compatibilityRomEntryAlignmentMaxSteps = 90_000_000;
+
     var relativePath = Path.GetRelativePath(rootFullPath, romPath);
     Cartridge? cartridge = null;
     GbaSystem? gba = null;
@@ -1168,7 +1170,8 @@ static async Task<CompatibilityResult> RunCompatibilityRom(string rootFullPath, 
         if (phase.Options.AlignRomEntry)
         {
             gba.Keypad.SetPressedKeys(GbaKey.None);
-            if (!AlignToRomEntry(gba, phase.Options.MaxSteps, out var alignStatus, out _))
+            var alignMaxSteps = Math.Max(phase.Options.MaxSteps, compatibilityRomEntryAlignmentMaxSteps);
+            if (!AlignToRomEntry(gba, alignMaxSteps, out var alignStatus, out _))
             {
                 return Finish("timeout", alignStatus);
             }
