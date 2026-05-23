@@ -1,0 +1,11 @@
+# Repeated Start/A taps advance title and default menu selections.
+at 120 Start 5
+at 210 A 5
+at 300 Start 5
+at 390 A 5
+at 540 A 5
+at 720 Start 5
+at 900 A 5
+at 1080 A 5
+at 1260 Right 12
+at 1440 A 5

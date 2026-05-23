@@ -1,0 +1,11 @@
+# Skip/advance intro and title prompts where possible.
+at 120 Start 5
+at 240 Start 5
+at 360 A 5
+at 540 Start 5
+at 720 A 5
+at 900 A 5
+at 1080 Start 5
+at 1260 A 5
+at 1440 Start 5
+at 1620 A 5

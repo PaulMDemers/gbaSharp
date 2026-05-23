@@ -1,0 +1,11 @@
+# Move through the opening/title prompts with conservative A/Start taps.
+at 120 Start 5
+at 240 A 5
+at 360 Start 5
+at 480 A 5
+at 660 A 5
+at 840 Start 5
+at 1020 A 5
+at 1200 A 5
+at 1380 Start 5
+at 1560 A 5

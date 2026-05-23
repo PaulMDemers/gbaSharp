@@ -1,0 +1,6 @@
+# Current best title timing:
+# 520 skips forward; 960 lands on the visible Ruby/Groudon title splash.
+tap 520 Start 6
+tap 960 Start 8
+tap 1080 A 8
+tap 1260 A 8

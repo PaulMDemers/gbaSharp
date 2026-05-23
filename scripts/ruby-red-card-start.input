@@ -1,0 +1,4 @@
+# Press Start at the red Pokemon Ruby card observed around frame 7920.
+tap 7920 Start 8
+wait 120
+tap A 8

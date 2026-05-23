@@ -1,0 +1,8 @@
+# Attempt to enter the Ruby title/menu flow.
+# First Start skips into the title sequence; subsequent taps land in the visible
+# Ruby Version logo window found by captures-ruby-title-window.
+tap 520 Start 6
+tap 700 Start 8
+tap 760 A 8
+tap 820 Start 8
+tap 880 A 8

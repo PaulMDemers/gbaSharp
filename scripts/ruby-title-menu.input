@@ -1,0 +1,5 @@
+# Start the first logo/title card, then press Start again on the later full title card.
+tap 7920 Start 8
+tap 11880 Start 8
+wait 120
+tap A 8

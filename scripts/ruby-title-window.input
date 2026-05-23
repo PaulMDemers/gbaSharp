@@ -1,0 +1,3 @@
+# Probe only: press Start once during the early Game Freak / intro window,
+# then do nothing so captures can locate the exact title frames.
+tap 520 Start 6

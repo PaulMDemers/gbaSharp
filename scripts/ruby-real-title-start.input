@@ -1,0 +1,4 @@
+# Let Ruby play through the intro/attract sequence, then press Start on the title window.
+tap 7980 Start 8
+wait 120
+tap A 8

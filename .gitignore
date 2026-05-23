@@ -1,0 +1,69 @@
+# Build outputs
+bin/
+obj/
+out/
+TestResults/
+*.user
+*.suo
+*.nupkg
+*.snupkg
+
+# IDE/editor state
+.vs/
+.vscode/
+.idea/
+*.swp
+*.sln.docstates
+
+# ROMs, BIOS images, save states, and cartridge data
+*.gba
+*.agb
+*.gb
+*.gbc
+*.bin
+*.sav
+*.srm
+*.ss*
+*.state
+*.rtc
+gba_collection/
+curated_official_gba/
+visual-saves/
+saves/
+fixtures/
+
+# Generated emulator captures, traces, and compatibility sweeps
+artifacts/
+captures/
+captures-*/
+compat-*/
+save-probe-*/
+save-roundtrip-*/
+visual-snapshots-*/
+visual-baselines/
+retail-smoke-captures/
+*_captures/
+*-captures/
+*.ppm
+*.bmp
+*.png
+*.log
+*.dump
+*.trace
+*.csv
+/*.txt
+/*.bak
+
+# Local research mirrors and scratch directories
+.research/
+_refs/
+_compat_sample_*/
+ruby-*/
+sonic-*/
+atv-*/
+banjopilot-*/
+
+# OS noise
+Thumbs.db
+Desktop.ini
+.DS_Store

@@ -1,0 +1,5 @@
+# Probe the title screen after the full attract intro has played.
+tap 520 Start 6
+tap 4980 Start 10
+tap 5070 Start 10
+tap 5100 A 10

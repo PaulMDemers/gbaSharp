@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Gba.Cli/Gba.Cli.csproj" />
+    <Project Path="src/Gba.Core/Gba.Core.csproj" />
+    <Project Path="src/Gba.Desktop/Gba.Desktop.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Gba.Tests/Gba.Tests.csproj" />
+  </Folder>
+</Solution>

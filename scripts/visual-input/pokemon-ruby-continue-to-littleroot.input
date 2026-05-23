@@ -1,0 +1,32 @@
+# Load the progressed Ruby Flash128K save, select Continue from the title menu,
+# clear the post-clock Mom/TV event, and exit Brendan's house into Littleroot.
+at 120 Start 5
+at 210 Start 5
+at 300 A 5
+at 420 Start 5
+at 540 A 5
+at 660 A 5
+at 780 Start 5
+at 960 A 5
+at 1140 A 5
+at 1320 Start 5
+
+# From saved 2F position (5,2), pulse Right to the stair column, then go Up.
+at 3000 Right 25
+at 3400 Up 3600
+
+# Clear Mom's forced Petalburg Gym TV sequence downstairs.
+at 10800 A 120
+at 12200 A 120
+at 13600 A 120
+at 15000 A 120
+at 16400 A 120
+at 17800 A 120
+at 19200 A 120
+at 20600 A 120
+
+# Walk from TV area to the front-door row, correct onto the doormat, and exit.
+at 27000 Right 4000
+at 31000 Down 5000
+at 37000 Left 25
+at 38000 Down 5000

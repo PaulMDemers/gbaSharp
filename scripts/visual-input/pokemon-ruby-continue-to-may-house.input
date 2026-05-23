@@ -1,0 +1,39 @@
+# Load the progressed Ruby Flash128K save, select Continue, leave Brendan's
+# house, and enter May's house.
+at 120 Start 5
+at 210 Start 5
+at 300 A 5
+at 420 Start 5
+at 540 A 5
+at 660 A 5
+at 780 Start 5
+at 960 A 5
+at 1140 A 5
+at 1320 Start 5
+
+at 3000 Right 25
+at 3400 Up 3600
+
+at 10800 A 120
+at 12200 A 120
+at 13600 A 120
+at 15000 A 120
+at 16400 A 120
+at 17800 A 120
+at 19200 A 120
+at 20600 A 120
+
+at 27000 Right 4000
+at 31000 Down 5000
+at 37000 Left 25
+at 38000 Down 5000
+
+# Outdoor route from Brendan's front door (5,12) to May's front door (14,8).
+at 47000 Right 150
+at 48000 Up 70
+
+# If the outdoor route lands by the sign because of NPC timing drift, this
+# harmless correction nudges back into May's door. Once inside, the neighbor
+# text lock ignores these inputs.
+at 49000 Right 80
+at 50000 Up 80

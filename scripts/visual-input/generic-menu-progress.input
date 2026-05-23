@@ -1,0 +1,12 @@
+# Conservative title/menu progression used for save roundtrip exploration.
+at 120 Start 5
+at 240 A 5
+at 360 Start 5
+at 480 A 5
+at 660 A 5
+at 840 Start 5
+at 1020 A 5
+at 1200 Down 8
+at 1320 A 5
+at 1500 Start 5
+at 1680 A 5

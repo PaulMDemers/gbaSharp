@@ -1,0 +1,11 @@
+# Advance Wars default menu progression toward early title/menu state.
+at 120 Start 5
+at 240 A 5
+at 360 A 5
+at 540 Start 5
+at 720 A 5
+at 900 Down 8
+at 1020 A 5
+at 1200 A 5
+at 1380 Start 5
+at 1560 A 5

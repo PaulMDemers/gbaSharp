@@ -1,0 +1,32 @@
+# Ruby boot/title script.
+# Frame numbers are emulator VBlank counts, not wall-clock time.
+# 520 skips the first intro section; the repeated Start taps sweep the visible title window.
+tap 520 Start 6
+wait 360
+tap Start 8
+wait 30
+tap Start 8
+wait 30
+tap Start 8
+wait 30
+tap Start 8
+wait 30
+tap Start 8
+wait 30
+tap Start 8
+wait 30
+tap Start 8
+wait 30
+tap Start 8
+wait 30
+tap Start 8
+wait 30
+tap Start 8
+wait 30
+tap A 8
+wait 30
+tap A 8
+wait 30
+tap A 8
+wait 30
+tap A 8

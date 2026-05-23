@@ -1,0 +1,11 @@
+# Advance through the intro/title loop and press into the title menu.
+at 120 Start 5
+at 210 Start 5
+at 300 A 5
+at 420 Start 5
+at 540 A 5
+at 660 A 5
+at 780 Start 5
+at 960 A 5
+at 1140 A 5
+at 1320 Start 5

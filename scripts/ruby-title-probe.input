@@ -1,0 +1,15 @@
+# Frame numbers are VBlank frames from cold boot/reset.
+# Syntax:
+#   tap FRAME KEYS [DURATION]
+#   at FRAME KEYS [DURATION]
+#   wait FRAMES
+#   tap KEYS [DURATION]
+#
+# Current Ruby probe: skip around the early Game Freak/title window,
+# then tap A/Start at wider intervals to look for menu entry.
+tap 520 Start 6
+tap 760 Start 6
+tap 920 A 6
+tap 1100 A 6
+tap 1350 Start 6
+tap 1600 A 6

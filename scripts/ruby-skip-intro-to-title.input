@@ -1,0 +1,6 @@
+# Press Start during the animated attract intro; retail Ruby should skip toward the title prompt.
+tap 5600 Start 8
+wait 180
+tap Start 8
+wait 120
+tap A 8
