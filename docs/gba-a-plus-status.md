@@ -1,6 +1,6 @@
 # GBA A+ Milestone Status
 
-Last updated: 2026-05-23
+Last updated: 2026-05-24
 
 ## Current Compatibility Notes
 
@@ -29,6 +29,8 @@ The post-DMA-fix UMUSCLE check is also clean. `compat-focus-umuscle-20260523/com
 The first refreshed old rough archive ranges are mostly noise after the DMA fix. `compat-postdma-archive-2801-2900-20260523/compat-all.csv` covers 100 ROMs and 400 gameplay rows: 247 boot, 140 crash, 9 timeout, and 4 static. Every non-boot row in that range is from `2 Virtual Console` or `2 Unlicensed`, with no official-retail signal. `compat-postdma-archive-2701-2800-20260523/compat-all.csv` covers 100 ROMs and 400 gameplay rows: 372 boot, 8 crash, 16 static, and 4 timeout. All 28 non-boot rows are from the `2 Unlicensed` bucket; the `2 Other Regions` official/regional rows are clean.
 
 The refreshed `3301-3400` rough range (`compat-postdma-archive-3301-3400-20260524/compat-all.csv`) covers beta/prototype/revision material and adjacent hacks. It reports 400 gameplay rows: 352 boot, 44 crash, and 4 timeout. All 44 crash rows are in `4 Beta, Prototypes, Revisions\Samples` demo/sample ROMs, and the 4 timeout rows are a Castlevania hack. There are no non-boot rows from the `Revisions` official-release bucket in this range.
+
+The current failure queue can now be regenerated with `scripts/new-compat-failure-queue.ps1`. The first combined pass (`compat-current-failure-queue-20260524/summary.md`) covers the fresh curated official gameplay reports plus the refreshed archive ranges above: 2,320 phase rows, 2,084 boot rows, 236 non-boot rows, 229 ignored archive-noise/special-case rows, and only 7 actionable rows. There are no high-priority crash/control-flow targets. The medium-priority rows are progressful performance/step-budget timeouts for `Wolfenstein 3D`, `Scooby-Doo`, and `Scooby-Doo Cyber Chase`; the low-priority rows are boot-only early-window statics for Fire Pro Wrestling 1/2 and Tony Hawk's American Sk8land/Underground 2, all of which have input-bearing boot rows.
 
 The focused real-BIOS Sonic Advance family check (`compat-sonic-advance-family-post-sonicdma-20260523`) covers Sonic Advance 1/2/3 at sorted curated indexes 125-127. All start-probe, broad-input, and long-input phases boot with no crash/static rows; only the same boot-only real-BIOS alignment timeout appears.
 
@@ -326,10 +328,10 @@ The `p1-next12` run was started before the manifest index correction and include
 
 Probe compatibility is not the same as perfect gameplay. Next milestones:
 
-- Continue the post-crash-cluster triage with the next high-signal retail failures. The Max Payne, Legends of Wrestling II, Powerpuff Girls, Muppets, Scooby-Doo Unmasked, and Spy Muppets focused cluster is now clean. GTA should stay on the no-BIOS HLE startup queue, while real-BIOS desktop/manual testing can move on to broad gameplay checks for Banjo-Pilot, Crash/Spyro, Riviera, and the remaining invalid/null-PC buckets.
-- Continue the aligned real-BIOS gameplay sweep in 25- to 50-title chunks across the newly cleaner 1-300 BIOS-aligned boot set, with GTA USA moved back into broad gameplay validation after the DMA halt-cycle fix.
-- Add focused performance profiling for slow long-input cases: `Boktai 2`, `Need for Speed - Most Wanted`, and `F-Zero GP Legend`.
-- Continue Banjo-Pilot invalid-PC triage. It now detects as EEPROM and passes `save-probe`, but still reaches a frame-202 generated-IWRAM path where loop/local state at `03007E74` is later consumed as a return address by `ldmia sp!, {lr}; bx lr`. The next focused pass should compare the generated ARM block around `030052F4-03005B50` against a hardware/mGBA trace or isolate whether a PC-relative dispatch, stack writeback, or generated-code copy issue skips the matching prologue.
+- Keep the generated failure queue current after each broad sweep, and prioritize any new high-priority official/revision crash rows before lower-signal archive buckets. The current queue has no active high-priority real-BIOS crash target.
+- Reprobe the remaining medium-priority step-budget/performance rows: `Wolfenstein 3D`, `Scooby-Doo`, and `Scooby-Doo Cyber Chase`. The goal is to determine whether they need emulator performance work, per-phase step-budget tuning, or deeper timing investigation.
+- Continue broad real-BIOS gameplay validation outside the Pokemon cluster, especially racing, sports, and late-era titles that stress DMA, affine backgrounds, and save backends.
+- Add focused performance profiling for slow long-input cases: `Boktai 2`, `Need for Speed - Most Wanted`, `F-Zero GP Legend`, and any queue rows that remain progressful but near the max-step cap.
 - Deepen `Pokemon Ruby` gameplay scripting from Littleroot into the neighbor/rival setup and Professor Birch rescue flow.
 - Deepen `Mario Kart` and `Golden Sun` save scripts if they remain desired as representative Flash64K fixtures.
 - Deepen the scripted visual snapshots with true save-assisted gameplay scenes and external mGBA/no$gba reference captures.
