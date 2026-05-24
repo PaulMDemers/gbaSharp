@@ -3,6 +3,7 @@ param(
     [string[]]$ReportPath,
     [string]$OutputDir = "compat-current-failure-queue",
     [int]$Top = 40,
+    [switch]$IncludeSupersededFailures,
     [switch]$IncludeBootOnlyEarlyStatic
 )
 
@@ -49,6 +50,12 @@ try {
         }
 
         return ("{0}|{1}|{2}" -f $Row.index, $Row.title, $Row.gameCode).ToLowerInvariant()
+    }
+
+    function Get-RomPhaseKey {
+        param([object]$Row)
+
+        return "{0}|{1}" -f (Get-RomKey $Row), ([string]$Row.phase).ToLowerInvariant()
     }
 
     function Test-ArchiveNoise {
@@ -218,10 +225,20 @@ try {
         }
     }
 
-    $failures = @($rows | Where-Object { $_.status -ne "boot" })
     $bootByRom = @{}
+    $bootByRomPhase = @{}
     foreach ($row in @($rows | Where-Object { $_.status -eq "boot" })) {
         $bootByRom[(Get-RomKey $row)] = $true
+        $bootByRomPhase[(Get-RomPhaseKey $row)] = $true
+    }
+
+    $allFailures = @($rows | Where-Object { $_.status -ne "boot" })
+    $supersededFailures = @($allFailures | Where-Object { $bootByRomPhase.ContainsKey((Get-RomPhaseKey $_)) })
+    if ($IncludeSupersededFailures) {
+        $failures = $allFailures
+    }
+    else {
+        $failures = @($allFailures | Where-Object { -not $bootByRomPhase.ContainsKey((Get-RomPhaseKey $_)) })
     }
 
     $queue = foreach ($row in $failures) {
@@ -275,9 +292,9 @@ try {
     $summary.Add("")
     $summary.Add("## Totals")
     $summary.Add("")
-    $summary.Add("| Rows | Boot | Non-Boot | Actionable | Ignored Noise |")
-    $summary.Add("| ---: | ---: | ---: | ---: | ---: |")
-    $summary.Add("| $($rows.Count) | $(@($rows | Where-Object { $_.status -eq 'boot' }).Count) | $($queue.Count) | $($nonIgnored.Count) | $(@($queue | Where-Object { $_.priority -eq 'ignore' }).Count) |")
+    $summary.Add("| Rows | Boot | Non-Boot | Superseded Non-Boot | Queued | Actionable | Ignored Noise |")
+    $summary.Add("| ---: | ---: | ---: | ---: | ---: | ---: | ---: |")
+    $summary.Add("| $($rows.Count) | $(@($rows | Where-Object { $_.status -eq 'boot' }).Count) | $($allFailures.Count) | $($supersededFailures.Count) | $($queue.Count) | $($nonIgnored.Count) | $(@($queue | Where-Object { $_.priority -eq 'ignore' }).Count) |")
     $summary.Add("")
     $summary.Add("## Priority Buckets")
     $summary.Add("")
@@ -311,7 +328,9 @@ try {
 
     Write-Host "Rows: $($rows.Count)"
     Write-Host "Boot: $(@($rows | Where-Object { $_.status -eq 'boot' }).Count)"
-    Write-Host "NonBoot: $($queue.Count)"
+    Write-Host "NonBoot: $($allFailures.Count)"
+    Write-Host "SupersededNonBoot: $($supersededFailures.Count)"
+    Write-Host "Queued: $($queue.Count)"
     Write-Host "Actionable: $($nonIgnored.Count)"
     Write-Host "IgnoredNoise: $(@($queue | Where-Object { $_.priority -eq 'ignore' }).Count)"
     Write-Host "Queue: $((Resolve-Path $OutputDir).Path)"
