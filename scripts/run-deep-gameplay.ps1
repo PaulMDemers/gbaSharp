@@ -1,6 +1,7 @@
 param(
     [string]$Manifest = "docs\gba-deep-gameplay-routes.csv",
     [string]$RomRoot = "curated_official_gba",
+    [string]$BaselineDir = "visual-baselines\deep-gameplay",
     [string]$OutputDir = "",
     [string]$Bios = "",
     [string]$Configuration = "Release",
@@ -9,6 +10,8 @@ param(
     [int]$ProcessTimeoutSeconds = 900,
     [switch]$NoBuild,
     [switch]$NoAlignRomEntry,
+    [switch]$UpdateBaselines,
+    [switch]$FailOnBaselineDiff,
     [switch]$Append,
     [switch]$Resume,
     [switch]$NormalPriority
@@ -104,6 +107,28 @@ function Get-PathOrEmpty {
     return ""
 }
 
+function Get-FileHashOrEmpty {
+    param([string]$Path)
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return ""
+    }
+
+    return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+}
+
+function Test-FilesEqual {
+    param([string]$Expected, [string]$Actual)
+
+    if (-not (Test-Path -LiteralPath $Expected) -or -not (Test-Path -LiteralPath $Actual)) {
+        return $false
+    }
+
+    $expectedHash = Get-FileHashOrEmpty $Expected
+    $actualHash = Get-FileHashOrEmpty $Actual
+    return $expectedHash -eq $actualHash
+}
+
 function Write-GroupCsv {
     param(
         [object[]]$InputRows,
@@ -152,6 +177,7 @@ try {
     }
 
     New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
+    New-Item -ItemType Directory -Force -Path $BaselineDir | Out-Null
     $frameDir = Join-Path $OutputDir "frames"
     $snapshotDir = Join-Path $OutputDir "snapshots"
     New-Item -ItemType Directory -Force -Path $frameDir | Out-Null
@@ -173,7 +199,7 @@ try {
 
     $reportPath = Join-Path $OutputDir "deep-gameplay.csv"
     if (-not (($Resume -or $Append) -and (Test-Path $reportPath))) {
-        "label,status,exitCode,index,romPath,stopFrame,observedFrame,maxSteps,maxSeconds,inputScript,saveFile,snapshotRows,distinctPcs,finalPpm,snapshotCsv,expectedScene,message" | Set-Content -LiteralPath $reportPath -Encoding UTF8
+        "label,status,baselineStatus,exitCode,index,romPath,stopFrame,observedFrame,maxSteps,maxSeconds,inputScript,saveFile,snapshotRows,distinctPcs,finalPpm,baselinePpm,snapshotCsv,actualHash,baselineHash,expectedScene,message" | Set-Content -LiteralPath $reportPath -Encoding UTF8
     }
 
     foreach ($item in $items) {
@@ -192,6 +218,7 @@ try {
         }
 
         $finalPpm = Join-Path $frameDir "$label.ppm"
+        $baselinePpm = Join-Path $BaselineDir "$label.ppm"
         $snapshotCsv = Join-Path $snapshotDir "$label.csv"
         if ($Resume -and (Test-Path $finalPpm)) {
             Write-Host "Skipping existing deep gameplay route $label"
@@ -262,9 +289,27 @@ try {
             "pass"
         }
 
+        $baselineStatus = "skipped"
+        if ($status -eq "pass") {
+            if ($UpdateBaselines) {
+                Copy-Item -LiteralPath $finalPpm -Destination $baselinePpm -Force
+                $baselineStatus = "updated"
+            }
+            elseif (Test-Path -LiteralPath $baselinePpm) {
+                $baselineStatus = if (Test-FilesEqual -Expected $baselinePpm -Actual $finalPpm) { "match" } else { "diff" }
+            }
+            else {
+                $baselineStatus = "missing"
+            }
+        }
+
+        $actualHash = Get-FileHashOrEmpty $finalPpm
+        $baselineHash = Get-FileHashOrEmpty $baselinePpm
+
         [pscustomobject]@{
             label = $label
             status = $status
+            baselineStatus = $baselineStatus
             exitCode = $result.ExitCode
             index = $index
             romPath = $rom
@@ -277,17 +322,29 @@ try {
             snapshotRows = $snapshotRows
             distinctPcs = $distinctPcs
             finalPpm = $finalPpm
+            baselinePpm = $baselinePpm
             snapshotCsv = $snapshotCsv
+            actualHash = $actualHash
+            baselineHash = $baselineHash
             expectedScene = $item.expectedScene
             message = $message
         } | Export-Csv -LiteralPath $reportPath -NoTypeInformation -Append
 
-        Write-Host "  $status frame=$observedFrame snapshots=$snapshotRows distinctPcs=$distinctPcs"
+        Write-Host "  $status baseline=$baselineStatus frame=$observedFrame snapshots=$snapshotRows distinctPcs=$distinctPcs"
     }
 
     $rows = @(Import-Csv -LiteralPath $reportPath)
     Write-GroupCsv -InputRows $rows -Properties @("status") -Path (Join-Path $OutputDir "summary-status.csv")
+    Write-GroupCsv -InputRows $rows -Properties @("baselineStatus") -Path (Join-Path $OutputDir "summary-baseline-status.csv")
     Write-GroupCsv -InputRows $rows -Properties @("status", "expectedScene") -Path (Join-Path $OutputDir "summary-status-scene.csv")
+
+    if ($FailOnBaselineDiff) {
+        $badBaselines = @($rows | Where-Object { $_.baselineStatus -in @("diff", "missing") })
+        if ($badBaselines.Count -gt 0) {
+            $labels = ($badBaselines | Select-Object -First 10 -ExpandProperty label) -join ", "
+            throw "Baseline verification failed for $($badBaselines.Count) route(s): $labels"
+        }
+    }
 
     Write-Host "Deep gameplay report: $((Resolve-Path $reportPath).Path)"
 }
