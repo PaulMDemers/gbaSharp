@@ -1,13 +1,13 @@
-label,index,romPath,inputScript,stopFrame,maxSteps,maxSeconds,snapshotFrames,saveFile,saveReadOnly,expectedScene,notes
-doom-default,1,,scripts\visual-input\generic-menu-progress.input,3600,1800000000,600,300,,,Gameplay or attract/demo progression,Action shooter baseline with generic menu advancement
-gta-default,4,,scripts\visual-input\generic-menu-progress.input,3600,1800000000,600,300,,,Gameplay or menu progression,Former DMA timing crash anchor
-sonic-advance-default,125,,scripts\visual-input\sonic-advance-scripted.input,3600,1800000000,600,300,,,Gameplay or title/menu progression,Sonic scanline/HBlank DMA regression anchor
-mario-kart-default,119,,scripts\visual-input\mario-kart-scripted.input,3600,1800000000,600,300,,,Race/menu progression,Affine/background and racing stress title
-metroid-fusion-default,124,,scripts\visual-input\metroid-fusion-scripted.input,3600,1800000000,600,300,,,Intro/menu/gameplay progression,SRAM and action platformer baseline
-zelda-minish-default,118,,scripts\visual-input\zelda-minish-scripted.input,3600,1800000000,600,300,,,Intro/menu/gameplay progression,EEPROM adventure baseline
-golden-sun-default,211,,scripts\visual-input\golden-sun-scripted.input,3600,1800000000,600,300,,,Intro/menu progression,Flash64K RPG baseline
-advance-wars-default,286,,scripts\visual-input\advance-wars-scripted.input,3600,1800000000,600,300,,,Intro/menu progression,Strategy UI/text baseline
-castlevania-aria-default,107,,scripts\visual-input\generic-menu-progress.input,3600,1800000000,600,300,,,Gameplay or menu progression,Action RPG/platforming baseline
-fzero-gp-default,177,,scripts\visual-input\generic-menu-progress.input,3600,1800000000,600,300,,,Race/menu progression,Fast affine racing stress title
-tony-hawk-sk8land-default,257,,scripts\visual-input\generic-menu-progress.input,3600,1800000000,600,300,,,Gameplay or menu progression,Late-era sports title and low-priority boot-static follow-up
-tony-hawk-underground2-default,263,,scripts\visual-input\generic-menu-progress.input,3600,1800000000,600,300,,,Gameplay or menu progression,Late-era sports title and low-priority boot-static follow-up
+label,index,romPath,inputScript,stopFrame,maxSteps,maxSeconds,snapshotFrames,saveFile,saveReadOnly,targetScene,baselineRequired,expectedScene,notes
+doom-default,1,,scripts\visual-input\generic-menu-progress.input,3600,1800000000,600,300,,,menu,true,Episode select menu,Stable menu baseline; needs route tightening to start an episode
+gta-default,4,,scripts\visual-input\generic-menu-progress.input,3600,1800000000,600,300,,,menu,true,Save-slot/name menu,Former DMA timing crash anchor; needs route tightening past file setup
+sonic-advance-default,125,,scripts\visual-input\sonic-advance-scripted.input,3600,1800000000,600,300,,,gameplay,true,In-level Sonic gameplay,Sonic scanline/HBlank DMA regression anchor
+mario-kart-default,119,,scripts\visual-input\mario-kart-scripted.input,3600,1800000000,600,300,,,menu,true,Track select menu,Affine/background baseline; needs route tightening to start a race
+metroid-fusion-default,124,,scripts\visual-input\metroid-fusion-scripted.input,3600,1800000000,600,300,,,intro,true,Opening story scene,Stable scripted intro baseline; needs route tightening to playable Samus
+zelda-minish-default,118,,scripts\visual-input\zelda-minish-scripted.input,3600,1800000000,600,300,,,menu,true,File select menu,EEPROM/menu baseline; needs route tightening through name/file setup
+golden-sun-default,211,,scripts\visual-input\golden-sun-scripted.input,3600,1800000000,600,300,,,intro,true,Opening dialogue scene,Flash64K RPG baseline; needs route tightening toward player control
+advance-wars-default,286,,scripts\visual-input\advance-wars-scripted.input,3600,1800000000,600,300,,,menu,true,Name entry menu,Strategy UI/text baseline; needs route tightening past profile setup
+castlevania-aria-default,107,,scripts\visual-input\generic-menu-progress.input,3600,1800000000,600,300,,,intro,true,Opening dialogue/game scene,Action RPG/platforming baseline; needs route tightening after intro dialogue
+fzero-gp-default,177,,scripts\visual-input\generic-menu-progress.input,3600,1800000000,600,300,,,menu,true,Name entry menu,Fast affine racing baseline; needs route tightening past name entry
+tony-hawk-sk8land-default,257,,scripts\visual-input\generic-menu-progress.input,3600,1800000000,600,300,,,intro,true,Tutorial/instruction scene,Late-era sports title and low-priority boot-static follow-up
+tony-hawk-underground2-default,263,,scripts\visual-input\generic-menu-progress.input,3600,1800000000,600,300,,,menu,true,Character/outfit menu,Late-era sports title and low-priority boot-static follow-up; needs route tightening

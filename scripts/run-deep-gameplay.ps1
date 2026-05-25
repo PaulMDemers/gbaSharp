@@ -107,6 +107,16 @@ function Get-PathOrEmpty {
     return ""
 }
 
+function Get-BoolOrDefault {
+    param([object]$Item, [string]$Property, [bool]$Default)
+
+    if ($Item.PSObject.Properties.Name -notcontains $Property -or [string]::IsNullOrWhiteSpace($Item.$Property)) {
+        return $Default
+    }
+
+    return ([string]$Item.$Property).Equals("true", [StringComparison]::OrdinalIgnoreCase)
+}
+
 function Get-FileHashOrEmpty {
     param([string]$Path)
 
@@ -199,11 +209,13 @@ try {
 
     $reportPath = Join-Path $OutputDir "deep-gameplay.csv"
     if (-not (($Resume -or $Append) -and (Test-Path $reportPath))) {
-        "label,status,baselineStatus,exitCode,index,romPath,stopFrame,observedFrame,maxSteps,maxSeconds,inputScript,saveFile,snapshotRows,distinctPcs,finalPpm,baselinePpm,snapshotCsv,actualHash,baselineHash,expectedScene,message" | Set-Content -LiteralPath $reportPath -Encoding UTF8
+        "label,status,baselineStatus,targetScene,baselineRequired,exitCode,index,romPath,stopFrame,observedFrame,maxSteps,maxSeconds,inputScript,saveFile,snapshotRows,distinctPcs,finalPpm,baselinePpm,snapshotCsv,actualHash,baselineHash,expectedScene,message" | Set-Content -LiteralPath $reportPath -Encoding UTF8
     }
 
     foreach ($item in $items) {
         $label = Get-SafeName $item.label
+        $targetScene = Get-PathOrEmpty $item "targetScene"
+        $baselineRequired = Get-BoolOrDefault -Item $item -Property "baselineRequired" -Default $true
         $index = if ([string]::IsNullOrWhiteSpace($item.index)) { 0 } else { [int]$item.index }
         $romPath = Get-PathOrEmpty $item "romPath"
         if (-not [string]::IsNullOrWhiteSpace($romPath)) {
@@ -310,6 +322,8 @@ try {
             label = $label
             status = $status
             baselineStatus = $baselineStatus
+            targetScene = $targetScene
+            baselineRequired = $baselineRequired
             exitCode = $result.ExitCode
             index = $index
             romPath = $rom
@@ -336,10 +350,11 @@ try {
     $rows = @(Import-Csv -LiteralPath $reportPath)
     Write-GroupCsv -InputRows $rows -Properties @("status") -Path (Join-Path $OutputDir "summary-status.csv")
     Write-GroupCsv -InputRows $rows -Properties @("baselineStatus") -Path (Join-Path $OutputDir "summary-baseline-status.csv")
+    Write-GroupCsv -InputRows $rows -Properties @("targetScene", "status") -Path (Join-Path $OutputDir "summary-target-scene-status.csv")
     Write-GroupCsv -InputRows $rows -Properties @("status", "expectedScene") -Path (Join-Path $OutputDir "summary-status-scene.csv")
 
     if ($FailOnBaselineDiff) {
-        $badBaselines = @($rows | Where-Object { $_.baselineStatus -in @("diff", "missing") })
+        $badBaselines = @($rows | Where-Object { $_.baselineRequired -ne "False" -and $_.baselineStatus -in @("diff", "missing") })
         if ($badBaselines.Count -gt 0) {
             $labels = ($badBaselines | Select-Object -First 10 -ExpandProperty label) -join ", "
             throw "Baseline verification failed for $($badBaselines.Count) route(s): $labels"
