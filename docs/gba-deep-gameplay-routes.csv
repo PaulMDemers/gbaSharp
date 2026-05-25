@@ -1,10 +1,10 @@
 label,index,romPath,inputScript,stopFrame,maxSteps,maxSeconds,snapshotFrames,saveFile,saveReadOnly,targetScene,baselineRequired,expectedScene,notes
 doom-default,1,,scripts\visual-input\generic-menu-progress.input,3600,1800000000,600,300,,,menu,true,Episode select menu,Stable menu baseline; needs route tightening to start an episode
-gta-default,4,,scripts\visual-input\generic-menu-progress.input,3600,1800000000,600,300,,,menu,true,Save-slot/name menu,Former DMA timing crash anchor; needs route tightening past file setup
+gta-gameplay,4,,scripts\visual-input\gta-gameplay.input,12000,6000000000,900,1200,,,gameplay,true,On-foot GTA gameplay in Chinatown,Former DMA timing crash anchor now routes past save-slot/name setup
 sonic-advance-default,125,,scripts\visual-input\sonic-advance-scripted.input,3600,1800000000,600,300,,,gameplay,true,In-level Sonic gameplay,Sonic scanline/HBlank DMA regression anchor
 mario-kart-race,119,,scripts\visual-input\mario-kart-race.input,7200,3600000000,600,600,,,gameplay,true,Active race on Peach Circuit,Affine/background racing baseline
 metroid-fusion-default,124,,scripts\visual-input\metroid-fusion-scripted.input,3600,1800000000,600,300,,,intro,true,Opening story scene,Stable scripted intro baseline; needs route tightening to playable Samus
-zelda-minish-default,118,,scripts\visual-input\zelda-minish-scripted.input,3600,1800000000,600,300,,,menu,true,File select menu,EEPROM/menu baseline; needs route tightening through name/file setup
+zelda-minish-bedroom,118,,scripts\visual-input\zelda-minish-opening.input,18000,9000000000,900,1200,,,gameplay,true,Controllable Link in bedroom,EEPROM adventure gameplay baseline after file setup and opening dialogue
 golden-sun-default,211,,scripts\visual-input\golden-sun-scripted.input,3600,1800000000,600,300,,,intro,true,Opening dialogue scene,Flash64K RPG baseline; needs route tightening toward player control
 advance-wars-default,286,,scripts\visual-input\advance-wars-scripted.input,3600,1800000000,600,300,,,menu,true,Name entry menu,Strategy UI/text baseline; needs route tightening past profile setup
 castlevania-aria-default,107,,scripts\visual-input\generic-menu-progress.input,3600,1800000000,600,300,,,intro,true,Opening dialogue/game scene,Action RPG/platforming baseline; needs route tightening after intro dialogue
