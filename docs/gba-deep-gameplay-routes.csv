@@ -3,11 +3,11 @@ doom-gameplay,1,,scripts\visual-input\doom-gameplay.input,9000,4500000000,900,90
 gta-gameplay,4,,scripts\visual-input\gta-gameplay.input,12000,6000000000,900,1200,,,gameplay,true,On-foot GTA gameplay in Chinatown,Former DMA timing crash anchor now routes past save-slot/name setup
 sonic-advance-default,125,,scripts\visual-input\sonic-advance-scripted.input,3600,1800000000,600,300,,,gameplay,true,In-level Sonic gameplay,Sonic scanline/HBlank DMA regression anchor
 mario-kart-race,119,,scripts\visual-input\mario-kart-race.input,7200,3600000000,600,600,,,gameplay,true,Active race on Peach Circuit,Affine/background racing baseline
-metroid-fusion-default,124,,scripts\visual-input\metroid-fusion-scripted.input,3600,1800000000,600,300,,,intro,true,Opening story scene,Stable scripted intro baseline; needs route tightening to playable Samus
+metroid-fusion-gameplay,124,,scripts\visual-input\metroid-fusion-gameplay.input,42000,21000000000,1800,2400,,,gameplay,true,In-engine Metroid Fusion gameplay scene,SRAM/action platformer gameplay baseline after opening story
 zelda-minish-bedroom,118,,scripts\visual-input\zelda-minish-opening.input,18000,9000000000,900,1200,,,gameplay,true,Controllable Link in bedroom,EEPROM adventure gameplay baseline after file setup and opening dialogue
-golden-sun-default,211,,scripts\visual-input\golden-sun-scripted.input,3600,1800000000,600,300,,,intro,true,Opening dialogue scene,Flash64K RPG baseline; needs route tightening toward player control
+golden-sun-gameplay,211,,scripts\visual-input\golden-sun-gameplay.input,34000,17000000000,1500,1600,,,gameplay,true,Outdoor Golden Sun gameplay scene,Flash64K RPG gameplay baseline after opening dialogue
 advance-wars-map,286,,scripts\visual-input\advance-wars-map.input,20000,10000000000,1200,1200,,,gameplay,true,First field training map with cursor,Strategy UI/text baseline after profile setup
-castlevania-aria-default,107,,scripts\visual-input\generic-menu-progress.input,3600,1800000000,600,300,,,intro,true,Opening dialogue/game scene,Action RPG/platforming baseline; needs route tightening after intro dialogue
+castlevania-aria-gameplay,107,,scripts\visual-input\castlevania-aria-gameplay.input,22000,11000000000,1200,1200,,,gameplay,true,Controllable Soma in castle,Action RPG/platforming gameplay baseline
 fzero-gp-race,177,,scripts\visual-input\fzero-gp-race.input,7200,3600000000,600,600,,,gameplay,true,Active F-Zero race,Fast affine racing baseline
 tony-hawk-sk8land-gameplay,257,,scripts\visual-input\tony-hawk-sk8land-gameplay.input,12000,6000000000,900,1200,,,gameplay,true,Active skate scene,Late-era sports gameplay route and low-priority boot-static follow-up
 tony-hawk-underground2-gameplay,263,,scripts\visual-input\tony-hawk-underground2-gameplay.input,12000,6000000000,900,1200,,,gameplay,true,Active skate scene,Late-era sports gameplay route and low-priority boot-static follow-up
