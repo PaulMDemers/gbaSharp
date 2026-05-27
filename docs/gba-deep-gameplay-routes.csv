@@ -15,3 +15,7 @@ super-mario-advance2-map,129,,scripts\visual-input\super-mario-advance2-gameplay
 banjo-pilot-race,77,,scripts\visual-input\banjo-pilot-gameplay.input,12000,6000000000,1200,1200,,,gameplay,true,Active Banjo-Pilot race,Former DMA/EEPROM bug anchor and racing expansion route
 mega-man-battle-network-room,78,,scripts\visual-input\mega-man-battle-network-gameplay.input,18000,9000000000,1200,1200,,,gameplay,true,Lan bedroom gameplay scene,Battle Network RPG/action expansion route
 advance-wars2-map,273,,scripts\visual-input\advance-wars2-map.input,18000,9000000000,1200,1200,,,gameplay,true,Advance Wars 2 tactical map with command menu,Strategy expansion route
+riviera-battle,213,,scripts\visual-input\riviera-gameplay.input,22000,11000000000,1500,1200,,,gameplay,true,Riviera battle scene,Prior bug-cluster RPG/adventure route
+summon-night-room,240,,scripts\visual-input\summon-night-gameplay.input,22000,11000000000,1500,1200,,,gameplay,true,Summon Night room gameplay scene,RPG/action/save-heavy expansion route
+crash-huge-adventure-level,60,,scripts\visual-input\crash-huge-adventure-gameplay.input,12000,6000000000,1500,1200,,,gameplay,true,Crash side-scrolling level,Licensed platformer expansion route
+powerpuff-mojo-action,44,,scripts\visual-input\powerpuff-mojo-gameplay.input,12000,6000000000,1500,1200,,,gameplay,true,Powerpuff Girls action scene,Prior bug-cluster licensed action route
