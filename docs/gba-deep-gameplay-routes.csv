@@ -21,3 +21,4 @@ crash-huge-adventure-level,60,,scripts\visual-input\crash-huge-adventure-gamepla
 powerpuff-mojo-action,44,,scripts\visual-input\powerpuff-mojo-gameplay.input,12000,6000000000,1500,1200,,,gameplay,true,Powerpuff Girls action scene,Prior bug-cluster licensed action route
 scooby-unmasked-action,50,,scripts\visual-input\scooby-unmasked-gameplay.input,12000,6000000000,1500,1200,,,gameplay,true,Scooby-Doo Unmasked action scene,Prior IRQ/audio bug-cluster licensed route
 spy-muppets-action,51,,scripts\visual-input\spy-muppets-gameplay.input,12000,6000000000,1500,1200,,,gameplay,true,Spy Muppets action/minigame scene,Prior IRQ/audio bug-cluster licensed route
+castlevania-circle-gameplay,108,,scripts\visual-input\castlevania-circle-gameplay.input,38000,19000000000,1800,2000,,,gameplay,true,Circle of the Moon cave gameplay scene,Technical Castlevania expansion route
