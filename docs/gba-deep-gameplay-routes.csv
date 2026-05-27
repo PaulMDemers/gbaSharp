@@ -19,3 +19,5 @@ riviera-battle,213,,scripts\visual-input\riviera-gameplay.input,22000,1100000000
 summon-night-room,240,,scripts\visual-input\summon-night-gameplay.input,22000,11000000000,1500,1200,,,gameplay,true,Summon Night room gameplay scene,RPG/action/save-heavy expansion route
 crash-huge-adventure-level,60,,scripts\visual-input\crash-huge-adventure-gameplay.input,12000,6000000000,1500,1200,,,gameplay,true,Crash side-scrolling level,Licensed platformer expansion route
 powerpuff-mojo-action,44,,scripts\visual-input\powerpuff-mojo-gameplay.input,12000,6000000000,1500,1200,,,gameplay,true,Powerpuff Girls action scene,Prior bug-cluster licensed action route
+scooby-unmasked-action,50,,scripts\visual-input\scooby-unmasked-gameplay.input,12000,6000000000,1500,1200,,,gameplay,true,Scooby-Doo Unmasked action scene,Prior IRQ/audio bug-cluster licensed route
+spy-muppets-action,51,,scripts\visual-input\spy-muppets-gameplay.input,12000,6000000000,1500,1200,,,gameplay,true,Spy Muppets action/minigame scene,Prior IRQ/audio bug-cluster licensed route
