@@ -23,3 +23,6 @@ scooby-unmasked-action,50,,scripts\visual-input\scooby-unmasked-gameplay.input,1
 spy-muppets-action,51,,scripts\visual-input\spy-muppets-gameplay.input,12000,6000000000,1500,1200,,,gameplay,true,Spy Muppets action/minigame scene,Prior IRQ/audio bug-cluster licensed route
 castlevania-circle-gameplay,108,,scripts\visual-input\castlevania-circle-gameplay.input,38000,19000000000,1800,2000,,,gameplay,true,Circle of the Moon cave gameplay scene,Technical Castlevania expansion route
 castlevania-harmony-gameplay,109,,scripts\visual-input\castlevania-harmony-gameplay.input,30000,15000000000,1800,1500,,,gameplay,true,Harmony of Dissonance castle entrance gameplay,Technical Castlevania expansion route
+wario-land4-gameplay,131,,scripts\visual-input\wario-land4-gameplay.input,15000,7500000000,1200,1000,,,gameplay,true,Wario Land 4 early platforming room,Platformer animation/rendering expansion route
+kirby-nightmare-gameplay,115,,scripts\visual-input\kirby-nightmare-gameplay.input,15000,7500000000,1200,1000,,,gameplay,true,Kirby Nightmare in Dream Land Vegetable Valley gameplay,Platformer animation/rendering expansion route
+kirby-amazing-mirror-gameplay,116,,scripts\visual-input\kirby-amazing-mirror-gameplay.input,16000,8000000000,1200,1000,,,gameplay,true,Kirby Amazing Mirror early sky gameplay,Platformer animation/rendering expansion route
