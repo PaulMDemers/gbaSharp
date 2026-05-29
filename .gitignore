@@ -37,6 +37,7 @@ artifacts/
 captures/
 captures-*/
 compat-*/
+deep-gameplay*/
 save-probe-*/
 save-roundtrip-*/
 visual-snapshots-*/
