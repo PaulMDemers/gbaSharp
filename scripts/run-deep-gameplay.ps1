@@ -181,6 +181,17 @@ try {
         }
     }
 
+    if ([string]::IsNullOrWhiteSpace($Bios)) {
+        $defaultBios = "gba_collection\Massive GBA - EverDrive GBA 2022-08-08\5 Tools & Service Test Carts\BIOS\[BIOS] Game Boy Advance (World).bin"
+        if (Test-Path -LiteralPath $defaultBios) {
+            $Bios = $defaultBios
+            Write-Host "Using discovered real BIOS: $Bios"
+        }
+        elseif ($FailOnBaselineDiff) {
+            Write-Warning "Running strict baseline verification without a BIOS. Real-BIOS baselines will not match no-BIOS output."
+        }
+    }
+
     if ([string]::IsNullOrWhiteSpace($OutputDir)) {
         $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
         $OutputDir = "deep-gameplay-$stamp"
@@ -270,8 +281,14 @@ try {
             }
         }
 
+        $routeTimeoutSeconds = $ProcessTimeoutSeconds
+        if (-not [string]::IsNullOrWhiteSpace($item.maxSeconds)) {
+            $routeMaxSeconds = [int]$item.maxSeconds
+            $routeTimeoutSeconds = [Math]::Max($routeTimeoutSeconds, $routeMaxSeconds + 60)
+        }
+
         Write-Host "Running deep gameplay route $label (#$index)"
-        $result = Invoke-DotnetChecked -Arguments $args -TimeoutSeconds $ProcessTimeoutSeconds -Description "Deep gameplay $label"
+        $result = Invoke-DotnetChecked -Arguments $args -TimeoutSeconds $routeTimeoutSeconds -Description "Deep gameplay $label"
         $message = (($result.Stdout + " " + $result.Stderr) -replace '\s+', ' ').Trim()
         $observedFrame = Get-FrameFromOutput $message
         $snapshotRows = 0
