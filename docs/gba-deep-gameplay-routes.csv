@@ -8,23 +8,23 @@ zelda-minish-bedroom,118,,scripts\visual-input\zelda-minish-opening.input,18000,
 golden-sun-gameplay,211,,scripts\visual-input\golden-sun-gameplay.input,34000,17000000000,1500,1600,,,gameplay,true,Outdoor Golden Sun gameplay scene,Flash64K RPG gameplay baseline after opening dialogue
 advance-wars-map,286,,scripts\visual-input\advance-wars-map.input,20000,10000000000,1200,1200,,,gameplay,true,First field training map with cursor,Strategy UI/text baseline after profile setup
 castlevania-aria-gameplay,107,,scripts\visual-input\castlevania-aria-gameplay.input,22000,11000000000,1200,1200,,,gameplay,true,Controllable Soma in castle,Action RPG/platforming gameplay baseline
-fzero-gp-race,177,,scripts\visual-input\fzero-gp-race.input,7200,3600000000,600,600,,,gameplay,true,Active F-Zero race,Fast affine racing baseline
+fzero-gp-race,177,,scripts\visual-input\fzero-gp-race.input,7200,3600000000,600,180,,,gameplay,true,Active F-Zero race,Fast affine racing baseline
 tony-hawk-sk8land-gameplay,257,,scripts\visual-input\tony-hawk-sk8land-gameplay.input,12000,6000000000,900,1200,,,gameplay,true,Active skate scene,Late-era sports gameplay route and low-priority boot-static follow-up
 tony-hawk-underground2-gameplay,263,,scripts\visual-input\tony-hawk-underground2-gameplay.input,12000,6000000000,900,1200,,,gameplay,true,Active skate scene,Late-era sports gameplay route and low-priority boot-static follow-up
-super-mario-advance2-map,129,,scripts\visual-input\super-mario-advance2-gameplay.input,12000,6000000000,1200,1200,,,gameplay,true,Super Mario World map/gameplay scene,Platformer expansion route
-banjo-pilot-race,77,,scripts\visual-input\banjo-pilot-gameplay.input,12000,6000000000,1200,1200,,,gameplay,true,Active Banjo-Pilot race,Former DMA/EEPROM bug anchor and racing expansion route
+super-mario-advance2-map,129,,scripts\visual-input\super-mario-advance2-gameplay.input,12000,6000000000,1200,300,,,gameplay,true,Super Mario World map/gameplay scene,Platformer expansion route
+banjo-pilot-race,77,,scripts\visual-input\banjo-pilot-gameplay.input,12000,6000000000,1200,300,,,gameplay,true,Active Banjo-Pilot race,Former DMA/EEPROM bug anchor and racing expansion route
 mega-man-battle-network-room,78,,scripts\visual-input\mega-man-battle-network-gameplay.input,18000,9000000000,1200,1200,,,gameplay,true,Lan bedroom gameplay scene,Battle Network RPG/action expansion route
 advance-wars2-map,273,,scripts\visual-input\advance-wars2-map.input,18000,9000000000,1200,1200,,,gameplay,true,Advance Wars 2 tactical map with command menu,Strategy expansion route
 riviera-battle,213,,scripts\visual-input\riviera-gameplay.input,22000,11000000000,1500,1200,,,gameplay,true,Riviera battle scene,Prior bug-cluster RPG/adventure route
 summon-night-room,240,,scripts\visual-input\summon-night-gameplay.input,22000,11000000000,1500,1200,,,gameplay,true,Summon Night room gameplay scene,RPG/action/save-heavy expansion route
 crash-huge-adventure-level,60,,scripts\visual-input\crash-huge-adventure-gameplay.input,12000,6000000000,1500,1200,,,gameplay,true,Crash side-scrolling level,Licensed platformer expansion route
 powerpuff-mojo-action,44,,scripts\visual-input\powerpuff-mojo-gameplay.input,12000,6000000000,1500,1200,,,gameplay,true,Powerpuff Girls action scene,Prior bug-cluster licensed action route
-scooby-unmasked-action,50,,scripts\visual-input\scooby-unmasked-gameplay.input,12000,6000000000,1500,1200,,,gameplay,true,Scooby-Doo Unmasked action scene,Prior IRQ/audio bug-cluster licensed route
+scooby-unmasked-action,50,,scripts\visual-input\scooby-unmasked-gameplay.input,12000,6000000000,1500,300,,,gameplay,true,Scooby-Doo Unmasked action scene,Prior IRQ/audio bug-cluster licensed route
 spy-muppets-action,51,,scripts\visual-input\spy-muppets-gameplay.input,12000,6000000000,1500,1200,,,gameplay,true,Spy Muppets action/minigame scene,Prior IRQ/audio bug-cluster licensed route
 castlevania-circle-gameplay,108,,scripts\visual-input\castlevania-circle-gameplay.input,38000,19000000000,1800,2000,,,gameplay,true,Circle of the Moon cave gameplay scene,Technical Castlevania expansion route
 castlevania-harmony-gameplay,109,,scripts\visual-input\castlevania-harmony-gameplay.input,30000,15000000000,1800,1500,,,gameplay,true,Harmony of Dissonance castle entrance gameplay,Technical Castlevania expansion route
 wario-land4-gameplay,131,,scripts\visual-input\wario-land4-gameplay.input,15000,7500000000,1200,1000,,,gameplay,true,Wario Land 4 early platforming room,Platformer animation/rendering expansion route
-kirby-nightmare-gameplay,115,,scripts\visual-input\kirby-nightmare-gameplay.input,15000,7500000000,1200,1000,,,gameplay,true,Kirby Nightmare in Dream Land Vegetable Valley gameplay,Platformer animation/rendering expansion route
+kirby-nightmare-gameplay,115,,scripts\visual-input\kirby-nightmare-gameplay.input,15000,7500000000,1200,300,,,gameplay,true,Kirby Nightmare in Dream Land Vegetable Valley gameplay,Platformer animation/rendering expansion route
 kirby-amazing-mirror-gameplay,116,,scripts\visual-input\kirby-amazing-mirror-gameplay.input,16000,8000000000,1200,1000,,,gameplay,true,Kirby Amazing Mirror early sky gameplay,Platformer animation/rendering expansion route
 crash-ntranced-level,61,,scripts\visual-input\crash-ntranced-gameplay.input,15000,7500000000,1500,1000,,,gameplay,true,Crash 2 N-Tranced side-scrolling level,Platformer expansion route
 fzero-maximum-race,178,,scripts\visual-input\fzero-maximum-velocity-race.input,7600,3800000000,900,500,,,gameplay,true,F-Zero Maximum Velocity active race,Affine racing expansion route
