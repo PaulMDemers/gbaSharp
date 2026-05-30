@@ -52,6 +52,8 @@ function Invoke-DotnetChecked {
     }
 
     try {
+        $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+        $stderrTask = $process.StandardError.ReadToEndAsync()
         if ($TimeoutSeconds -gt 0 -and -not $process.WaitForExit($TimeoutSeconds * 1000)) {
             try {
                 $process.Kill($true)
@@ -67,8 +69,8 @@ function Invoke-DotnetChecked {
             }
         }
 
-        $stdout = $process.StandardOutput.ReadToEnd()
-        $stderr = $process.StandardError.ReadToEnd()
+        $stdout = $stdoutTask.GetAwaiter().GetResult()
+        $stderr = $stderrTask.GetAwaiter().GetResult()
         return [pscustomobject]@{
             ExitCode = $process.ExitCode
             Stdout = $stdout.Trim()
@@ -181,6 +183,13 @@ try {
         }
     }
 
+    $cliDll = Get-ChildItem -Path (Join-Path "src\Gba.Cli\bin" $Configuration) -Recurse -Filter "Gba.Cli.dll" |
+        Sort-Object LastWriteTime -Descending |
+        Select-Object -First 1
+    if ($null -eq $cliDll) {
+        throw "Could not find built Gba.Cli.dll under src\Gba.Cli\bin\$Configuration. Run without -NoBuild once to build it."
+    }
+
     if ([string]::IsNullOrWhiteSpace($Bios)) {
         $defaultBios = "gba_collection\Massive GBA - EverDrive GBA 2022-08-08\5 Tools & Service Test Carts\BIOS\[BIOS] Game Boy Advance (World).bin"
         if (Test-Path -LiteralPath $defaultBios) {
@@ -249,7 +258,7 @@ try {
         }
 
         $args = @(
-            "run", "--project", "src\Gba.Cli", "--configuration", $Configuration, "--no-build", "--",
+            $cliDll.FullName,
             "dump-frame", $rom,
             "--stop-frame", "$($item.stopFrame)",
             "--max-steps", "$($item.maxSteps)",

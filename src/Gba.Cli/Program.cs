@@ -1772,19 +1772,27 @@ static int DumpFrame(GbaSystem gba, string[] args)
             break;
         }
 
-        ApplyInputEvents(gba, options, inputState, step, frame);
-        ApplyFramePokeEvents(gba, options, inputState, step, frame);
-        if (StopIfInvalidPc(gba, options, traceTail, step))
+        try
         {
-            return 6;
+            ApplyInputEvents(gba, options, inputState, step, frame);
+            ApplyFramePokeEvents(gba, options, inputState, step, frame);
+            if (StopIfInvalidPc(gba, options, traceTail, step))
+            {
+                return 6;
+            }
+
+            RecordTraceTailIfNeeded(gba, step, frame, options, traceTail);
+            TraceIfNeeded(gba, step, frame, options, traceLimiter);
+            gba.Step();
+            ApplyFrameHashEvents(gba, options, inputState, step, frame);
+            ApplyMemoryTriggerEvents(gba, options, inputState, step, frame);
+            WriteSnapshotIfNeeded(gba, options, snapshots, frame);
+        }
+        catch (Exception ex)
+        {
+            return ReportExecutionException(gba, options, traceTail, ex, step, frame);
         }
 
-        RecordTraceTailIfNeeded(gba, step, frame, options, traceTail);
-        TraceIfNeeded(gba, step, frame, options, traceLimiter);
-        gba.Step();
-        ApplyFrameHashEvents(gba, options, inputState, step, frame);
-        ApplyMemoryTriggerEvents(gba, options, inputState, step, frame);
-        WriteSnapshotIfNeeded(gba, options, snapshots, frame);
         if (ShouldStopAtFrame(options, frame))
         {
             break;
