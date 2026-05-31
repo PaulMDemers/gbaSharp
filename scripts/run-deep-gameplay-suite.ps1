@@ -1,13 +1,19 @@
 param(
     [string]$Manifest = "docs\gba-deep-gameplay-routes.csv",
+    [string]$RomRoot = "curated_official_gba",
+    [string]$BaselineDir = "visual-baselines\deep-gameplay",
     [string]$OutputRoot = "",
     [int]$ChunkSize = 5,
     [int]$StartChunk = 0,
     [int]$MaxChunks = 0,
     [int]$ProcessTimeoutSeconds = 900,
+    [int]$ContactSheetColumns = 5,
+    [int]$ContactSheetScale = 2,
     [switch]$UpdateBaselines,
     [switch]$FailOnBaselineDiff,
     [switch]$NoBuild,
+    [switch]$NoContactSheet,
+    [switch]$IncludeNonPassContactSheet,
     [switch]$NormalPriority
 )
 
@@ -55,6 +61,8 @@ try {
         $chunkOutput = Join-Path $OutputRoot $chunkName
         $runnerParams = @{
             Manifest = $Manifest
+            RomRoot = $RomRoot
+            BaselineDir = $BaselineDir
             OutputDir = $chunkOutput
             SkipItems = $skip
             MaxItems = $count
@@ -141,6 +149,29 @@ try {
     }
 
     $lines | Set-Content -LiteralPath $summaryPath -Encoding UTF8
+
+    if (-not $NoContactSheet) {
+        $contactSheetPath = Join-Path $OutputRoot "contact-sheet.png"
+        $contactSheetArgs = @(
+            (Join-Path $PSScriptRoot "new-deep-gameplay-contact-sheet.py"),
+            $combinedPath,
+            "--output", $contactSheetPath,
+            "--columns", "$ContactSheetColumns",
+            "--scale", "$ContactSheetScale"
+        )
+
+        if ($IncludeNonPassContactSheet) {
+            $contactSheetArgs += "--include-nonpass"
+        }
+
+        try {
+            & python @contactSheetArgs
+            Write-Host "Deep gameplay contact sheet: $((Resolve-Path $contactSheetPath).Path)"
+        }
+        catch {
+            Write-Warning "Could not create contact sheet: $($_.Exception.Message)"
+        }
+    }
 
     Write-Host "Deep gameplay suite report: $((Resolve-Path $combinedPath).Path)"
     Write-Host "Deep gameplay suite summary: $((Resolve-Path $summaryPath).Path)"
