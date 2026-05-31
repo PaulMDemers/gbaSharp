@@ -3,7 +3,9 @@ import argparse
 import csv
 import hashlib
 import math
+import os
 import re
+import signal
 import subprocess
 import sys
 from pathlib import Path
@@ -15,6 +17,7 @@ except ImportError as exc:
 
 
 FRAME_RE = re.compile(r"frame=([0-9,]+)")
+ACTIVE_PROCESSES: list[subprocess.Popen[str]] = []
 
 
 def parse_args() -> argparse.Namespace:
@@ -132,6 +135,79 @@ def sha256_or_empty(path: Path) -> str:
     return digest.hexdigest()
 
 
+def terminate_process_tree(process: subprocess.Popen[str]) -> None:
+    if process.poll() is not None:
+        return
+
+    if os.name == "nt":
+        subprocess.run(
+            ["taskkill", "/PID", str(process.pid), "/T", "/F"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+    else:
+        try:
+            os.killpg(process.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            return
+        except Exception:
+            process.terminate()
+
+    try:
+        process.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        if os.name == "nt":
+            process.kill()
+        else:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            except Exception:
+                process.kill()
+        process.wait(timeout=5)
+
+
+def terminate_active_processes() -> None:
+    for process in list(ACTIVE_PROCESSES):
+        terminate_process_tree(process)
+
+
+def popen_creationflags() -> int:
+    if os.name != "nt":
+        return 0
+    return subprocess.CREATE_NEW_PROCESS_GROUP
+
+
+def popen_start_new_session() -> bool:
+    return os.name != "nt"
+
+
+def run_command(command: list[str], root: Path, timeout: int | None) -> tuple[int, str, str, bool]:
+    process = subprocess.Popen(
+        command,
+        cwd=root,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        creationflags=popen_creationflags(),
+        start_new_session=popen_start_new_session(),
+    )
+    ACTIVE_PROCESSES.append(process)
+    try:
+        try:
+            stdout, stderr = process.communicate(timeout=timeout)
+            return process.returncode or 0, stdout, stderr, False
+        except subprocess.TimeoutExpired:
+            terminate_process_tree(process)
+            stdout, stderr = process.communicate()
+            return 124, stdout, stderr, True
+    finally:
+        if process in ACTIVE_PROCESSES:
+            ACTIVE_PROCESSES.remove(process)
+
+
 def run_capture(
     root: Path,
     cli_dll: Path,
@@ -182,28 +258,21 @@ def run_capture(
             command.append("--save-read-only")
 
     timeout = max_seconds + 90 if max_seconds > 0 else None
-    completed = subprocess.run(
-        command,
-        cwd=root,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        timeout=timeout,
-    )
-    message = " ".join((completed.stdout + " " + completed.stderr).split())
+    returncode, stdout, stderr, timed_out = run_command(command, root, timeout)
+    message = " ".join((stdout + " " + stderr).split())
     match = FRAME_RE.search(message)
     observed_frame = int(match.group(1).replace(",", "")) if match else 0
-    status = "pass" if completed.returncode == 0 and observed_frame >= frame else "fail"
-    if completed.returncode == 5:
+    status = "pass" if returncode == 0 and observed_frame >= frame else "fail"
+    if returncode == 5:
         status = "wall-timeout"
-    elif completed.returncode == 124:
+    elif returncode == 124 or timed_out:
         status = "process-timeout"
 
     return {
         "label": row.get("label", ""),
         "requestedFrame": str(frame),
         "status": status,
-        "exitCode": str(completed.returncode),
+        "exitCode": str(returncode),
         "observedFrame": str(observed_frame),
         "finalPpm": str(output_ppm.relative_to(root)),
         "snapshotCsv": str(snapshot_csv.relative_to(root)),
@@ -275,12 +344,23 @@ def main() -> int:
     cli_dll = find_cli_dll(root, args.configuration)
     rom = resolve_rom(root, rom_root, row)
     report_rows: list[dict[str, str]] = []
-    for frame in frames:
-        safe_label = re.sub(r"[^A-Za-z0-9._-]+", "-", args.label).strip("-")
-        output_ppm = frame_dir / f"{safe_label}-{frame}.ppm"
-        snapshot_csv = snapshot_dir / f"{safe_label}-{frame}.csv"
-        print(f"Capturing {args.label} at frame {frame}", flush=True)
-        report_rows.append(run_capture(root, cli_dll, rom, row, frame, output_ppm, snapshot_csv, args))
+    try:
+        for frame in frames:
+            safe_label = re.sub(r"[^A-Za-z0-9._-]+", "-", args.label).strip("-")
+            output_ppm = frame_dir / f"{safe_label}-{frame}.ppm"
+            snapshot_csv = snapshot_dir / f"{safe_label}-{frame}.csv"
+            print(f"Capturing {args.label} at frame {frame}", flush=True)
+            report_rows.append(run_capture(root, cli_dll, rom, row, frame, output_ppm, snapshot_csv, args))
+    except KeyboardInterrupt:
+        terminate_active_processes()
+        print("Interrupted; terminated active capture process.", file=sys.stderr)
+        if not report_rows:
+            return 130
+    finally:
+        terminate_active_processes()
+
+    if not report_rows:
+        return 1
 
     report = output_dir / "frame-candidates.csv"
     with report.open("w", newline="", encoding="utf-8") as handle:

@@ -1,0 +1,10 @@
+# Load the approved Pokemon Ruby Flash128K save and stop in the saved bedroom.
+at 120 Start 5
+at 210 Start 5
+at 300 A 5
+at 420 Start 5
+at 540 A 5
+at 660 A 5
+at 780 Start 5
+at 960 A 5
+at 1140 A 5
