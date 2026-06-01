@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import atexit
 import csv
 import hashlib
 import math
@@ -172,6 +173,9 @@ def terminate_process_tree(process: subprocess.Popen[str]) -> None:
 def terminate_active_processes() -> None:
     for process in list(ACTIVE_PROCESSES):
         terminate_process_tree(process)
+
+
+atexit.register(terminate_active_processes)
 
 
 def popen_creationflags() -> int:
