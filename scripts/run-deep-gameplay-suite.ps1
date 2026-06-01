@@ -9,6 +9,7 @@ param(
     [int]$ProcessTimeoutSeconds = 900,
     [int]$ContactSheetColumns = 5,
     [int]$ContactSheetScale = 2,
+    [int]$LowDiversityWarningThreshold = 8,
     [switch]$UpdateBaselines,
     [switch]$FailOnBaselineDiff,
     [switch]$NoBuild,
@@ -117,6 +118,10 @@ try {
         Export-Csv -LiteralPath (Join-Path $OutputRoot "summary-low-diversity.csv") -NoTypeInformation
 
     $badRows = @($chunkRows | Where-Object { $_.status -ne "pass" -or ($_.baselineRequired -ne "False" -and $_.baselineStatus -notin @("match", "updated")) })
+    $lowDiversityRows = @()
+    if ($LowDiversityWarningThreshold -gt 0) {
+        $lowDiversityRows = @($chunkRows | Where-Object { [int]$_.distinctPcs -lt $LowDiversityWarningThreshold })
+    }
     $summaryPath = Join-Path $OutputRoot "summary.md"
     $firstChunk = $StartChunk + 1
     $lastChunk = $endChunk + 1
@@ -127,6 +132,8 @@ try {
         "- Routes: $($chunkRows.Count)",
         "- Chunks: $firstChunk-$lastChunk of $totalChunks",
         "- Failing rows: $($badRows.Count)",
+        "- Low-diversity warning threshold: $LowDiversityWarningThreshold distinct PCs",
+        "- Low-diversity warnings: $($lowDiversityRows.Count)",
         "",
         "## Status",
         ""
@@ -140,6 +147,13 @@ try {
     $lines += ($chunkRows | Sort-Object {[int]$_.distinctPcs}, label | Select-Object -First 10 | ForEach-Object {
         "- $($_.label): distinctPcs=$($_.distinctPcs), snapshots=$($_.snapshotRows), status=$($_.status), baseline=$($_.baselineStatus)"
     })
+
+    if ($lowDiversityRows.Count -gt 0) {
+        $lines += @("", "## Low-Diversity Warnings", "")
+        $lines += ($lowDiversityRows | Sort-Object {[int]$_.distinctPcs}, label | ForEach-Object {
+            "- $($_.label): distinctPcs=$($_.distinctPcs), snapshots=$($_.snapshotRows), scene=$($_.expectedScene)"
+        })
+    }
 
     if ($badRows.Count -gt 0) {
         $lines += @("", "## Failures", "")
