@@ -6,7 +6,6 @@ namespace Gba.Desktop;
 
 internal sealed class WaveOutAudioOutput : IDisposable
 {
-    private const int GbaClockHz = 16_777_216;
     private const int SampleRate = 44_100;
     private const int Channels = 2;
     private const int BitsPerSample = 16;
@@ -25,14 +24,12 @@ internal sealed class WaveOutAudioOutput : IDisposable
     private readonly object _queueSync = new();
     private readonly object _deviceSync = new();
     private readonly Queue<short> _queuedSamples = new(MaxQueuedFrames * Channels);
-    private readonly short[,] _currentByFifo = new short[2, 2];
+    private readonly DirectSoundPcmResampler _resampler = new(SampleRate, scale: PcmScale, maxFramesPerEvent: MaxFramesPerEvent);
     private readonly WaveBuffer[] _buffers = new WaveBuffer[BufferCount];
     private readonly Thread? _pumpThread;
     private volatile bool _disposed;
     private volatile bool _enabled = true;
     private IntPtr _waveOut;
-    private long _lastCycle = -1;
-    private double _fractionalFrames;
 
     public WaveOutAudioOutput()
     {
@@ -86,32 +83,7 @@ internal sealed class WaveOutAudioOutput : IDisposable
 
         lock (_queueSync)
         {
-            if (sample.Cycle <= _lastCycle || _lastCycle < 0)
-            {
-                _lastCycle = sample.Cycle;
-                _fractionalFrames = 0;
-                UpdateFifo(sample);
-                return;
-            }
-
-            var exactFrames = ((sample.Cycle - _lastCycle) * (double)SampleRate / GbaClockHz) + _fractionalFrames;
-            var frames = (int)exactFrames;
-            _fractionalFrames = exactFrames - frames;
-            if (frames > MaxFramesPerEvent)
-            {
-                frames = MaxFramesPerEvent;
-                _fractionalFrames = 0;
-            }
-
-            for (var i = 0; i < frames; i++)
-            {
-                EnqueueFrame(
-                    Clamp16((_currentByFifo[0, 0] + _currentByFifo[1, 0]) * PcmScale),
-                    Clamp16((_currentByFifo[0, 1] + _currentByFifo[1, 1]) * PcmScale));
-            }
-
-            _lastCycle = sample.Cycle;
-            UpdateFifo(sample);
+            _resampler.Process(sample, EnqueueFrame);
         }
     }
 
@@ -120,9 +92,7 @@ internal sealed class WaveOutAudioOutput : IDisposable
         lock (_queueSync)
         {
             _queuedSamples.Clear();
-            Array.Clear(_currentByFifo);
-            _lastCycle = -1;
-            _fractionalFrames = 0;
+            _resampler.Reset();
         }
     }
 
@@ -235,20 +205,6 @@ internal sealed class WaveOutAudioOutput : IDisposable
         _queuedSamples.Enqueue(left);
         _queuedSamples.Enqueue(right);
     }
-
-    private void UpdateFifo(DirectSoundPcmSample sample)
-    {
-        if (sample.Fifo is not (0 or 1))
-        {
-            return;
-        }
-
-        _currentByFifo[sample.Fifo, 0] = sample.Left;
-        _currentByFifo[sample.Fifo, 1] = sample.Right;
-    }
-
-    private static short Clamp16(int value)
-        => (short)Math.Clamp(value, short.MinValue, short.MaxValue);
 
     [DllImport("winmm.dll")]
     private static extern int waveOutOpen(out IntPtr waveOut, uint deviceId, ref WaveFormat format, IntPtr callback, IntPtr instance, uint flags);
