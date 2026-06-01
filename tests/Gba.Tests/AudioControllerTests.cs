@@ -20,6 +20,8 @@ public sealed class AudioControllerTests
 
         var sample = Assert.Single(gba.Audio.PendingSamples);
         Assert.Equal(0, sample.Fifo);
+        Assert.Equal(0, sample.Timer);
+        Assert.Equal(1, sample.Cycle);
         Assert.Equal(64, sample.RawSample);
         Assert.Equal(64, sample.Left);
         Assert.Equal(64, sample.Right);
@@ -39,6 +41,8 @@ public sealed class AudioControllerTests
 
         var sample = Assert.Single(gba.Audio.PendingSamples);
         Assert.Equal(1, sample.Fifo);
+        Assert.Equal(0, sample.Timer);
+        Assert.Equal(1, sample.Cycle);
         Assert.Equal(-128, sample.RawSample);
         Assert.Equal(-64, sample.Left);
         Assert.Equal(0, sample.Right);
@@ -89,6 +93,8 @@ public sealed class AudioControllerTests
         gba.Scheduler.Advance(1);
 
         Assert.NotNull(produced);
+        Assert.Equal(0, produced.Value.Timer);
+        Assert.Equal(1, produced.Value.Cycle);
         Assert.Equal(32, produced.Value.RawSample);
         Assert.Equal(0, produced.Value.Left);
         Assert.Equal(32, produced.Value.Right);

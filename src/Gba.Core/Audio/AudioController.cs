@@ -11,7 +11,7 @@ public sealed class AudioController
     public AudioController(MemoryBus bus, DmaController dma)
     {
         _bus = bus;
-        dma.SoundFifoSampleClocked += OnSoundFifoSampleClocked;
+        dma.SoundFifoSampleClockedDetailed += OnSoundFifoSampleClocked;
     }
 
     public IReadOnlyList<DirectSoundPcmSample> PendingSamples => _pendingSamples;
@@ -29,21 +29,23 @@ public sealed class AudioController
         return samples;
     }
 
-    private void OnSoundFifoSampleClocked(int fifo, sbyte sample)
+    private void OnSoundFifoSampleClocked(SoundFifoSampleClock clock)
     {
         var control = _bus.PeekIo16(IoRegisters.SOUNDCNT_H);
-        var volume = DirectSoundVolume(control, fifo);
-        var scaled = ScaleSample(sample, volume);
-        var rightEnabled = fifo == 0
+        var volume = DirectSoundVolume(control, clock.Fifo);
+        var scaled = ScaleSample(clock.Sample, volume);
+        var rightEnabled = clock.Fifo == 0
             ? (control & (1 << 8)) != 0
             : (control & (1 << 12)) != 0;
-        var leftEnabled = fifo == 0
+        var leftEnabled = clock.Fifo == 0
             ? (control & (1 << 9)) != 0
             : (control & (1 << 13)) != 0;
 
         var pcmSample = new DirectSoundPcmSample(
-            fifo,
-            sample,
+            clock.Fifo,
+            clock.Timer,
+            clock.Cycle,
+            clock.Sample,
             leftEnabled ? scaled : (short)0,
             rightEnabled ? scaled : (short)0);
         SampleProduced?.Invoke(pcmSample);
@@ -63,4 +65,4 @@ public sealed class AudioController
         => (short)(sample / divisor);
 }
 
-public readonly record struct DirectSoundPcmSample(int Fifo, sbyte RawSample, short Left, short Right);
+public readonly record struct DirectSoundPcmSample(int Fifo, int Timer, long Cycle, sbyte RawSample, short Left, short Right);

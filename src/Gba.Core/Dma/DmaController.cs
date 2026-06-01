@@ -51,6 +51,8 @@ public sealed class DmaController
 
     public event Action<int, sbyte>? SoundFifoSampleClocked;
 
+    public event Action<SoundFifoSampleClock>? SoundFifoSampleClockedDetailed;
+
     public int SoundFifoALevel => _soundFifoLevels[0];
 
     public int SoundFifoBLevel => _soundFifoLevels[1];
@@ -105,6 +107,9 @@ public sealed class DmaController
     }
 
     public void NotifySoundTimerOverflow(int timer)
+        => NotifySoundTimerOverflow(timer, -1);
+
+    public void NotifySoundTimerOverflow(int timer, long cycle)
     {
         if (timer is not (0 or 1))
         {
@@ -114,12 +119,12 @@ public sealed class DmaController
         var soundControl = _bus.PeekIo16(IoRegisters.SOUNDCNT_H);
         if (((soundControl >> 10) & 1) == timer)
         {
-            ClockSoundFifo(IoRegisters.FIFO_A);
+            ClockSoundFifo(IoRegisters.FIFO_A, timer, cycle);
         }
 
         if (((soundControl >> 14) & 1) == timer)
         {
-            ClockSoundFifo(IoRegisters.FIFO_B);
+            ClockSoundFifo(IoRegisters.FIFO_B, timer, cycle);
         }
     }
 
@@ -229,13 +234,14 @@ public sealed class DmaController
         }
     }
 
-    private void ClockSoundFifo(uint fifoAddress)
+    private void ClockSoundFifo(uint fifoAddress, int timer, long cycle)
     {
         var fifo = fifoAddress == IoRegisters.FIFO_A ? 0 : 1;
         if (_soundFifoBytes[fifo].Count > 0)
         {
             var sample = unchecked((sbyte)_soundFifoBytes[fifo].Dequeue());
             SoundFifoSampleClocked?.Invoke(fifo, sample);
+            SoundFifoSampleClockedDetailed?.Invoke(new SoundFifoSampleClock(fifo, sample, timer, cycle));
             _soundFifoLevels[fifo] = _soundFifoBytes[fifo].Count;
         }
 
@@ -425,3 +431,5 @@ public sealed class DmaController
         int FifoALevel,
         int FifoBLevel);
 }
+
+public readonly record struct SoundFifoSampleClock(int Fifo, sbyte Sample, int Timer, long Cycle);

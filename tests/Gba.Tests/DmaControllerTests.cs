@@ -1,5 +1,6 @@
 using Gba.Core;
 using Gba.Core.Cartridges;
+using Gba.Core.Dma;
 using Gba.Core.Memory;
 using Gba.Core.Video;
 
@@ -247,11 +248,13 @@ public sealed class DmaControllerTests
     {
         var gba = new GbaSystem();
         var samples = new List<sbyte>();
+        var detailed = new List<SoundFifoSampleClock>();
         gba.Dma.SoundFifoSampleClocked += (fifo, sample) =>
         {
             Assert.Equal(0, fifo);
             samples.Add(sample);
         };
+        gba.Dma.SoundFifoSampleClockedDetailed += detailed.Add;
 
         gba.Bus.Write32(IoRegisters.FIFO_A, 0x807F_0100);
         gba.Bus.Write16(IoRegisters.TM0CNT_L, 0xFFFF);
@@ -263,6 +266,12 @@ public sealed class DmaControllerTests
         }
 
         Assert.Equal([0, 1, 127, -128], samples.Select(sample => (int)sample));
+        Assert.Equal([1, 2, 3, 4], detailed.Select(sample => (int)sample.Cycle));
+        Assert.All(detailed, sample =>
+        {
+            Assert.Equal(0, sample.Fifo);
+            Assert.Equal(0, sample.Timer);
+        });
         Assert.Equal(0, gba.Dma.SoundFifoALevel);
     }
 

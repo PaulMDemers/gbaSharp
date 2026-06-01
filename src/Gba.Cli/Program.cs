@@ -3509,7 +3509,7 @@ static AudioSampleWriter? OpenAudioSampleWriter(RunOptions options, GbaSystem gb
 
     gba.Audio.CaptureSamples = true;
     var writer = new StreamWriter(fullPath, append: false, System.Text.Encoding.ASCII);
-    writer.WriteLine("step,frame,index,fifo,raw,left,right");
+    writer.WriteLine("step,frame,cycle,index,fifo,timer,raw,left,right");
     return new AudioSampleWriter(writer);
 }
 
@@ -3527,9 +3527,13 @@ static void WriteAudioSamplesIfNeeded(GbaSystem gba, AudioSampleWriter? samples,
         samples.Writer.Write(',');
         samples.Writer.Write(frame);
         samples.Writer.Write(',');
+        samples.Writer.Write(sample.Cycle);
+        samples.Writer.Write(',');
         samples.Writer.Write(index++);
         samples.Writer.Write(',');
         samples.Writer.Write(sample.Fifo);
+        samples.Writer.Write(',');
+        samples.Writer.Write(sample.Timer);
         samples.Writer.Write(',');
         samples.Writer.Write(sample.RawSample);
         samples.Writer.Write(',');

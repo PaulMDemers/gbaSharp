@@ -26,7 +26,7 @@ public sealed class GbaSystem
         Video.VBlankStarted += Dma.NotifyVBlank;
         Video.HBlankStarted += Dma.NotifyHBlank;
         Video.DisplayStartDmaRequested += Dma.NotifyDisplayStart;
-        Timers.TimerOverflowed += Dma.NotifySoundTimerOverflow;
+        Timers.TimerOverflowedAtCycle += Dma.NotifySoundTimerOverflow;
         Cpu.VBlankWaitCycleProvider = () => Video.CyclesUntilNextVBlankStart;
         Cpu.InterruptWaitCycleProvider = CyclesUntilNextSchedulerEvent;
         Dma.Reset();

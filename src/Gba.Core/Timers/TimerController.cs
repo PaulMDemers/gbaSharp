@@ -46,6 +46,8 @@ public sealed class TimerController
 
     public event Action<int>? TimerOverflowed;
 
+    public event Action<int, long>? TimerOverflowedAtCycle;
+
     public void Reset()
     {
         Array.Clear(_reload);
@@ -184,6 +186,7 @@ public sealed class TimerController
         }
 
         TimerOverflowed?.Invoke(timer);
+        TimerOverflowedAtCycle?.Invoke(timer, _scheduler.Now);
 
         var next = timer + 1;
         if (next < 4 && IsEnabled(next) && IsCascade(next))
