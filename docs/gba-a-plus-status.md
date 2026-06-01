@@ -50,6 +50,8 @@ Direct-sound FIFO tracking now stores the actual queued bytes, not only occupanc
 
 Direct-sound sample buffering is now opt-in so long headless compatibility sweeps do not accumulate unbounded pending audio. `dump-frame --audio-csv samples.csv` enables capture for a bounded run and writes step/frame/cycle/timer-indexed FIFO PCM rows for audio/timer debugging.
 
+`scripts/analyze-audio-csv.py` summarizes those captures into sample counts, non-zero routing, value ranges, timer/FIFO split, cycle deltas, and estimated native sample rates. This gives us a quick diagnostic bridge before full host-rate audio output exists.
+
 After the audio/timer changes, bounded real-BIOS retail smoke probes completed for Sonic Advance at frame 600, Pokemon Ruby with its approved Flash128K save/input script at frame 1,200, and Mario Kart Super Circuit with its save/input script at frame 1,200. A full save-assisted suite attempt was stopped after exceeding the shell wall timeout while still on the long Zelda route, so longer route validation should continue in small chunks or with an external heartbeat rather than one large foreground command.
 
 The focused real-BIOS Sonic Advance family check (`compat-sonic-advance-family-post-sonicdma-20260523`) covers Sonic Advance 1/2/3 at sorted curated indexes 125-127. All start-probe, broad-input, and long-input phases boot with no crash/static rows; only the same boot-only real-BIOS alignment timeout appears.
