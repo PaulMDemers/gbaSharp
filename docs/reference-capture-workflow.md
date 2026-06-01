@@ -8,6 +8,9 @@ external emulator captures from tools such as mGBA or no$gba.
 - `docs/gba-reference-frames.csv` lists the first reference targets.
 - `scripts/new-reference-capture-checklist.py` joins those targets to the
   save-assisted route manifest and writes a capture checklist.
+- `scripts/validate-reference-captures.py` checks dropped reference PNGs for
+  missing files, unreadable files, incorrect dimensions, and extra untracked
+  captures.
 - `scripts/compare-reference-frames.py` compares actual gbaSharp frames against
   reference images and can write diff PNGs.
 - Reference images should be placed under `reference-captures/<source>/`.
@@ -47,6 +50,18 @@ scripts directly. For those cases, keep the image at the same visible scene firs
 then relax `maxDifferentPixels` or `maxChannelDelta` only after reviewing the diff.
 
 ## Compare
+
+Validate dropped captures first:
+
+```powershell
+python .\scripts\validate-reference-captures.py --manifest docs\gba-reference-frames.csv --output artifacts\reference-capture-validation.csv
+```
+
+Useful strict intake mode once all reference images should be present:
+
+```powershell
+python .\scripts\validate-reference-captures.py --manifest docs\gba-reference-frames.csv --output artifacts\reference-capture-validation.csv --fail-on-missing --fail-on-invalid --fail-on-extra
+```
 
 Run:
 
