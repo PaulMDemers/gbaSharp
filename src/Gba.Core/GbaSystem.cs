@@ -1,3 +1,4 @@
+using Gba.Core.Audio;
 using Gba.Core.Cartridges;
 using Gba.Core.Cpu;
 using Gba.Core.Dma;
@@ -18,6 +19,7 @@ public sealed class GbaSystem
         Cpu = new Arm7Tdmi(Bus);
         Scheduler = new Scheduler();
         Dma = new DmaController(Bus);
+        Audio = new AudioController(Bus, Dma);
         Keypad = new KeypadController(Bus);
         Timers = new TimerController(Bus, Scheduler);
         Video = new VideoController(Bus, Scheduler);
@@ -28,6 +30,7 @@ public sealed class GbaSystem
         Cpu.VBlankWaitCycleProvider = () => Video.CyclesUntilNextVBlankStart;
         Cpu.InterruptWaitCycleProvider = CyclesUntilNextSchedulerEvent;
         Dma.Reset();
+        Audio.Reset();
         Keypad.Reset();
         Timers.Reset();
         Video.Reset();
@@ -40,6 +43,8 @@ public sealed class GbaSystem
     public Scheduler Scheduler { get; }
 
     public DmaController Dma { get; }
+
+    public AudioController Audio { get; }
 
     public KeypadController Keypad { get; }
 
@@ -58,6 +63,7 @@ public sealed class GbaSystem
         Cpu.Reset(useBios: Bus.HasBios);
         Scheduler.Reset();
         Dma.Reset();
+        Audio.Reset();
         Keypad.Reset();
         Timers.Reset();
         if (!Bus.HasBios)
