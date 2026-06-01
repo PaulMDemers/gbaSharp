@@ -6,6 +6,8 @@ external emulator captures from tools such as mGBA or no$gba.
 ## Files
 
 - `docs/gba-reference-frames.csv` lists the first reference targets.
+- `scripts/new-reference-capture-checklist.py` joins those targets to the
+  save-assisted route manifest and writes a capture checklist.
 - `scripts/compare-reference-frames.py` compares actual gbaSharp frames against
   reference images and can write diff PNGs.
 - Reference images should be placed under `reference-captures/<source>/`.
@@ -20,6 +22,12 @@ The starter set focuses on high-signal routes:
 - `mario-kart-save-race`: affine racing scene.
 
 ## Manual Reference Capture
+
+Generate the current capture checklist first:
+
+```powershell
+python .\scripts\new-reference-capture-checklist.py
+```
 
 1. Open the same ROM in the reference emulator.
 2. Load the matching save fixture listed in `docs/gba-save-assisted-deep-routes.csv`.
