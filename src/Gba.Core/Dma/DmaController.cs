@@ -63,6 +63,7 @@ public sealed class DmaController
     {
         _bus = bus;
         _bus.AddIoWriteObserver(OnIoWrite);
+        _bus.SoundIoReset += ResetSoundFifoLevels;
     }
 
     public void Reset()
@@ -77,6 +78,8 @@ public sealed class DmaController
         Array.Clear(_soundFifoLevels);
         _pendingCycles = 0;
     }
+
+    private void ResetSoundFifoLevels() => Array.Clear(_soundFifoLevels);
 
     public void NotifyVBlank() => RunTriggeredTransfers(DmaStartTiming.VBlank);
 

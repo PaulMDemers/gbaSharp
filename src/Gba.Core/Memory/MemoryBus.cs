@@ -97,6 +97,8 @@ public sealed class MemoryBus
 
     public event Action<ushort, ushort>? InterruptRequested;
 
+    public event Action? SoundIoReset;
+
     public int SaveDataSize => _saveType switch
     {
         SaveType.Sram => 32 * 1024,
@@ -1077,6 +1079,7 @@ public sealed class MemoryBus
         PokeIo16(IoRegisters.SOUNDBIAS, 0x0200);
         PokeIo32(IoRegisters.FIFO_A, 0);
         PokeIo32(IoRegisters.FIFO_B, 0);
+        SoundIoReset?.Invoke();
     }
 
     private void ResetOtherIo()

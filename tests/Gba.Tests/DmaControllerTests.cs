@@ -194,6 +194,22 @@ public sealed class DmaControllerTests
     }
 
     [Fact]
+    public void RegisterRamResetSoundClearsTrackedFifoLevels()
+    {
+        var gba = new GbaSystem();
+        gba.Bus.Write32(IoRegisters.FIFO_A, 0x1111_2222);
+        gba.Bus.Write32(IoRegisters.FIFO_B, 0x3333_4444);
+
+        Assert.Equal(4, gba.Dma.SoundFifoALevel);
+        Assert.Equal(4, gba.Dma.SoundFifoBLevel);
+
+        gba.Bus.RegisterRamReset(1u << 6);
+
+        Assert.Equal(0, gba.Dma.SoundFifoALevel);
+        Assert.Equal(0, gba.Dma.SoundFifoBLevel);
+    }
+
+    [Fact]
     public void SoundFifoDmaRefillsWhenTimerDrainReachesSixteenBytes()
     {
         var gba = new GbaSystem();
