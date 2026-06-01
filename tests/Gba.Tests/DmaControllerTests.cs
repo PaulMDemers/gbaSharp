@@ -176,6 +176,57 @@ public sealed class DmaControllerTests
     }
 
     [Fact]
+    public void SoundFifoResetBitsClearTrackedLevelsAndDoNotRemainLatched()
+    {
+        var gba = new GbaSystem();
+        gba.Bus.Write32(IoRegisters.FIFO_A, 0x1111_2222);
+        gba.Bus.Write32(IoRegisters.FIFO_A, 0x3333_4444);
+        gba.Bus.Write32(IoRegisters.FIFO_B, 0x5555_6666);
+
+        Assert.Equal(8, gba.Dma.SoundFifoALevel);
+        Assert.Equal(4, gba.Dma.SoundFifoBLevel);
+
+        gba.Bus.Write16(IoRegisters.SOUNDCNT_H, (1 << 11) | (1 << 15));
+
+        Assert.Equal(0, gba.Dma.SoundFifoALevel);
+        Assert.Equal(0, gba.Dma.SoundFifoBLevel);
+        Assert.Equal(0, gba.Bus.PeekIo16(IoRegisters.SOUNDCNT_H) & ((1 << 11) | (1 << 15)));
+    }
+
+    [Fact]
+    public void SoundFifoDmaRefillsWhenTimerDrainReachesSixteenBytes()
+    {
+        var gba = new GbaSystem();
+        for (uint i = 0; i < 4; i++)
+        {
+            gba.Bus.Write32(IoRegisters.FIFO_A, 0xAAAA_0000u + i);
+        }
+
+        for (uint i = 0; i < 4; i++)
+        {
+            gba.Bus.Write32(GbaMemoryMap.IwramStart + i * 4, 0xBBBB_0000u + i);
+        }
+
+        const ushort specialTiming = 3 << 12;
+        const ushort fixedDestination = 2 << 5;
+        ConfigureDma1(
+            gba,
+            GbaMemoryMap.IwramStart,
+            IoRegisters.FIFO_A,
+            0,
+            IoRegisters.DmaEnable | IoRegisters.DmaRepeat | IoRegisters.DmaWord | specialTiming | fixedDestination);
+        gba.Bus.Write16(IoRegisters.TM0CNT_L, 0xFFFF);
+        gba.Bus.Write16(IoRegisters.TM0CNT_H, IoRegisters.TimerEnable);
+
+        Assert.Equal(16, gba.Dma.SoundFifoALevel);
+
+        gba.Scheduler.Advance(1);
+
+        Assert.Equal(31, gba.Dma.SoundFifoALevel);
+        Assert.Equal(0xBBBB_0003u, gba.Bus.PeekIo32(IoRegisters.FIFO_A));
+    }
+
+    [Fact]
     public void Dma3SpecialRunsOnDisplayStartWindow()
     {
         var gba = new GbaSystem();

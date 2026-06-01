@@ -88,13 +88,15 @@ public sealed class TimerController
             if (Overlaps(address, bytes, ControlRegisters[timer], 2))
             {
                 var wasEnabled = IsEnabled(timer);
-                if (wasEnabled && !IsCascade(timer))
+                var wasCascade = IsCascade(timer);
+                if (wasEnabled && !wasCascade)
                 {
                     SyncCounter(timer);
                 }
 
                 _control[timer] = ReadControl(timer);
                 var enabled = IsEnabled(timer);
+                var cascade = IsCascade(timer);
                 _generation[timer]++;
 
                 if (enabled && !wasEnabled)
@@ -104,7 +106,13 @@ public sealed class TimerController
                     _lastUpdateCycle[timer] = _scheduler.Now;
                     ScheduleOverflow(timer);
                 }
-                else if (enabled && !IsCascade(timer))
+                else if (enabled && wasCascade && !cascade)
+                {
+                    _lastUpdateCycle[timer] = _scheduler.Now;
+                    WriteCounter(timer, _counter[timer]);
+                    ScheduleOverflow(timer);
+                }
+                else if (enabled && !cascade)
                 {
                     SyncCounter(timer);
                     ScheduleOverflow(timer);

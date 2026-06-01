@@ -75,6 +75,20 @@ public sealed class TimerControllerTests
     }
 
     [Fact]
+    public void EnabledCascadeTimerSwitchingToNormalDoesNotCountElapsedCascadeCycles()
+    {
+        var gba = new GbaSystem();
+        gba.Bus.Write16(IoRegisters.TM1CNT_L, 0);
+        gba.Bus.Write16(IoRegisters.TM1CNT_H, IoRegisters.TimerEnable | IoRegisters.TimerCascade);
+
+        gba.Scheduler.Advance(100);
+        gba.Bus.Write16(IoRegisters.TM1CNT_H, IoRegisters.TimerEnable);
+        gba.Scheduler.Advance(1);
+
+        Assert.Equal(1, gba.Bus.Read16(IoRegisters.TM1CNT_L));
+    }
+
+    [Fact]
     public void TimerInterruptCanEnterCpuIrq()
     {
         var gba = new GbaSystem();
@@ -92,4 +106,3 @@ public sealed class TimerControllerTests
         Assert.Equal(0x18u, gba.Cpu.Pc);
     }
 }
-

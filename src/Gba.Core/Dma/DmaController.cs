@@ -169,14 +169,22 @@ public sealed class DmaController
         if (Overlaps(address, bytes, IoRegisters.SOUNDCNT_H, 2))
         {
             var soundControl = _bus.PeekIo16(IoRegisters.SOUNDCNT_H);
+            var resetBits = 0;
             if ((soundControl & (1 << 11)) != 0)
             {
                 _soundFifoLevels[0] = 0;
+                resetBits |= 1 << 11;
             }
 
             if ((soundControl & (1 << 15)) != 0)
             {
                 _soundFifoLevels[1] = 0;
+                resetBits |= 1 << 15;
+            }
+
+            if (resetBits != 0)
+            {
+                _bus.PokeIo16(IoRegisters.SOUNDCNT_H, (ushort)(soundControl & ~resetBits));
             }
         }
     }
