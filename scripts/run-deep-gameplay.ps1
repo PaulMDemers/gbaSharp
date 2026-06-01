@@ -229,7 +229,7 @@ try {
 
     $reportPath = Join-Path $OutputDir "deep-gameplay.csv"
     if (-not (($Resume -or $Append) -and (Test-Path $reportPath))) {
-        "label,status,baselineStatus,targetScene,baselineRequired,exitCode,index,romPath,stopFrame,observedFrame,maxSteps,maxSeconds,inputScript,saveFile,snapshotRows,distinctPcs,finalPpm,baselinePpm,snapshotCsv,actualHash,baselineHash,expectedScene,message" | Set-Content -LiteralPath $reportPath -Encoding UTF8
+        "label,status,baselineStatus,targetScene,baselineRequired,minDistinctPcs,exitCode,index,romPath,stopFrame,observedFrame,maxSteps,maxSeconds,inputScript,saveFile,snapshotRows,distinctPcs,finalPpm,baselinePpm,snapshotCsv,actualHash,baselineHash,expectedScene,message" | Set-Content -LiteralPath $reportPath -Encoding UTF8
     }
 
     foreach ($item in $items) {
@@ -350,6 +350,7 @@ try {
             baselineStatus = $baselineStatus
             targetScene = $targetScene
             baselineRequired = $baselineRequired
+            minDistinctPcs = Get-PathOrEmpty $item "minDistinctPcs"
             exitCode = $result.ExitCode
             index = $index
             romPath = $rom

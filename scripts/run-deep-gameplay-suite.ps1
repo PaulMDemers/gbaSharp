@@ -120,7 +120,14 @@ try {
     $badRows = @($chunkRows | Where-Object { $_.status -ne "pass" -or ($_.baselineRequired -ne "False" -and $_.baselineStatus -notin @("match", "updated")) })
     $lowDiversityRows = @()
     if ($LowDiversityWarningThreshold -gt 0) {
-        $lowDiversityRows = @($chunkRows | Where-Object { [int]$_.distinctPcs -lt $LowDiversityWarningThreshold })
+        $lowDiversityRows = @($chunkRows | Where-Object {
+            $threshold = $LowDiversityWarningThreshold
+            if ($_.PSObject.Properties.Name -contains "minDistinctPcs" -and -not [string]::IsNullOrWhiteSpace($_.minDistinctPcs)) {
+                $threshold = [int]$_.minDistinctPcs
+            }
+
+            [int]$_.distinctPcs -lt $threshold
+        })
     }
     $summaryPath = Join-Path $OutputRoot "summary.md"
     $firstChunk = $StartChunk + 1
@@ -151,7 +158,12 @@ try {
     if ($lowDiversityRows.Count -gt 0) {
         $lines += @("", "## Low-Diversity Warnings", "")
         $lines += ($lowDiversityRows | Sort-Object {[int]$_.distinctPcs}, label | ForEach-Object {
-            "- $($_.label): distinctPcs=$($_.distinctPcs), snapshots=$($_.snapshotRows), scene=$($_.expectedScene)"
+            $threshold = $LowDiversityWarningThreshold
+            if ($_.PSObject.Properties.Name -contains "minDistinctPcs" -and -not [string]::IsNullOrWhiteSpace($_.minDistinctPcs)) {
+                $threshold = [int]$_.minDistinctPcs
+            }
+
+            "- $($_.label): distinctPcs=$($_.distinctPcs), threshold=$threshold, snapshots=$($_.snapshotRows), scene=$($_.expectedScene)"
         })
     }
 
