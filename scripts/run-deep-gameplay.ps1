@@ -8,6 +8,7 @@ param(
     [int]$MaxItems = 0,
     [int]$SkipItems = 0,
     [int]$ProcessTimeoutSeconds = 900,
+    [int]$RouteMaxSecondsCap = 0,
     [switch]$NoBuild,
     [switch]$NoAlignRomEntry,
     [switch]$UpdateBaselines,
@@ -252,6 +253,16 @@ try {
         $finalPpm = Join-Path $frameDir "$label.ppm"
         $baselinePpm = Join-Path $BaselineDir "$label.ppm"
         $snapshotCsv = Join-Path $snapshotDir "$label.csv"
+        $effectiveMaxSeconds = Get-PathOrEmpty $item "maxSeconds"
+        if ($RouteMaxSecondsCap -gt 0) {
+            if ([string]::IsNullOrWhiteSpace($effectiveMaxSeconds)) {
+                $effectiveMaxSeconds = "$RouteMaxSecondsCap"
+            }
+            else {
+                $effectiveMaxSeconds = "$([Math]::Min([int]$effectiveMaxSeconds, $RouteMaxSecondsCap))"
+            }
+        }
+
         if ($Resume -and (Test-Path $finalPpm)) {
             Write-Host "Skipping existing deep gameplay route $label"
             continue
@@ -275,8 +286,8 @@ try {
             $args += @("--bios", $Bios)
         }
 
-        if (-not [string]::IsNullOrWhiteSpace($item.maxSeconds)) {
-            $args += @("--max-seconds", "$($item.maxSeconds)")
+        if (-not [string]::IsNullOrWhiteSpace($effectiveMaxSeconds)) {
+            $args += @("--max-seconds", "$effectiveMaxSeconds")
         }
 
         if (-not [string]::IsNullOrWhiteSpace($item.inputScript)) {
@@ -291,8 +302,8 @@ try {
         }
 
         $routeTimeoutSeconds = $ProcessTimeoutSeconds
-        if (-not [string]::IsNullOrWhiteSpace($item.maxSeconds)) {
-            $routeMaxSeconds = [int]$item.maxSeconds
+        if (-not [string]::IsNullOrWhiteSpace($effectiveMaxSeconds)) {
+            $routeMaxSeconds = [int]$effectiveMaxSeconds
             $routeTimeoutSeconds = [Math]::Max($routeTimeoutSeconds, $routeMaxSeconds + 60)
         }
 
@@ -357,7 +368,7 @@ try {
             stopFrame = $item.stopFrame
             observedFrame = $observedFrame
             maxSteps = $item.maxSteps
-            maxSeconds = $item.maxSeconds
+            maxSeconds = $effectiveMaxSeconds
             inputScript = $item.inputScript
             saveFile = $item.saveFile
             snapshotRows = $snapshotRows

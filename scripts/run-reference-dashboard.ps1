@@ -5,6 +5,7 @@ param(
     [string]$BaselineDir = "visual-baselines\deep-gameplay",
     [string]$OutputRoot = "",
     [int]$ChunkSize = 4,
+    [int]$RouteMaxSecondsCap = 0,
     [switch]$RunDeepGameplay,
     [switch]$UpdateBaselines,
     [switch]$StrictReferences,
@@ -72,6 +73,10 @@ try {
             ChunkSize = $ChunkSize
             FailOnBaselineDiff = $true
             LowDiversityWarningThreshold = 8
+        }
+
+        if ($RouteMaxSecondsCap -gt 0) {
+            $suiteParams.RouteMaxSecondsCap = $RouteMaxSecondsCap
         }
 
         if ($UpdateBaselines) {
@@ -142,6 +147,7 @@ try {
         "- Route manifest: $RouteManifest",
         "- Output root: $OutputRoot",
         "- Deep gameplay refreshed: $RunDeepGameplay",
+        "- Route max-seconds cap: $RouteMaxSecondsCap",
         "- Strict references: $StrictReferences",
         "- Validation exit code: $validationExitCode",
         "- Comparison exit code: $comparisonExitCode",

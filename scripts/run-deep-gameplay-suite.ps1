@@ -7,6 +7,7 @@ param(
     [int]$StartChunk = 0,
     [int]$MaxChunks = 0,
     [int]$ProcessTimeoutSeconds = 900,
+    [int]$RouteMaxSecondsCap = 0,
     [int]$ContactSheetColumns = 5,
     [int]$ContactSheetScale = 2,
     [int]$LowDiversityWarningThreshold = 8,
@@ -68,6 +69,10 @@ try {
             SkipItems = $skip
             MaxItems = $count
             ProcessTimeoutSeconds = $ProcessTimeoutSeconds
+        }
+
+        if ($RouteMaxSecondsCap -gt 0) {
+            $runnerParams.RouteMaxSecondsCap = $RouteMaxSecondsCap
         }
 
         if ($UpdateBaselines) {
@@ -138,6 +143,7 @@ try {
         "- Manifest: $Manifest",
         "- Routes: $($chunkRows.Count)",
         "- Chunks: $firstChunk-$lastChunk of $totalChunks",
+        "- Route max-seconds cap: $RouteMaxSecondsCap",
         "- Failing rows: $($badRows.Count)",
         "- Low-diversity warning threshold: $LowDiversityWarningThreshold distinct PCs",
         "- Low-diversity warnings: $($lowDiversityRows.Count)",
