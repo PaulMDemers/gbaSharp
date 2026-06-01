@@ -1,0 +1,4 @@
+label,actualImage,referenceImage,maxDifferentPixels,maxChannelDelta,notes
+sonic-advance-save-controlled,visual-baselines/deep-gameplay/sonic-advance-save-controlled.ppm,reference-captures/mgba/sonic-advance-save-controlled.png,0,0,Controlled Sonic beach gameplay timing/rendering reference
+pokemon-ruby-save-bedroom,visual-baselines/deep-gameplay/pokemon-ruby-save-bedroom.ppm,reference-captures/mgba/pokemon-ruby-save-bedroom.png,0,0,Flash128K Ruby bedroom save-load reference
+mario-kart-save-race,visual-baselines/deep-gameplay/mario-kart-save-race.ppm,reference-captures/mgba/mario-kart-save-race.png,0,0,Mario Kart affine race reference

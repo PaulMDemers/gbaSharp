@@ -1,0 +1,51 @@
+# Reference Capture Workflow
+
+This project now has a lightweight path for comparing gbaSharp frames against
+external emulator captures from tools such as mGBA or no$gba.
+
+## Files
+
+- `docs/gba-reference-frames.csv` lists the first reference targets.
+- `scripts/compare-reference-frames.py` compares actual gbaSharp frames against
+  reference images and can write diff PNGs.
+- Reference images should be placed under `reference-captures/<source>/`.
+  These images are local artifacts and are intentionally ignored by git.
+
+## Initial Targets
+
+The starter set focuses on high-signal routes:
+
+- `sonic-advance-save-controlled`: controlled Sonic beach gameplay.
+- `pokemon-ruby-save-bedroom`: Flash128K save-loaded Ruby bedroom scene.
+- `mario-kart-save-race`: affine racing scene.
+
+## Manual Reference Capture
+
+1. Open the same ROM in the reference emulator.
+2. Load the matching save fixture listed in `docs/gba-save-assisted-deep-routes.csv`.
+3. Reproduce the input script listed in that row, or use the save state/frame capture
+   support in the reference emulator to reach the same scene.
+4. Capture a 240x160 PNG at the target frame.
+5. Save it to the manifest path, for example:
+   `reference-captures/mgba/sonic-advance-save-controlled.png`.
+
+Exact frame parity can be hard when the reference emulator does not support input
+scripts directly. For those cases, keep the image at the same visible scene first,
+then relax `maxDifferentPixels` or `maxChannelDelta` only after reviewing the diff.
+
+## Compare
+
+Run:
+
+```powershell
+python .\scripts\compare-reference-frames.py --manifest docs\gba-reference-frames.csv --output reference-frame-comparison.csv --write-diffs
+```
+
+Useful strict mode once all reference images exist:
+
+```powershell
+python .\scripts\compare-reference-frames.py --manifest docs\gba-reference-frames.csv --output reference-frame-comparison.csv --write-diffs --fail-on-diff --fail-on-missing
+```
+
+Rows with missing reference images are reported as `missing-reference` and do not
+fail by default. Rows with mismatched dimensions are reported as `size-mismatch`.
