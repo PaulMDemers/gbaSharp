@@ -1,6 +1,6 @@
 # GBA A+ Milestone Status
 
-Last updated: 2026-05-30
+Last updated: 2026-06-01
 
 ## Current Compatibility Notes
 
@@ -47,6 +47,8 @@ The reset-state pass found and fixed one stale direct-sound edge case: BIOS `Reg
 Direct-sound FIFO tracking now stores the actual queued bytes, not only occupancy counts. Timer overflows pop signed 8-bit samples in FIFO byte order and raise `SoundFifoSampleClocked`, while preserving the existing <=16 byte DMA refill behavior and 32-byte FIFO cap. This is the first core primitive needed for real audio mixing/output instead of only timing FIFO DMA.
 
 `GbaSystem` now owns an `AudioController` that consumes the direct-sound FIFO sample stream and applies `SOUNDCNT_H` direct-sound volume and left/right routing bits into drainable left/right PCM sample records. This does not yet resample to a host output rate or mix PSG channels, but it gives the desktop/CLI a tested audio data surface instead of only IO/FIFO timing state.
+
+Direct-sound sample buffering is now opt-in so long headless compatibility sweeps do not accumulate unbounded pending audio. `dump-frame --audio-csv samples.csv` enables capture for a bounded run and writes step/frame-indexed FIFO PCM rows for audio/timer debugging.
 
 After the audio/timer changes, bounded real-BIOS retail smoke probes completed for Sonic Advance at frame 600, Pokemon Ruby with its approved Flash128K save/input script at frame 1,200, and Mario Kart Super Circuit with its save/input script at frame 1,200. A full save-assisted suite attempt was stopped after exceeding the shell wall timeout while still on the long Zelda route, so longer route validation should continue in small chunks or with an external heartbeat rather than one large foreground command.
 

@@ -1,4 +1,5 @@
 using Gba.Core;
+using Gba.Core.Audio;
 using Gba.Core.Cartridges;
 using Gba.Core.Input;
 using Gba.Core.Memory;
@@ -995,7 +996,7 @@ static async Task<int> RunCompatibility(string[] args, byte[]? bios)
     keyEvents.Sort((left, right) => left.Step.CompareTo(right.Step));
     frameKeyEvents.Sort((left, right) => left.Frame.CompareTo(right.Frame));
     framePokeEvents.Sort((left, right) => left.Frame.CompareTo(right.Frame));
-    var options = new RunOptions(maxSteps, null, false, keys, keyEvents, frameKeyEvents, frameHashEvents, memoryTriggerEvents, framePokeEvents, [], [], [], [], 0, false, false, false, false, 0, false, false, 0, traceInput, [], [], [], null, 0, 0, null, false, null, 1, [], 0, 6, stopFrame, null, null, null, 1, alignRomEntry);
+    var options = new RunOptions(maxSteps, null, false, keys, keyEvents, frameKeyEvents, frameHashEvents, memoryTriggerEvents, framePokeEvents, [], [], [], [], 0, false, false, false, false, 0, false, false, 0, traceInput, [], [], [], null, 0, 0, null, false, null, 1, [], 0, 6, stopFrame, null, null, null, 1, alignRomEntry, null);
     var phases = BuildCompatibilityPhases(suiteName, phaseName, options, frameStepBudget);
     var rootFullPath = Path.GetFullPath(root);
     var indexedRoms = Directory.EnumerateFiles(rootFullPath, "*.gba", SearchOption.AllDirectories)
@@ -1750,6 +1751,7 @@ static int DumpFrame(GbaSystem gba, string[] args)
     InstallDmaTrace(gba, options, () => frame);
     InstallEepromTrace(gba, options, () => frame);
     using var snapshots = OpenSnapshotWriter(options);
+    using var audioSamples = OpenAudioSampleWriter(options, gba);
     var traceTail = CreateTraceTail(options);
     var traceLimiter = CreateTraceLimiter(options);
     var outputPath = "frame.ppm";
@@ -1784,6 +1786,7 @@ static int DumpFrame(GbaSystem gba, string[] args)
             RecordTraceTailIfNeeded(gba, step, frame, options, traceTail);
             TraceIfNeeded(gba, step, frame, options, traceLimiter);
             gba.Step();
+            WriteAudioSamplesIfNeeded(gba, audioSamples, step, frame);
             ApplyFrameHashEvents(gba, options, inputState, step, frame);
             ApplyMemoryTriggerEvents(gba, options, inputState, step, frame);
             WriteSnapshotIfNeeded(gba, options, snapshots, frame);
@@ -1804,6 +1807,11 @@ static int DumpFrame(GbaSystem gba, string[] args)
         ? $"TIMEOUT: wall-clock>{options.MaxSeconds!.Value.ToString(CultureInfo.InvariantCulture)}s; "
         : "";
     Console.WriteLine($"{timeoutPrefix}Wrote {VideoController.Width}x{VideoController.Height} frame to {Path.GetFullPath(outputPath)} at frame={frame:N0}, PC=0x{gba.Cpu.Pc:X8}, cycles={gba.Scheduler.Now:N0}.");
+    if (audioSamples is not null)
+    {
+        Console.WriteLine($"Wrote {audioSamples.Count:N0} direct sound samples to {Path.GetFullPath(options.AudioCsv!)}.");
+    }
+
     DumpMemoryIfRequested(gba, options);
     PrintStateIfRequested(gba, options);
     WriteSaveFileIfRequested(gba, options);
@@ -2107,6 +2115,7 @@ static RunOptions ParseRunOptions(string[] args)
     int? debugLayer = null;
     string? snapshotCsv = null;
     string? pcSnapshotCsv = null;
+    string? audioCsv = null;
     var snapshotFrames = 1;
     var traceTail = 0;
     var traceHitLimit = 0;
@@ -2299,6 +2308,10 @@ static RunOptions ParseRunOptions(string[] args)
                 pcSnapshotCsv = args[++i];
                 break;
 
+            case "--audio-csv" when i + 1 < args.Length:
+                audioCsv = args[++i];
+                break;
+
             case "--snapshot-frames" when i + 1 < args.Length && int.TryParse(args[i + 1], out var parsedSnapshotFrames) && parsedSnapshotFrames > 0:
                 snapshotFrames = parsedSnapshotFrames;
                 i++;
@@ -2324,7 +2337,7 @@ static RunOptions ParseRunOptions(string[] args)
     keyEvents.Sort((left, right) => left.Step.CompareTo(right.Step));
     frameKeyEvents.Sort((left, right) => left.Frame.CompareTo(right.Frame));
     framePokeEvents.Sort((left, right) => left.Frame.CompareTo(right.Frame));
-    return new RunOptions(maxSteps, maxSeconds, trace, keys, keyEvents, frameKeyEvents, frameHashEvents, memoryTriggerEvents, framePokeEvents, watchReads, watchReadRanges, watchWrites, watchWriteRanges, watchLimit, stopOnInvalidPc, printState, traceSwi, traceIrq, traceIrqLimit, traceDma, traceEeprom, traceEepromLimit, traceInput, dumps, instructionDumps, traceRanges, traceFrameRange, traceTail, traceHitLimit, saveFile, saveReadOnly, stopPc, stopPcHit, snapshotPcs, snapshotPcLimit, pcSnapshotStackWords, stopFrame, debugLayer, snapshotCsv, pcSnapshotCsv, snapshotFrames, alignRomEntry);
+    return new RunOptions(maxSteps, maxSeconds, trace, keys, keyEvents, frameKeyEvents, frameHashEvents, memoryTriggerEvents, framePokeEvents, watchReads, watchReadRanges, watchWrites, watchWriteRanges, watchLimit, stopOnInvalidPc, printState, traceSwi, traceIrq, traceIrqLimit, traceDma, traceEeprom, traceEepromLimit, traceInput, dumps, instructionDumps, traceRanges, traceFrameRange, traceTail, traceHitLimit, saveFile, saveReadOnly, stopPc, stopPcHit, snapshotPcs, snapshotPcLimit, pcSnapshotStackWords, stopFrame, debugLayer, snapshotCsv, pcSnapshotCsv, snapshotFrames, alignRomEntry, audioCsv);
 }
 
 static void AddMenuSelectionEvents(List<KeyEvent> keyEvents, int selectedIndex)
@@ -3480,6 +3493,53 @@ static PcSnapshotWriter? OpenPcSnapshotWriter(RunOptions options)
     return new PcSnapshotWriter(writer);
 }
 
+static AudioSampleWriter? OpenAudioSampleWriter(RunOptions options, GbaSystem gba)
+{
+    if (options.AudioCsv is not { Length: > 0 } path)
+    {
+        return null;
+    }
+
+    var fullPath = Path.GetFullPath(path);
+    var directory = Path.GetDirectoryName(fullPath);
+    if (!string.IsNullOrEmpty(directory))
+    {
+        Directory.CreateDirectory(directory);
+    }
+
+    gba.Audio.CaptureSamples = true;
+    var writer = new StreamWriter(fullPath, append: false, System.Text.Encoding.ASCII);
+    writer.WriteLine("step,frame,index,fifo,raw,left,right");
+    return new AudioSampleWriter(writer);
+}
+
+static void WriteAudioSamplesIfNeeded(GbaSystem gba, AudioSampleWriter? samples, long step, int frame)
+{
+    if (samples is null)
+    {
+        return;
+    }
+
+    var index = 0;
+    foreach (var sample in gba.Audio.DrainSamples())
+    {
+        samples.Writer.Write(step);
+        samples.Writer.Write(',');
+        samples.Writer.Write(frame);
+        samples.Writer.Write(',');
+        samples.Writer.Write(index++);
+        samples.Writer.Write(',');
+        samples.Writer.Write(sample.Fifo);
+        samples.Writer.Write(',');
+        samples.Writer.Write(sample.RawSample);
+        samples.Writer.Write(',');
+        samples.Writer.Write(sample.Left);
+        samples.Writer.Write(',');
+        samples.Writer.WriteLine(sample.Right);
+        samples.Count++;
+    }
+}
+
 static void WriteSnapshotIfNeeded(GbaSystem gba, RunOptions options, SnapshotWriter? snapshots, int frame)
 {
     if (snapshots is null || frame == 0 || frame == snapshots.LastFrame || frame % options.SnapshotFrames != 0)
@@ -4518,7 +4578,7 @@ static void PrintUsage()
     Console.Error.WriteLine("  gbaSharp save-probe <rom-directory> [--limit N] [--start-index N] [--indexes 12,15-20] [--output save-probe.csv] [--summary-output save-probe-summary.csv]");
     Console.Error.WriteLine("  gbaSharp run <rom.gba> [--max-steps N] [--max-seconds N] [--stop-frame N] [--align-rom-entry] [--trace]");
     Console.Error.WriteLine("  gbaSharp test-rom <rom.gba> [--max-steps N] [--max-seconds N] [--stop-frame N] [--trace] [--success-pc HEX] [--failure-pc HEX]");
-    Console.Error.WriteLine("  gbaSharp dump-frame <rom.gba> [--max-steps N] [--max-seconds N] [--stop-frame N] [--trace] [--output frame.ppm]");
+    Console.Error.WriteLine("  gbaSharp dump-frame <rom.gba> [--max-steps N] [--max-seconds N] [--stop-frame N] [--trace] [--output frame.ppm] [--audio-csv samples.csv]");
     Console.Error.WriteLine("  gbaSharp compare-bios <rom.gba> --bios gba_bios.bin [--stop-frame N] [--compare-output diff.csv] [--compare-start-frame N] [--compare-frame-interval N] [--compare-first-diff-only] [--compare-game-state-only] [--compare-align-rom-entry]");
     Console.Error.WriteLine("  gbaSharp capture-frames <rom.gba> [--max-steps N] [--max-seconds N] [--output-dir captures] [--sample-steps N]");
     Console.Error.WriteLine("  gbaSharp verify-frame <rom.gba> --baseline baseline.ppm [--actual actual.ppm] [--diff diff.ppm] [--write-baseline] [--max-different-pixels N] [--max-channel-delta N]");
@@ -4779,7 +4839,8 @@ internal sealed record RunOptions(
     string? SnapshotCsv,
     string? PcSnapshotCsv,
     int SnapshotFrames,
-    bool AlignRomEntry);
+    bool AlignRomEntry,
+    string? AudioCsv);
 
 internal sealed class InstructionTraceTail
 {
@@ -5213,6 +5274,15 @@ internal sealed class SnapshotWriter(StreamWriter writer) : IDisposable
 internal sealed class PcSnapshotWriter(StreamWriter writer) : IDisposable
 {
     public StreamWriter Writer { get; } = writer;
+
+    public void Dispose() => Writer.Dispose();
+}
+
+internal sealed class AudioSampleWriter(StreamWriter writer) : IDisposable
+{
+    public StreamWriter Writer { get; } = writer;
+
+    public long Count { get; set; }
 
     public void Dispose() => Writer.Dispose();
 }

@@ -16,6 +16,10 @@ public sealed class AudioController
 
     public IReadOnlyList<DirectSoundPcmSample> PendingSamples => _pendingSamples;
 
+    public bool CaptureSamples { get; set; }
+
+    public event Action<DirectSoundPcmSample>? SampleProduced;
+
     public void Reset() => _pendingSamples.Clear();
 
     public DirectSoundPcmSample[] DrainSamples()
@@ -37,11 +41,16 @@ public sealed class AudioController
             ? (control & (1 << 9)) != 0
             : (control & (1 << 13)) != 0;
 
-        _pendingSamples.Add(new DirectSoundPcmSample(
+        var pcmSample = new DirectSoundPcmSample(
             fifo,
             sample,
             leftEnabled ? scaled : (short)0,
-            rightEnabled ? scaled : (short)0));
+            rightEnabled ? scaled : (short)0);
+        SampleProduced?.Invoke(pcmSample);
+        if (CaptureSamples)
+        {
+            _pendingSamples.Add(pcmSample);
+        }
     }
 
     private static int DirectSoundVolume(ushort control, int fifo)
