@@ -15,9 +15,14 @@ external emulator captures from tools such as mGBA or no$gba.
 
 ## Initial Targets
 
-The starter set focuses on high-signal routes:
+The starter set covers every save-assisted gameplay route:
 
+- `zelda-minish-save-bedroom`: EEPROM bedroom scene.
+- `advance-wars-save-map`: Flash64K field map.
+- `metroid-fusion-save-gameplay`: SRAM boss-room gameplay.
 - `sonic-advance-save-controlled`: controlled Sonic beach gameplay.
+- `mario-luigi-save-room`: EEPROM room gameplay.
+- `tony-hawk2-save-gameplay`: EEPROM skate tutorial gameplay.
 - `pokemon-ruby-save-bedroom`: Flash128K save-loaded Ruby bedroom scene.
 - `mario-kart-save-race`: affine racing scene.
 

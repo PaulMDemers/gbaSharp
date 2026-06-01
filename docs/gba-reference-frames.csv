@@ -1,4 +1,9 @@
 label,actualImage,referenceImage,maxDifferentPixels,maxChannelDelta,notes
+zelda-minish-save-bedroom,visual-baselines/deep-gameplay/zelda-minish-save-bedroom.ppm,reference-captures/mgba/zelda-minish-save-bedroom.png,0,0,Zelda Minish Cap EEPROM bedroom save-load reference
+advance-wars-save-map,visual-baselines/deep-gameplay/advance-wars-save-map.ppm,reference-captures/mgba/advance-wars-save-map.png,0,0,Advance Wars Flash64K field map save-load reference
+metroid-fusion-save-gameplay,visual-baselines/deep-gameplay/metroid-fusion-save-gameplay.ppm,reference-captures/mgba/metroid-fusion-save-gameplay.png,0,0,Metroid Fusion SRAM boss-room gameplay reference
 sonic-advance-save-controlled,visual-baselines/deep-gameplay/sonic-advance-save-controlled.ppm,reference-captures/mgba/sonic-advance-save-controlled.png,0,0,Controlled Sonic beach gameplay timing/rendering reference
+mario-luigi-save-room,visual-baselines/deep-gameplay/mario-luigi-save-room.ppm,reference-captures/mgba/mario-luigi-save-room.png,0,0,Mario & Luigi EEPROM room gameplay reference
+tony-hawk2-save-gameplay,visual-baselines/deep-gameplay/tony-hawk2-save-gameplay.ppm,reference-captures/mgba/tony-hawk2-save-gameplay.png,0,0,Tony Hawk Pro Skater 2 EEPROM skate tutorial reference
 pokemon-ruby-save-bedroom,visual-baselines/deep-gameplay/pokemon-ruby-save-bedroom.ppm,reference-captures/mgba/pokemon-ruby-save-bedroom.png,0,0,Flash128K Ruby bedroom save-load reference
 mario-kart-save-race,visual-baselines/deep-gameplay/mario-kart-save-race.ppm,reference-captures/mgba/mario-kart-save-race.png,0,0,Mario Kart affine race reference
