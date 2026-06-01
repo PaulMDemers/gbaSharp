@@ -75,6 +75,24 @@ public sealed class TimerControllerTests
     }
 
     [Fact]
+    public void CascadeOverflowPropagatesThroughTimerChain()
+    {
+        var gba = new GbaSystem();
+        gba.Bus.Write16(IoRegisters.TM0CNT_L, 0xFFFF);
+        gba.Bus.Write16(IoRegisters.TM1CNT_L, 0xFFFF);
+        gba.Bus.Write16(IoRegisters.TM2CNT_L, 0xFFFF);
+        gba.Bus.Write16(IoRegisters.TM3CNT_L, 0x1234);
+        gba.Bus.Write16(IoRegisters.TM3CNT_H, IoRegisters.TimerEnable | IoRegisters.TimerCascade);
+        gba.Bus.Write16(IoRegisters.TM2CNT_H, IoRegisters.TimerEnable | IoRegisters.TimerCascade);
+        gba.Bus.Write16(IoRegisters.TM1CNT_H, IoRegisters.TimerEnable | IoRegisters.TimerCascade);
+        gba.Bus.Write16(IoRegisters.TM0CNT_H, IoRegisters.TimerEnable);
+
+        gba.Scheduler.Advance(1);
+
+        Assert.Equal(0x1235, gba.Bus.Read16(IoRegisters.TM3CNT_L));
+    }
+
+    [Fact]
     public void EnabledCascadeTimerSwitchingToNormalDoesNotCountElapsedCascadeCycles()
     {
         var gba = new GbaSystem();
@@ -86,6 +104,39 @@ public sealed class TimerControllerTests
         gba.Scheduler.Advance(1);
 
         Assert.Equal(1, gba.Bus.Read16(IoRegisters.TM1CNT_L));
+    }
+
+    [Fact]
+    public void WritingReloadWhileEnabledDoesNotImmediatelyChangeActiveCounter()
+    {
+        var gba = new GbaSystem();
+        gba.Bus.Write16(IoRegisters.TM0CNT_L, 0);
+        gba.Bus.Write16(IoRegisters.TM0CNT_H, IoRegisters.TimerEnable);
+
+        gba.Scheduler.Advance(10);
+        gba.Bus.Write16(IoRegisters.TM0CNT_L, 0xFF00);
+
+        Assert.Equal(10, gba.Bus.Read16(IoRegisters.TM0CNT_L));
+        gba.Scheduler.Advance(0x1_0000 - 10);
+
+        Assert.Equal(0xFF00, gba.Bus.Read16(IoRegisters.TM0CNT_L));
+    }
+
+    [Fact]
+    public void ReenablingTimerLoadsLatestReloadValue()
+    {
+        var gba = new GbaSystem();
+        gba.Bus.Write16(IoRegisters.TM0CNT_L, 0x8000);
+        gba.Bus.Write16(IoRegisters.TM0CNT_H, IoRegisters.TimerEnable);
+        gba.Scheduler.Advance(3);
+        gba.Bus.Write16(IoRegisters.TM0CNT_H, 0);
+        gba.Bus.Write16(IoRegisters.TM0CNT_L, 0xFFFC);
+        gba.Bus.Write16(IoRegisters.TM0CNT_H, IoRegisters.TimerEnable);
+
+        Assert.Equal(0xFFFC, gba.Bus.Read16(IoRegisters.TM0CNT_L));
+        gba.Scheduler.Advance(4);
+
+        Assert.Equal(0xFFFC, gba.Bus.Read16(IoRegisters.TM0CNT_L));
     }
 
     [Fact]

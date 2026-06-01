@@ -227,6 +227,74 @@ public sealed class DmaControllerTests
     }
 
     [Fact]
+    public void SoundFifoDmaUsesEachFifoSelectedTimer()
+    {
+        var gba = new GbaSystem();
+        for (uint i = 0; i < 4; i++)
+        {
+            gba.Bus.Write32(GbaMemoryMap.IwramStart + i * 4, 0xAAAA_0000u + i);
+            gba.Bus.Write32(GbaMemoryMap.IwramStart + 0x100 + i * 4, 0xBBBB_0000u + i);
+        }
+
+        const ushort specialTiming = 3 << 12;
+        const ushort fixedDestination = 2 << 5;
+        ConfigureDma1(
+            gba,
+            GbaMemoryMap.IwramStart,
+            IoRegisters.FIFO_A,
+            0,
+            IoRegisters.DmaEnable | IoRegisters.DmaRepeat | IoRegisters.DmaWord | specialTiming | fixedDestination);
+        ConfigureDma2(
+            gba,
+            GbaMemoryMap.IwramStart + 0x100,
+            IoRegisters.FIFO_B,
+            0,
+            IoRegisters.DmaEnable | IoRegisters.DmaRepeat | IoRegisters.DmaWord | specialTiming | fixedDestination);
+
+        gba.Bus.Write16(IoRegisters.SOUNDCNT_H, 1 << 10); // FIFO A uses timer 1, FIFO B uses timer 0.
+        gba.Bus.Write16(IoRegisters.TM0CNT_L, 0xFFFF);
+        gba.Bus.Write16(IoRegisters.TM0CNT_H, IoRegisters.TimerEnable);
+
+        gba.Scheduler.Advance(1);
+
+        Assert.Equal(0u, gba.Bus.PeekIo32(IoRegisters.FIFO_A));
+        Assert.Equal(0xBBBB_0003u, gba.Bus.PeekIo32(IoRegisters.FIFO_B));
+
+        gba.Bus.Write16(IoRegisters.TM1CNT_L, 0xFFFF);
+        gba.Bus.Write16(IoRegisters.TM1CNT_H, IoRegisters.TimerEnable);
+        gba.Scheduler.Advance(1);
+
+        Assert.Equal(0xAAAA_0003u, gba.Bus.PeekIo32(IoRegisters.FIFO_A));
+    }
+
+    [Fact]
+    public void SoundFifoDmaForcesWordWidthAndFourWordCount()
+    {
+        var gba = new GbaSystem();
+        for (uint i = 0; i < 4; i++)
+        {
+            gba.Bus.Write32(GbaMemoryMap.IwramStart + i * 4, 0xCCCC_0000u + i);
+        }
+
+        const ushort specialTiming = 3 << 12;
+        const ushort fixedDestination = 2 << 5;
+        ConfigureDma1(
+            gba,
+            GbaMemoryMap.IwramStart,
+            IoRegisters.FIFO_A,
+            1,
+            IoRegisters.DmaEnable | IoRegisters.DmaRepeat | specialTiming | fixedDestination);
+        gba.Bus.Write16(IoRegisters.TM0CNT_L, 0xFFFF);
+        gba.Bus.Write16(IoRegisters.TM0CNT_H, IoRegisters.TimerEnable);
+
+        gba.Scheduler.Advance(1);
+
+        Assert.Equal(0xCCCC_0003u, gba.Bus.PeekIo32(IoRegisters.FIFO_A));
+        Assert.Equal(16, gba.Dma.SoundFifoALevel);
+        Assert.NotEqual(0, gba.Bus.PeekIo16(IoRegisters.DMA1CNT_H) & IoRegisters.DmaEnable);
+    }
+
+    [Fact]
     public void Dma3SpecialRunsOnDisplayStartWindow()
     {
         var gba = new GbaSystem();
@@ -414,6 +482,14 @@ public sealed class DmaControllerTests
         gba.Bus.Write32(IoRegisters.DMA1DAD, destination);
         gba.Bus.Write16(IoRegisters.DMA1CNT_L, count);
         gba.Bus.Write16(IoRegisters.DMA1CNT_H, control);
+    }
+
+    private static void ConfigureDma2(GbaSystem gba, uint source, uint destination, ushort count, ushort control)
+    {
+        gba.Bus.Write32(IoRegisters.DMA2SAD, source);
+        gba.Bus.Write32(IoRegisters.DMA2DAD, destination);
+        gba.Bus.Write16(IoRegisters.DMA2CNT_L, count);
+        gba.Bus.Write16(IoRegisters.DMA2CNT_H, control);
     }
 
     private static void ConfigureDma3(GbaSystem gba, uint source, uint destination, ushort count, ushort control)

@@ -40,6 +40,8 @@ External reference comparison scaffolding now exists for checking gbaSharp frame
 
 The first post-reference audio/timer accuracy pass fixed an enabled cascade-timer transition edge case: switching a timer from cascade mode back to normal counting no longer counts scheduler cycles that elapsed while it was in cascade mode. This protects runtime timer reconfiguration paths used by audio clocks. Sound FIFO reset bits in `SOUNDCNT_H` now clear tracked FIFO levels and then auto-clear as write-only bits, and tests pin the direct-sound DMA refill boundary at the `<=16` byte FIFO threshold.
 
+The follow-up audio/timer pass broadened unit coverage around behavior that already matched expectations: Timer0->Timer1->Timer2->Timer3 cascade propagation, enabled timer reload writes, disable/re-enable reload behavior, FIFO A/B timer-select routing through `SOUNDCNT_H`, and forced 4-word/32-bit direct-sound FIFO DMA transfers even when the channel count/width fields are configured otherwise.
+
 The focused real-BIOS Sonic Advance family check (`compat-sonic-advance-family-post-sonicdma-20260523`) covers Sonic Advance 1/2/3 at sorted curated indexes 125-127. All start-probe, broad-input, and long-input phases boot with no crash/static rows; only the same boot-only real-BIOS alignment timeout appears.
 
 The focused crash-cluster rerun `compat-crashcluster-biosguard-final-20260521.csv` is clean: 7 curated stress titles, 28 gameplay rows, 28 boot, 0 crash, and 0 timeout. This includes Legends of Wrestling II, Powerpuff Girls, Muppets, Scooby-Doo Unmasked, and Spy Muppets after the no-BIOS IRQ and BIOS-byte-probe fixes.
