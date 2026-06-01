@@ -46,14 +46,15 @@ then relax `maxDifferentPixels` or `maxChannelDelta` only after reviewing the di
 Run:
 
 ```powershell
-python .\scripts\compare-reference-frames.py --manifest docs\gba-reference-frames.csv --output reference-frame-comparison.csv --write-diffs
+python .\scripts\compare-reference-frames.py --manifest docs\gba-reference-frames.csv --output reference-frame-comparison.csv --write-diffs --contact-sheet artifacts\reference-frame-comparison.png
 ```
 
 Useful strict mode once all reference images exist:
 
 ```powershell
-python .\scripts\compare-reference-frames.py --manifest docs\gba-reference-frames.csv --output reference-frame-comparison.csv --write-diffs --fail-on-diff --fail-on-missing
+python .\scripts\compare-reference-frames.py --manifest docs\gba-reference-frames.csv --output reference-frame-comparison.csv --write-diffs --contact-sheet artifacts\reference-frame-comparison.png --fail-on-diff --fail-on-missing
 ```
 
 Rows with missing reference images are reported as `missing-reference` and do not
 fail by default. Rows with mismatched dimensions are reported as `size-mismatch`.
+The contact sheet shows actual, reference, and diff columns for fast review.
