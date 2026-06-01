@@ -243,6 +243,63 @@ public sealed class DmaControllerTests
     }
 
     [Fact]
+    public void SoundFifoClocksQueuedSignedSamplesInByteOrder()
+    {
+        var gba = new GbaSystem();
+        var samples = new List<sbyte>();
+        gba.Dma.SoundFifoSampleClocked += (fifo, sample) =>
+        {
+            Assert.Equal(0, fifo);
+            samples.Add(sample);
+        };
+
+        gba.Bus.Write32(IoRegisters.FIFO_A, 0x807F_0100);
+        gba.Bus.Write16(IoRegisters.TM0CNT_L, 0xFFFF);
+        gba.Bus.Write16(IoRegisters.TM0CNT_H, IoRegisters.TimerEnable);
+
+        for (var i = 0; i < 4; i++)
+        {
+            gba.Scheduler.Advance(1);
+        }
+
+        Assert.Equal([0, 1, 127, -128], samples.Select(sample => (int)sample));
+        Assert.Equal(0, gba.Dma.SoundFifoALevel);
+    }
+
+    [Fact]
+    public void SoundFifoDmaRefillQueuesSamplesForLaterTimerClocks()
+    {
+        var gba = new GbaSystem();
+        for (uint i = 0; i < 4; i++)
+        {
+            gba.Bus.Write32(GbaMemoryMap.IwramStart + i * 4, 0x0302_0100u + i * 0x0404_0404u);
+        }
+
+        var samples = new List<int>();
+        gba.Dma.SoundFifoSampleClocked += (_, sample) => samples.Add(sample);
+
+        const ushort specialTiming = 3 << 12;
+        const ushort fixedDestination = 2 << 5;
+        ConfigureDma1(
+            gba,
+            GbaMemoryMap.IwramStart,
+            IoRegisters.FIFO_A,
+            0,
+            IoRegisters.DmaEnable | IoRegisters.DmaRepeat | IoRegisters.DmaWord | specialTiming | fixedDestination);
+        gba.Bus.Write16(IoRegisters.TM0CNT_L, 0xFFFF);
+        gba.Bus.Write16(IoRegisters.TM0CNT_H, IoRegisters.TimerEnable);
+
+        gba.Scheduler.Advance(1);
+        for (var i = 0; i < 4; i++)
+        {
+            gba.Scheduler.Advance(1);
+        }
+
+        Assert.Equal([0, 1, 2, 3], samples);
+        Assert.Equal(28, gba.Dma.SoundFifoALevel);
+    }
+
+    [Fact]
     public void SoundFifoDmaUsesEachFifoSelectedTimer()
     {
         var gba = new GbaSystem();

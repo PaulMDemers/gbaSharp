@@ -43,10 +43,13 @@ public sealed class DmaController
     private readonly MemoryBus _bus;
     private readonly DmaChannel[] _channels = [new(), new(), new(), new()];
     private readonly int[] _soundFifoLevels = new int[2];
+    private readonly Queue<byte>[] _soundFifoBytes = [new(), new()];
     private int _transferDepth;
     private int _pendingCycles;
 
     public event Action<DmaTransferTrace>? TransferStarted;
+
+    public event Action<int, sbyte>? SoundFifoSampleClocked;
 
     public int SoundFifoALevel => _soundFifoLevels[0];
 
@@ -63,7 +66,7 @@ public sealed class DmaController
     {
         _bus = bus;
         _bus.AddIoWriteObserver(OnIoWrite);
-        _bus.SoundIoReset += ResetSoundFifoLevels;
+        _bus.SoundIoReset += ResetSoundFifos;
     }
 
     public void Reset()
@@ -75,11 +78,18 @@ public sealed class DmaController
             _bus.PokeIo16(ControlRegisters[channel], 0);
         }
 
-        Array.Clear(_soundFifoLevels);
+        ResetSoundFifos();
         _pendingCycles = 0;
     }
 
-    private void ResetSoundFifoLevels() => Array.Clear(_soundFifoLevels);
+    private void ResetSoundFifos()
+    {
+        Array.Clear(_soundFifoLevels);
+        foreach (var fifo in _soundFifoBytes)
+        {
+            fifo.Clear();
+        }
+    }
 
     public void NotifyVBlank() => RunTriggeredTransfers(DmaStartTiming.VBlank);
 
@@ -161,12 +171,12 @@ public sealed class DmaController
     {
         if (Overlaps(address, bytes, IoRegisters.FIFO_A, 4))
         {
-            _soundFifoLevels[0] = Math.Min(32, _soundFifoLevels[0] + bytes);
+            TrackSoundFifoBytes(0, address, bytes, IoRegisters.FIFO_A);
         }
 
         if (Overlaps(address, bytes, IoRegisters.FIFO_B, 4))
         {
-            _soundFifoLevels[1] = Math.Min(32, _soundFifoLevels[1] + bytes);
+            TrackSoundFifoBytes(1, address, bytes, IoRegisters.FIFO_B);
         }
 
         if (Overlaps(address, bytes, IoRegisters.SOUNDCNT_H, 2))
@@ -176,12 +186,14 @@ public sealed class DmaController
             if ((soundControl & (1 << 11)) != 0)
             {
                 _soundFifoLevels[0] = 0;
+                _soundFifoBytes[0].Clear();
                 resetBits |= 1 << 11;
             }
 
             if ((soundControl & (1 << 15)) != 0)
             {
                 _soundFifoLevels[1] = 0;
+                _soundFifoBytes[1].Clear();
                 resetBits |= 1 << 15;
             }
 
@@ -190,6 +202,20 @@ public sealed class DmaController
                 _bus.PokeIo16(IoRegisters.SOUNDCNT_H, (ushort)(soundControl & ~resetBits));
             }
         }
+    }
+
+    private void TrackSoundFifoBytes(int fifo, uint address, int bytes, uint fifoAddress)
+    {
+        var start = Math.Max(address, fifoAddress);
+        var end = Math.Min(address + (uint)bytes, fifoAddress + 4);
+        var fifoValue = _bus.PeekIo32(fifoAddress);
+        for (var byteAddress = start; byteAddress < end && _soundFifoBytes[fifo].Count < 32; byteAddress++)
+        {
+            var shift = (int)((byteAddress - fifoAddress) * 8);
+            _soundFifoBytes[fifo].Enqueue((byte)(fifoValue >> shift));
+        }
+
+        _soundFifoLevels[fifo] = _soundFifoBytes[fifo].Count;
     }
 
     private void RunTriggeredTransfers(DmaStartTiming timing)
@@ -206,9 +232,11 @@ public sealed class DmaController
     private void ClockSoundFifo(uint fifoAddress)
     {
         var fifo = fifoAddress == IoRegisters.FIFO_A ? 0 : 1;
-        if (_soundFifoLevels[fifo] > 0)
+        if (_soundFifoBytes[fifo].Count > 0)
         {
-            _soundFifoLevels[fifo]--;
+            var sample = unchecked((sbyte)_soundFifoBytes[fifo].Dequeue());
+            SoundFifoSampleClocked?.Invoke(fifo, sample);
+            _soundFifoLevels[fifo] = _soundFifoBytes[fifo].Count;
         }
 
         if (_soundFifoLevels[fifo] <= 16)
