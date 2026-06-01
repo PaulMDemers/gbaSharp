@@ -17,9 +17,11 @@ public sealed class MainForm : Form
     private readonly ToolStripButton _runButton = new("Run");
     private readonly ToolStripButton _pauseButton = new("Pause");
     private readonly ToolStripButton _resetButton = new("Reset");
+    private readonly ToolStripButton _audioButton = new("Audio") { CheckOnClick = true, Checked = true };
     private readonly ToolStripMenuItem _useBiosMenuItem = new("Use BIOS when available") { CheckOnClick = true, Checked = true };
     private readonly ToolStripStatusLabel _status = new("No ROM loaded");
     private readonly System.Windows.Forms.Timer _presentTimer = new();
+    private readonly WaveOutAudioOutput _audioOutput = new();
     private readonly int[] _argbFrame = new int[VideoController.Pixels];
     private Bitmap _frontBitmap = new(VideoController.Width, VideoController.Height, PixelFormat.Format32bppArgb);
     private Bitmap _backBitmap = new(VideoController.Width, VideoController.Height, PixelFormat.Format32bppArgb);
@@ -58,7 +60,12 @@ public sealed class MainForm : Form
         _runButton.Click += (_, _) => StartEmulation();
         _pauseButton.Click += (_, _) => PauseEmulation();
         _resetButton.Click += (_, _) => ResetRom();
-        toolbar.Items.AddRange([_runButton, _pauseButton, _resetButton]);
+        _audioButton.CheckedChanged += (_, _) =>
+        {
+            _audioOutput.Enabled = _audioButton.Checked;
+            UpdateAudioButton();
+        };
+        toolbar.Items.AddRange([_runButton, _pauseButton, _resetButton, new ToolStripSeparator(), _audioButton]);
 
         _display.Dock = DockStyle.Fill;
         _display.BackColor = Color.Black;
@@ -81,6 +88,7 @@ public sealed class MainForm : Form
         _presentTimer.Tick += (_, _) => PresentFrame();
         _presentTimer.Start();
         TryLoadDefaultBios();
+        UpdateAudioButton();
         UpdateButtons();
     }
 
@@ -116,6 +124,7 @@ public sealed class MainForm : Form
         _display.Image = null;
         _frontBitmap.Dispose();
         _backBitmap.Dispose();
+        _audioOutput.Dispose();
         base.OnFormClosing(e);
     }
 
@@ -139,6 +148,8 @@ public sealed class MainForm : Form
             var gba = CreateSystem();
             gba.LoadCartridge(cartridge);
             gba.Video.VBlankStarted += () => CaptureFrame(gba);
+            gba.Audio.SampleProduced += _audioOutput.Enqueue;
+            _audioOutput.Clear();
 
             lock (_sync)
             {
@@ -245,6 +256,7 @@ public sealed class MainForm : Form
         finally
         {
             cancellation.Dispose();
+            _audioOutput.Clear();
         }
 
         UpdateButtons();
@@ -265,6 +277,8 @@ public sealed class MainForm : Form
             var gba = CreateSystem();
             gba.LoadCartridge(cartridge);
             gba.Video.VBlankStarted += () => CaptureFrame(gba);
+            gba.Audio.SampleProduced += _audioOutput.Enqueue;
+            _audioOutput.Clear();
             lock (_sync)
             {
                 _gba = gba;
@@ -432,6 +446,24 @@ public sealed class MainForm : Form
         _runButton.Enabled = hasRom && !running;
         _pauseButton.Enabled = running;
         _resetButton.Enabled = hasRom;
+    }
+
+    private void UpdateAudioButton()
+    {
+        if (!_audioOutput.IsAvailable)
+        {
+            _audioButton.Checked = false;
+            _audioButton.Enabled = false;
+            _audioButton.ToolTipText = _audioOutput.LastError is null
+                ? "Audio output is unavailable."
+                : $"Audio output is unavailable: {_audioOutput.LastError}";
+            return;
+        }
+
+        _audioButton.Enabled = true;
+        _audioButton.ToolTipText = _audioButton.Checked
+            ? "Direct sound audio is enabled."
+            : "Direct sound audio is muted.";
     }
 
     private void SetStatus(string text)

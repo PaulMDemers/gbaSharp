@@ -54,6 +54,8 @@ Direct-sound sample buffering is now opt-in so long headless compatibility sweep
 
 `scripts/audio-csv-to-wav.py` can also turn a direct-sound CSV into a stereo PCM WAV by holding the latest value from each FIFO and resampling it to a requested host rate. This is diagnostic output rather than a final mixer, but it makes retail audio regressions audible.
 
+The WinForms desktop frontend now has an opt-in toolbar audio toggle backed by a bounded WaveOut sink. It subscribes to the core direct-sound sample stream, holds/mixes FIFO A/B values, resamples to 44.1 kHz stereo PCM, and clears queued audio on pause/reset. PSG channels are still not implemented, so this is direct-sound playback only.
+
 After the audio/timer changes, bounded real-BIOS retail smoke probes completed for Sonic Advance at frame 600, Pokemon Ruby with its approved Flash128K save/input script at frame 1,200, and Mario Kart Super Circuit with its save/input script at frame 1,200. A full save-assisted suite attempt was stopped after exceeding the shell wall timeout while still on the long Zelda route, so longer route validation should continue in small chunks or with an external heartbeat rather than one large foreground command.
 
 The focused real-BIOS Sonic Advance family check (`compat-sonic-advance-family-post-sonicdma-20260523`) covers Sonic Advance 1/2/3 at sorted curated indexes 125-127. All start-probe, broad-input, and long-input phases boot with no crash/static rows; only the same boot-only real-BIOS alignment timeout appears.
