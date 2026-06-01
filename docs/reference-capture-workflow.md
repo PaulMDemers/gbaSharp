@@ -13,6 +13,9 @@ external emulator captures from tools such as mGBA or no$gba.
   captures.
 - `scripts/compare-reference-frames.py` compares actual gbaSharp frames against
   reference images and can write diff PNGs.
+- `scripts/run-reference-dashboard.ps1` runs the checklist, validation,
+  comparison, contact sheet, and Markdown summary steps as one command. It can
+  optionally refresh the save-assisted deep gameplay suite first.
 - Reference images should be placed under `reference-captures/<source>/`.
   These images are local artifacts and are intentionally ignored by git.
 
@@ -50,6 +53,24 @@ scripts directly. For those cases, keep the image at the same visible scene firs
 then relax `maxDifferentPixels` or `maxChannelDelta` only after reviewing the diff.
 
 ## Compare
+
+For the combined dashboard path, run:
+
+```powershell
+.\scripts\run-reference-dashboard.ps1
+```
+
+Useful strict dashboard mode once all references should be present:
+
+```powershell
+.\scripts\run-reference-dashboard.ps1 -StrictReferences
+```
+
+To refresh gbaSharp save-assisted captures before comparing references:
+
+```powershell
+.\scripts\run-reference-dashboard.ps1 -RunDeepGameplay -StrictReferences
+```
 
 Validate dropped captures first:
 
