@@ -75,7 +75,7 @@ To refresh gbaSharp save-assisted captures before comparing references:
 To keep refreshes bounded during local smoke passes:
 
 ```powershell
-.\scripts\run-reference-dashboard.ps1 -RunDeepGameplay -RouteMaxSecondsCap 120
+.\scripts\run-reference-dashboard.ps1 -RunDeepGameplay -RouteMaxSecondsCap 120 -AllowDeepGameplayFailures
 ```
 
 Validate dropped captures first:

@@ -9,6 +9,7 @@ param(
     [switch]$RunDeepGameplay,
     [switch]$UpdateBaselines,
     [switch]$StrictReferences,
+    [switch]$AllowDeepGameplayFailures,
     [switch]$NoBuild,
     [switch]$NormalPriority
 )
@@ -77,6 +78,10 @@ try {
 
         if ($RouteMaxSecondsCap -gt 0) {
             $suiteParams.RouteMaxSecondsCap = $RouteMaxSecondsCap
+        }
+
+        if ($AllowDeepGameplayFailures) {
+            $suiteParams.IncludeNonPassContactSheet = $true
         }
 
         if ($UpdateBaselines) {
@@ -148,6 +153,7 @@ try {
         "- Output root: $OutputRoot",
         "- Deep gameplay refreshed: $RunDeepGameplay",
         "- Route max-seconds cap: $RouteMaxSecondsCap",
+        "- Allow deep gameplay failures: $AllowDeepGameplayFailures",
         "- Strict references: $StrictReferences",
         "- Validation exit code: $validationExitCode",
         "- Comparison exit code: $comparisonExitCode",
@@ -209,7 +215,7 @@ try {
         throw "Strict reference dashboard failed. See $summaryMd"
     }
 
-    if ($deepExitCode -ne 0) {
+    if ($deepExitCode -ne 0 -and -not $AllowDeepGameplayFailures) {
         throw "Reference dashboard completed with deep gameplay failure. See $summaryMd"
     }
 }
