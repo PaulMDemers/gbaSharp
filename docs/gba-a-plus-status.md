@@ -44,6 +44,8 @@ The follow-up audio/timer pass broadened unit coverage around behavior that alre
 
 The reset-state pass found and fixed one stale direct-sound edge case: BIOS `RegisterRamReset` sound reset now clears the DMA controller's tracked FIFO A/B levels along with the sound IO registers. This prevents stale FIFO occupancy from delaying or suppressing later direct-sound DMA refills after software resets the sound hardware.
 
+After the audio/timer changes, bounded real-BIOS retail smoke probes completed for Sonic Advance at frame 600, Pokemon Ruby with its approved Flash128K save/input script at frame 1,200, and Mario Kart Super Circuit with its save/input script at frame 1,200. A full save-assisted suite attempt was stopped after exceeding the shell wall timeout while still on the long Zelda route, so longer route validation should continue in small chunks or with an external heartbeat rather than one large foreground command.
+
 The focused real-BIOS Sonic Advance family check (`compat-sonic-advance-family-post-sonicdma-20260523`) covers Sonic Advance 1/2/3 at sorted curated indexes 125-127. All start-probe, broad-input, and long-input phases boot with no crash/static rows; only the same boot-only real-BIOS alignment timeout appears.
 
 The focused crash-cluster rerun `compat-crashcluster-biosguard-final-20260521.csv` is clean: 7 curated stress titles, 28 gameplay rows, 28 boot, 0 crash, and 0 timeout. This includes Legends of Wrestling II, Powerpuff Girls, Muppets, Scooby-Doo Unmasked, and Spy Muppets after the no-BIOS IRQ and BIOS-byte-probe fixes.
