@@ -48,13 +48,15 @@ Direct-sound FIFO tracking now stores the actual queued bytes, not only occupanc
 
 `GbaSystem` now owns an `AudioController` that consumes the direct-sound FIFO sample stream and applies `SOUNDCNT_H` direct-sound volume and left/right routing bits into drainable left/right PCM sample records. This does not yet resample to a host output rate or mix PSG channels, but it gives the desktop/CLI a tested audio data surface instead of only IO/FIFO timing state.
 
-Direct-sound sample buffering is now opt-in so long headless compatibility sweeps do not accumulate unbounded pending audio. `dump-frame --audio-csv samples.csv` enables capture for a bounded run and writes step/frame/cycle/timer-indexed FIFO PCM rows for audio/timer debugging.
+Direct-sound and PSG sample buffering are now opt-in so long headless compatibility sweeps do not accumulate unbounded pending audio. `dump-frame --audio-csv direct.csv --psg-csv psg.csv` enables capture for a bounded run and writes step/frame/cycle-indexed PCM rows for audio/timer debugging.
 
-`scripts/analyze-audio-csv.py` summarizes those captures into sample counts, non-zero routing, value ranges, timer/FIFO split, cycle deltas, and estimated native sample rates. This gives us a quick diagnostic bridge before full host-rate audio output exists.
+`scripts/analyze-audio-csv.py` summarizes those captures into sample counts, non-zero routing, value ranges, timer/FIFO split for direct sound, cycle deltas, and estimated native sample rates. This gives us a quick diagnostic bridge before full host-rate audio output exists.
 
-`scripts/audio-csv-to-wav.py` can also turn a direct-sound CSV into a stereo PCM WAV by holding the latest value from each FIFO and resampling it to a requested host rate. This is diagnostic output rather than a final mixer, but it makes retail audio regressions audible.
+`scripts/audio-csv-to-wav.py` can also turn a direct-sound or PSG CSV into a stereo PCM WAV by holding the latest value and resampling it to a requested host rate. This is diagnostic output rather than a final mixer, but it makes retail audio regressions audible.
 
-The WinForms desktop frontend now has an opt-in toolbar audio toggle backed by a bounded WaveOut sink. It subscribes to the core direct-sound sample stream, holds/mixes FIFO A/B values through the shared tested `DirectSoundPcmResampler`, resamples to 44.1 kHz stereo PCM, and clears queued audio on pause/reset. PSG channels are still not implemented, so this is direct-sound playback only.
+The PSG capture tooling is verified through `dump-frame --psg-csv`; a short Sonic Advance no-BIOS smoke writes the empty-PSG case cleanly while direct sound still reports both FIFOs at ~10.5 kHz, and a synthetic PSG CSV exercises the non-empty analyzer/WAV conversion path at the expected 32.768 kHz cadence.
+
+The WinForms desktop frontend now has an opt-in toolbar audio toggle backed by a bounded WaveOut sink. It subscribes to the core direct-sound and PSG sample streams, holds/mixes FIFO A/B values through the shared tested `DirectSoundPcmResampler`, resamples PSG through `PsgPcmResampler`, outputs 44.1 kHz stereo PCM, and clears queued audio on pause/reset.
 
 The first PSG pass adds cycle-advanced square channel 1/2 sampling for trigger, duty, frequency, length counters, envelope volume progression, square-1 sweep overflow/update behavior, basic wave-channel wave RAM playback/output level, basic noise-channel LFSR output, master enable, and `SOUNDCNT_L` routing/volume. The desktop audio sink now subscribes to those PSG samples through a tested `PsgPcmResampler`, making square/wave/noise PSG tones audible alongside direct sound. Wave bank/dimension edge cases and exact noise frequency refinements remain open.
 

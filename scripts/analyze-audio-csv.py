@@ -15,9 +15,10 @@ def parse_int(row: dict[str, str], name: str, default: int = 0) -> int:
     return int(value)
 
 
-def load_rows(path: Path) -> list[dict[str, str]]:
+def load_rows(path: Path) -> tuple[list[dict[str, str]], list[str]]:
     with path.open(newline="", encoding="utf-8-sig") as handle:
-        return list(csv.DictReader(handle))
+        reader = csv.DictReader(handle)
+        return list(reader), list(reader.fieldnames or [])
 
 
 def format_rate(delta_cycles: float) -> str:
@@ -36,7 +37,10 @@ def summarize_group(cycles: list[int]) -> tuple[int, int, int, float, str]:
     return (min(deltas), max(deltas), mode_delta, median_delta, format_rate(median_delta))
 
 
-def build_summary(path: Path, rows: list[dict[str, str]]) -> str:
+def build_summary(path: Path, rows: list[dict[str, str]], fieldnames: list[str]) -> str:
+    if "fifo" not in fieldnames:
+        return build_psg_summary(path, rows)
+
     samples = []
     cycles_by_group: dict[tuple[int, int], list[int]] = defaultdict(list)
     for row in rows:
@@ -86,9 +90,50 @@ def build_summary(path: Path, rows: list[dict[str, str]]) -> str:
     return "\n".join(lines)
 
 
+def build_psg_summary(path: Path, rows: list[dict[str, str]]) -> str:
+    samples = []
+    cycles = []
+    for row in rows:
+        sample = {
+            "step": parse_int(row, "step"),
+            "frame": parse_int(row, "frame"),
+            "cycle": parse_int(row, "cycle"),
+            "left": parse_int(row, "left"),
+            "right": parse_int(row, "right"),
+        }
+        samples.append(sample)
+        cycles.append(sample["cycle"])
+
+    lines = [f"# PSG CSV Summary: `{path.name}`", ""]
+    lines.append(f"- Samples: {len(samples):,}")
+    if not samples:
+        return "\n".join(lines)
+
+    nonzero = [sample for sample in samples if sample["left"] or sample["right"]]
+    left_nonzero = sum(1 for sample in samples if sample["left"])
+    right_nonzero = sum(1 for sample in samples if sample["right"])
+    min_delta, max_delta, mode_delta, median_delta, rate = summarize_group(cycles)
+    lines.extend(
+        [
+            f"- Frames: {min(sample['frame'] for sample in samples):,}-{max(sample['frame'] for sample in samples):,}",
+            f"- Cycles: {min(cycles):,}-{max(cycles):,}",
+            f"- Non-zero samples: {len(nonzero):,} ({len(nonzero) / len(samples):.1%})",
+            f"- Routed non-zero: left={left_nonzero:,}, right={right_nonzero:,}",
+            f"- Left range: {min(sample['left'] for sample in samples):,}..{max(sample['left'] for sample in samples):,}",
+            f"- Right range: {min(sample['right'] for sample in samples):,}..{max(sample['right'] for sample in samples):,}",
+            "",
+            "| Samples | Min Delta | Max Delta | Mode Delta | Median Delta | Est. Rate |",
+            "| ---: | ---: | ---: | ---: | ---: | ---: |",
+            f"| {len(samples):,} | {min_delta:,} | {max_delta:,} | {mode_delta:,} | {median_delta:,.1f} | {rate} |",
+        ]
+    )
+
+    return "\n".join(lines)
+
+
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Summarize a gbaSharp direct-sound audio CSV capture.")
-    parser.add_argument("csv", help="Path to a dump-frame --audio-csv output")
+    parser = argparse.ArgumentParser(description="Summarize a gbaSharp direct-sound or PSG audio CSV capture.")
+    parser.add_argument("csv", help="Path to a dump-frame --audio-csv or --psg-csv output")
     parser.add_argument("--output", "-o", default="", help="Optional Markdown output path")
     return parser.parse_args()
 
@@ -96,8 +141,8 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     path = Path(args.csv).resolve()
-    rows = load_rows(path)
-    summary = build_summary(path, rows)
+    rows, fieldnames = load_rows(path)
+    summary = build_summary(path, rows, fieldnames)
     if args.output:
         output = Path(args.output).resolve()
         output.parent.mkdir(parents=True, exist_ok=True)

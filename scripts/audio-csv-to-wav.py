@@ -19,19 +19,23 @@ def clamp16(value: float) -> int:
     return max(-32768, min(32767, rounded))
 
 
-def load_events(path: Path) -> list[tuple[int, int, int, int]]:
+def load_events(path: Path) -> tuple[list[tuple[int, int, int, int]], bool]:
     events = []
+    has_fifo = False
     with path.open(newline="", encoding="utf-8-sig") as handle:
-        for row in csv.DictReader(handle):
+        reader = csv.DictReader(handle)
+        has_fifo = "fifo" in (reader.fieldnames or [])
+        for row in reader:
             cycle = parse_int(row, "cycle", -1)
             if cycle < 0:
                 continue
-            events.append((cycle, parse_int(row, "fifo"), parse_int(row, "left"), parse_int(row, "right")))
+            fifo = parse_int(row, "fifo", -1) if has_fifo else -1
+            events.append((cycle, fifo, parse_int(row, "left"), parse_int(row, "right")))
 
-    return sorted(events)
+    return sorted(events), has_fifo
 
 
-def render_samples(events: list[tuple[int, int, int, int]], sample_rate: int, gain: float) -> bytes:
+def render_samples(events: list[tuple[int, int, int, int]], sample_rate: int, scale: float) -> bytes:
     if not events:
         return b""
 
@@ -40,10 +44,9 @@ def render_samples(events: list[tuple[int, int, int, int]], sample_rate: int, ga
     duration_cycles = max(1, last_cycle - first_cycle)
     output_frames = max(1, int(round(duration_cycles * sample_rate / GBA_CLOCK_HZ)))
     cycles_per_output = GBA_CLOCK_HZ / sample_rate
-    scale = 256.0 * gain
-
     event_index = 0
     current_by_fifo = [[0, 0], [0, 0]]
+    current_psg = [0, 0]
     data = bytearray(output_frames * 4)
     for frame in range(output_frames):
         target_cycle = first_cycle + int(frame * cycles_per_output)
@@ -52,10 +55,13 @@ def render_samples(events: list[tuple[int, int, int, int]], sample_rate: int, ga
             if 0 <= fifo < len(current_by_fifo):
                 current_by_fifo[fifo][0] = left
                 current_by_fifo[fifo][1] = right
+            elif fifo < 0:
+                current_psg[0] = left
+                current_psg[1] = right
             event_index += 1
 
-        current_left = current_by_fifo[0][0] + current_by_fifo[1][0]
-        current_right = current_by_fifo[0][1] + current_by_fifo[1][1]
+        current_left = current_by_fifo[0][0] + current_by_fifo[1][0] + current_psg[0]
+        current_right = current_by_fifo[0][1] + current_by_fifo[1][1] + current_psg[1]
         left = clamp16(current_left * scale)
         right = clamp16(current_right * scale)
         offset = frame * 4
@@ -66,11 +72,12 @@ def render_samples(events: list[tuple[int, int, int, int]], sample_rate: int, ga
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Convert a gbaSharp direct-sound audio CSV capture to a stereo PCM WAV.")
-    parser.add_argument("csv", help="Path to a dump-frame --audio-csv output")
+    parser = argparse.ArgumentParser(description="Convert a gbaSharp direct-sound or PSG audio CSV capture to a stereo PCM WAV.")
+    parser.add_argument("csv", help="Path to a dump-frame --audio-csv or --psg-csv output")
     parser.add_argument("wav", help="Output WAV path")
     parser.add_argument("--sample-rate", "-r", type=int, default=44_100, help="Output sample rate")
     parser.add_argument("--gain", "-g", type=float, default=0.75, help="Linear output gain")
+    parser.add_argument("--scale", type=float, default=0, help="Override sample scale before gain; defaults to 256 for direct sound and 32 for PSG")
     return parser.parse_args()
 
 
@@ -83,8 +90,9 @@ def main() -> int:
 
     csv_path = Path(args.csv).resolve()
     wav_path = Path(args.wav).resolve()
-    events = load_events(csv_path)
-    frames = render_samples(events, args.sample_rate, args.gain)
+    events, has_fifo = load_events(csv_path)
+    base_scale = args.scale if args.scale > 0 else 256.0 if has_fifo else 32.0
+    frames = render_samples(events, args.sample_rate, base_scale * args.gain)
 
     wav_path.parent.mkdir(parents=True, exist_ok=True)
     with wave.open(str(wav_path), "wb") as output:
@@ -95,7 +103,8 @@ def main() -> int:
 
     frame_count = len(frames) // 4
     duration = frame_count / args.sample_rate if args.sample_rate else 0.0
-    print(f"Wrote {frame_count:,} stereo frames ({duration:.3f}s) from {len(events):,} mixed cycle events to {wav_path}.")
+    source = "direct-sound" if has_fifo else "PSG"
+    print(f"Wrote {frame_count:,} stereo frames ({duration:.3f}s) from {len(events):,} {source} cycle events to {wav_path}.")
     return 0
 
 
