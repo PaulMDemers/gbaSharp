@@ -447,6 +447,44 @@ public sealed class AudioControllerTests
     }
 
     [Fact]
+    public void NoiseChannelUsesHardwareClockRate()
+    {
+        var gba = new GbaSystem();
+        gba.Audio.CapturePsgSamples = true;
+        gba.Bus.Write16(IoRegisters.SOUNDCNT_X, 1 << 7);
+        gba.Bus.Write16(IoRegisters.SOUNDCNT_L, (7 << 4) | (1 << 15));
+        gba.Bus.Write16(IoRegisters.SOUND4CNT_L, 8 << 12);
+        gba.Bus.Write16(IoRegisters.SOUND4CNT_H, 1 << 15);
+
+        gba.Audio.Advance(512, 512);
+        Assert.Equal(-512, Assert.Single(gba.Audio.DrainPsgSamples()).Left);
+        gba.Audio.Advance(512, 1024);
+        Assert.Equal(512, Assert.Single(gba.Audio.DrainPsgSamples()).Left);
+        gba.Audio.Advance(512, 1536);
+
+        Assert.Equal(512, Assert.Single(gba.Audio.DrainPsgSamples()).Left);
+    }
+
+    [Fact]
+    public void NoiseChannelSevenBitWidthUsesShortLfsrTap()
+    {
+        var gba = new GbaSystem();
+        gba.Audio.CapturePsgSamples = true;
+        gba.Bus.Write16(IoRegisters.SOUNDCNT_X, 1 << 7);
+        gba.Bus.Write16(IoRegisters.SOUNDCNT_L, (7 << 4) | (1 << 15));
+        gba.Bus.Write16(IoRegisters.SOUND4CNT_L, 8 << 12);
+        gba.Bus.Write16(IoRegisters.SOUND4CNT_H, (1 << 15) | (1 << 3));
+
+        gba.Audio.Advance(512, 512);
+        Assert.Equal(-512, Assert.Single(gba.Audio.DrainPsgSamples()).Left);
+        gba.Audio.Advance(512, 1024);
+        Assert.Equal(512, Assert.Single(gba.Audio.DrainPsgSamples()).Left);
+        gba.Audio.Advance(512, 1536);
+
+        Assert.Equal(-512, Assert.Single(gba.Audio.DrainPsgSamples()).Left);
+    }
+
+    [Fact]
     public void NoiseLengthCounterStopsChannel()
     {
         var gba = new GbaSystem();

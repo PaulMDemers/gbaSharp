@@ -5,6 +5,7 @@ namespace Gba.Core.Audio;
 
 public sealed class AudioController
 {
+    private const int LegacySoundClockHz = 4_194_304;
     private const int PsgSampleRate = 32_768;
     private const int PsgCyclesPerSample = DirectSoundPcmResampler.DefaultGbaClockHz / PsgSampleRate;
     private const int PsgSamplesPerFrameSequencerTick = PsgSampleRate / 512;
@@ -672,9 +673,8 @@ public sealed class AudioController
             _lengthCounter = lengthLoad == 0 ? 64 : 64 - lengthLoad;
             _lengthEnabled = (control & (1 << 14)) != 0;
             _width7Bit = (control & (1 << 3)) != 0;
-            var divisor = DivisorCodes[control & 0x7];
-            var shift = (control >> 4) & 0xF;
-            var noiseClock = 524_288.0 / divisor / (1 << Math.Min(shift, 13));
+            var divisor = DivisorCodes[control & 0x7] << ((control >> 4) & 0xF);
+            var noiseClock = (double)LegacySoundClockHz / divisor;
             _clocksPerPsgSample = noiseClock / PsgSampleRate;
             _clockAccumulator = 0;
             _lfsr = 0x7FFF;
