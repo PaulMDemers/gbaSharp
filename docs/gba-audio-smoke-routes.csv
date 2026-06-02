@@ -1,0 +1,3 @@
+label,romPath,inputScript,saveFile,saveReadOnly,stopFrame,maxSteps,maxSeconds,keys,alignRomEntry,notes
+sonic-advance-title,"Sonic Advance (USA) (En,Ja).gba",,,false,300,500000000,180,,false,Root Sonic Advance no-BIOS title/intro audio smoke
+pokemon-ruby-title,Ruby.gba,,,false,300,500000000,180,,false,Root Pokemon Ruby title/intro audio smoke

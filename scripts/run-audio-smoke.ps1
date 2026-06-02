@@ -1,0 +1,426 @@
+param(
+    [string]$Manifest = "docs\gba-audio-smoke-routes.csv",
+    [string]$OutputDir = "",
+    [string]$Bios = "",
+    [string]$Configuration = "Release",
+    [int]$MaxItems = 0,
+    [int]$SkipItems = 0,
+    [int]$DefaultStopFrame = 300,
+    [long]$DefaultMaxSteps = 500000000,
+    [int]$DefaultMaxSeconds = 180,
+    [int]$ProcessTimeoutSeconds = 240,
+    [switch]$NoBuild,
+    [switch]$NoAlignRomEntry,
+    [switch]$Resume,
+    [switch]$NormalPriority
+)
+
+$ErrorActionPreference = "Stop"
+
+function Join-ProcessArguments {
+    param([string[]]$Items)
+
+    return ($Items | ForEach-Object {
+        if ($_ -match '[\s"]' -or $_.Length -eq 0) {
+            '"' + ($_.Replace('"', '\"')) + '"'
+        }
+        else {
+            $_
+        }
+    }) -join " "
+}
+
+function Invoke-CheckedProcess {
+    param(
+        [string]$FileName,
+        [string[]]$Arguments,
+        [int]$TimeoutSeconds,
+        [string]$Description
+    )
+
+    $psi = [System.Diagnostics.ProcessStartInfo]::new()
+    $psi.FileName = $FileName
+    $psi.Arguments = Join-ProcessArguments $Arguments
+    $psi.UseShellExecute = $false
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+
+    $process = [System.Diagnostics.Process]::Start($psi)
+    if ($null -eq $process) {
+        throw "Failed to start $Description"
+    }
+
+    try {
+        $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+        $stderrTask = $process.StandardError.ReadToEndAsync()
+        if ($TimeoutSeconds -gt 0 -and -not $process.WaitForExit($TimeoutSeconds * 1000)) {
+            try {
+                $process.Kill($true)
+            }
+            catch {
+                Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+            }
+
+            return [pscustomobject]@{
+                ExitCode = 124
+                Stdout = ""
+                Stderr = "$Description exceeded process timeout of ${TimeoutSeconds}s"
+            }
+        }
+
+        $stdout = $stdoutTask.GetAwaiter().GetResult()
+        $stderr = $stderrTask.GetAwaiter().GetResult()
+        return [pscustomobject]@{
+            ExitCode = $process.ExitCode
+            Stdout = $stdout.Trim()
+            Stderr = $stderr.Trim()
+        }
+    }
+    finally {
+        $process.Dispose()
+    }
+}
+
+function Get-SafeName {
+    param([string]$Value)
+
+    $safe = $Value -replace '[^A-Za-z0-9._-]+', '-'
+    return $safe.Trim('-')
+}
+
+function Get-StringOrDefault {
+    param([object]$Item, [string]$Property, [string]$Default)
+
+    if ($Item.PSObject.Properties.Name -notcontains $Property -or [string]::IsNullOrWhiteSpace($Item.$Property)) {
+        return $Default
+    }
+
+    return [string]$Item.$Property
+}
+
+function Get-IntOrDefault {
+    param([object]$Item, [string]$Property, [int]$Default)
+
+    $value = Get-StringOrDefault -Item $Item -Property $Property -Default ""
+    if ([string]::IsNullOrWhiteSpace($value)) {
+        return $Default
+    }
+
+    return [int]$value
+}
+
+function Get-LongOrDefault {
+    param([object]$Item, [string]$Property, [long]$Default)
+
+    $value = Get-StringOrDefault -Item $Item -Property $Property -Default ""
+    if ([string]::IsNullOrWhiteSpace($value)) {
+        return $Default
+    }
+
+    return [long]$value
+}
+
+function Get-BoolOrDefault {
+    param([object]$Item, [string]$Property, [bool]$Default)
+
+    $value = Get-StringOrDefault -Item $Item -Property $Property -Default ""
+    if ([string]::IsNullOrWhiteSpace($value)) {
+        return $Default
+    }
+
+    return $value.Equals("true", [StringComparison]::OrdinalIgnoreCase)
+}
+
+function Get-FrameFromOutput {
+    param([string]$Text)
+
+    if ($Text -match 'frame=([0-9,]+)') {
+        return [int](($Matches[1]).Replace(",", ""))
+    }
+
+    return 0
+}
+
+function Get-CyclesFromOutput {
+    param([string]$Text)
+
+    if ($Text -match 'cycles=([0-9,]+)') {
+        return [long](($Matches[1]).Replace(",", ""))
+    }
+
+    return 0
+}
+
+function Get-CsvDataRows {
+    param([string]$Path)
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return 0
+    }
+
+    return [Math]::Max(0, @((Get-Content -LiteralPath $Path) | Select-Object -Skip 1).Count)
+}
+
+function Write-MarkdownReport {
+    param(
+        [object[]]$Rows,
+        [string]$Path,
+        [string]$ManifestPath
+    )
+
+    $passed = @($Rows | Where-Object { $_.status -eq "pass" }).Count
+    $failed = @($Rows | Where-Object { $_.status -ne "pass" }).Count
+    $lines = @(
+        "# GBA Audio Smoke Report",
+        "",
+        "- Manifest: ``$ManifestPath``",
+        "- Rows: $($Rows.Count)",
+        "- Pass: $passed",
+        "- Non-pass: $failed",
+        "",
+        "| Label | Status | Frame | Direct Samples | PSG Samples | Mixed WAV |",
+        "| --- | --- | ---: | ---: | ---: | --- |"
+    )
+
+    foreach ($row in $Rows) {
+        $wav = if ([string]::IsNullOrWhiteSpace($row.mixedWav)) { "" } else { $row.mixedWav }
+        $lines += "| $($row.label) | $($row.status) | $($row.observedFrame) | $($row.directSamples) | $($row.psgSamples) | $wav |"
+    }
+
+    $lines | Set-Content -LiteralPath $Path -Encoding UTF8
+}
+
+$repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
+Push-Location $repoRoot
+try {
+    if (-not $NormalPriority) {
+        try {
+            (Get-Process -Id $PID).PriorityClass = "BelowNormal"
+            Write-Host "Running audio smoke at BelowNormal process priority."
+        }
+        catch {
+            Write-Warning "Could not lower process priority: $($_.Exception.Message)"
+        }
+    }
+
+    if (-not $NoBuild) {
+        $buildResult = Invoke-CheckedProcess -FileName "dotnet" -Arguments @("build", "src\Gba.Cli\Gba.Cli.csproj", "-c", $Configuration) -TimeoutSeconds 180 -Description "Build Gba.Cli"
+        if ($buildResult.ExitCode -ne 0) {
+            throw "Build failed with exit code $($buildResult.ExitCode): $($buildResult.Stdout) $($buildResult.Stderr)"
+        }
+    }
+
+    $cliDll = Get-ChildItem -Path (Join-Path "src\Gba.Cli\bin" $Configuration) -Recurse -Filter "Gba.Cli.dll" |
+        Sort-Object LastWriteTime -Descending |
+        Select-Object -First 1
+    if ($null -eq $cliDll) {
+        throw "Could not find built Gba.Cli.dll under src\Gba.Cli\bin\$Configuration. Run without -NoBuild once to build it."
+    }
+
+    if ([string]::IsNullOrWhiteSpace($OutputDir)) {
+        $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
+        $OutputDir = "audio-smoke-$stamp"
+    }
+
+    New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
+    $frameDir = Join-Path $OutputDir "frames"
+    $csvDir = Join-Path $OutputDir "csv"
+    $summaryDir = Join-Path $OutputDir "summaries"
+    $wavDir = Join-Path $OutputDir "wav"
+    $logDir = Join-Path $OutputDir "logs"
+    foreach ($dir in @($frameDir, $csvDir, $summaryDir, $wavDir, $logDir)) {
+        New-Item -ItemType Directory -Force -Path $dir | Out-Null
+    }
+
+    $items = @(Import-Csv -LiteralPath $Manifest)
+    if ($SkipItems -gt 0) {
+        $items = @($items | Select-Object -Skip $SkipItems)
+    }
+
+    if ($MaxItems -gt 0) {
+        $items = @($items | Select-Object -First $MaxItems)
+    }
+
+    $results = New-Object System.Collections.Generic.List[object]
+    foreach ($item in $items) {
+        $label = Get-SafeName (Get-StringOrDefault -Item $item -Property "label" -Default "audio-smoke")
+        $romPath = Get-StringOrDefault -Item $item -Property "romPath" -Default ""
+        if ([string]::IsNullOrWhiteSpace($romPath)) {
+            $results.Add([pscustomobject]@{
+                label = $label
+                status = "missing-rom"
+                exitCode = -1
+                observedFrame = 0
+                cycles = 0
+                directSamples = 0
+                psgSamples = 0
+                framePpm = ""
+                directCsv = ""
+                psgCsv = ""
+                directSummary = ""
+                psgSummary = ""
+                mixedWav = ""
+                romPath = ""
+                message = "Manifest row has no romPath"
+            })
+            continue
+        }
+
+        $resolvedRom = Resolve-Path -LiteralPath $romPath -ErrorAction SilentlyContinue
+        if ($null -eq $resolvedRom) {
+            $results.Add([pscustomobject]@{
+                label = $label
+                status = "missing-rom"
+                exitCode = -1
+                observedFrame = 0
+                cycles = 0
+                directSamples = 0
+                psgSamples = 0
+                framePpm = ""
+                directCsv = ""
+                psgCsv = ""
+                directSummary = ""
+                psgSummary = ""
+                mixedWav = ""
+                romPath = $romPath
+                message = "ROM not found"
+            })
+            continue
+        }
+
+        $framePpm = Join-Path $frameDir "$label.ppm"
+        $directCsv = Join-Path $csvDir "$label-direct.csv"
+        $psgCsv = Join-Path $csvDir "$label-psg.csv"
+        $directSummary = Join-Path $summaryDir "$label-direct.md"
+        $psgSummary = Join-Path $summaryDir "$label-psg.md"
+        $mixedWav = Join-Path $wavDir "$label-mixed.wav"
+        $stdoutLog = Join-Path $logDir "$label.stdout.txt"
+        $stderrLog = Join-Path $logDir "$label.stderr.txt"
+
+        if ($Resume -and (Test-Path -LiteralPath $mixedWav)) {
+            Write-Host "Skipping existing audio smoke $label"
+            continue
+        }
+
+        $stopFrame = Get-IntOrDefault -Item $item -Property "stopFrame" -Default $DefaultStopFrame
+        $maxSteps = Get-LongOrDefault -Item $item -Property "maxSteps" -Default $DefaultMaxSteps
+        $maxSeconds = Get-IntOrDefault -Item $item -Property "maxSeconds" -Default $DefaultMaxSeconds
+        $alignRomEntry = Get-BoolOrDefault -Item $item -Property "alignRomEntry" -Default $true
+
+        $args = @(
+            $cliDll.FullName,
+            "dump-frame", $resolvedRom.Path,
+            "--stop-frame", "$stopFrame",
+            "--max-steps", "$maxSteps",
+            "--max-seconds", "$maxSeconds",
+            "--output", $framePpm,
+            "--audio-csv", $directCsv,
+            "--psg-csv", $psgCsv
+        )
+
+        if (-not $NoAlignRomEntry -and $alignRomEntry) {
+            $args += "--align-rom-entry"
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace($Bios)) {
+            $args += @("--bios", $Bios)
+        }
+
+        $keys = Get-StringOrDefault -Item $item -Property "keys" -Default ""
+        if (-not [string]::IsNullOrWhiteSpace($keys)) {
+            $args += @("--keys", $keys)
+        }
+
+        $inputScript = Get-StringOrDefault -Item $item -Property "inputScript" -Default ""
+        if (-not [string]::IsNullOrWhiteSpace($inputScript)) {
+            $args += @("--input-script", $inputScript)
+        }
+
+        $saveFile = Get-StringOrDefault -Item $item -Property "saveFile" -Default ""
+        if (-not [string]::IsNullOrWhiteSpace($saveFile)) {
+            $args += @("--save-file", $saveFile)
+            if (Get-BoolOrDefault -Item $item -Property "saveReadOnly" -Default $false) {
+                $args += "--save-read-only"
+            }
+        }
+
+        Write-Host "Running audio smoke $label"
+        $result = Invoke-CheckedProcess -FileName "dotnet" -Arguments $args -TimeoutSeconds $ProcessTimeoutSeconds -Description "Audio smoke $label"
+        $result.Stdout | Set-Content -LiteralPath $stdoutLog -Encoding UTF8
+        $result.Stderr | Set-Content -LiteralPath $stderrLog -Encoding UTF8
+        $message = (($result.Stdout + " " + $result.Stderr) -replace '\s+', ' ').Trim()
+        $observedFrame = Get-FrameFromOutput $message
+        $cycles = Get-CyclesFromOutput $message
+
+        $directSamples = Get-CsvDataRows $directCsv
+        $psgSamples = Get-CsvDataRows $psgCsv
+        if (Test-Path -LiteralPath $directCsv) {
+            $summaryResult = Invoke-CheckedProcess -FileName "python" -Arguments @("scripts\analyze-audio-csv.py", $directCsv, "--output", $directSummary) -TimeoutSeconds 60 -Description "Analyze direct audio $label"
+            if ($summaryResult.ExitCode -ne 0) {
+                $message = "$message direct-summary-error: $($summaryResult.Stderr)"
+            }
+        }
+
+        if (Test-Path -LiteralPath $psgCsv) {
+            $summaryResult = Invoke-CheckedProcess -FileName "python" -Arguments @("scripts\analyze-audio-csv.py", $psgCsv, "--output", $psgSummary) -TimeoutSeconds 60 -Description "Analyze PSG audio $label"
+            if ($summaryResult.ExitCode -ne 0) {
+                $message = "$message psg-summary-error: $($summaryResult.Stderr)"
+            }
+        }
+
+        if (Test-Path -LiteralPath $directCsv) {
+            $wavResult = Invoke-CheckedProcess -FileName "python" -Arguments @("scripts\audio-csv-to-wav.py", $directCsv, $mixedWav, "--mix", $psgCsv) -TimeoutSeconds 120 -Description "Export mixed audio $label"
+        }
+        elseif (Test-Path -LiteralPath $psgCsv) {
+            $wavResult = Invoke-CheckedProcess -FileName "python" -Arguments @("scripts\audio-csv-to-wav.py", $psgCsv, $mixedWav) -TimeoutSeconds 120 -Description "Export PSG audio $label"
+        }
+        else {
+            $wavResult = [pscustomobject]@{ ExitCode = -1; Stdout = ""; Stderr = "No audio CSV files written" }
+        }
+
+        if ($wavResult.ExitCode -ne 0) {
+            $message = "$message wav-error: $($wavResult.Stderr)"
+        }
+
+        $status = if ($result.ExitCode -eq 124) {
+            "process-timeout"
+        }
+        elseif ($result.ExitCode -ne 0) {
+            "fail"
+        }
+        elseif ($observedFrame -lt $stopFrame) {
+            "incomplete"
+        }
+        else {
+            "pass"
+        }
+
+        $results.Add([pscustomobject]@{
+            label = $label
+            status = $status
+            exitCode = $result.ExitCode
+            observedFrame = $observedFrame
+            cycles = $cycles
+            directSamples = $directSamples
+            psgSamples = $psgSamples
+            framePpm = $framePpm
+            directCsv = $directCsv
+            psgCsv = $psgCsv
+            directSummary = $directSummary
+            psgSummary = $psgSummary
+            mixedWav = if (Test-Path -LiteralPath $mixedWav) { $mixedWav } else { "" }
+            romPath = $resolvedRom.Path
+            message = $message
+        })
+    }
+
+    $reportCsv = Join-Path $OutputDir "audio-smoke.csv"
+    $reportMd = Join-Path $OutputDir "summary.md"
+    $results | Export-Csv -LiteralPath $reportCsv -NoTypeInformation
+    Write-MarkdownReport -Rows @($results.ToArray()) -Path $reportMd -ManifestPath $Manifest
+    Write-Host "Wrote audio smoke report to $reportCsv"
+    Write-Host "Wrote audio smoke summary to $reportMd"
+}
+finally {
+    Pop-Location
+}
