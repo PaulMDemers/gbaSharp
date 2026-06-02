@@ -118,7 +118,7 @@ public sealed class AudioController
         {
             if ((square1FrequencyControl & (1 << 15)) != 0)
             {
-                _square1.Trigger(_bus.PeekIo16(IoRegisters.SOUND1CNT_H), square1FrequencyControl);
+                _square1.Trigger(_bus.PeekIo16(IoRegisters.SOUND1CNT_H), square1FrequencyControl, _bus.PeekIo16(IoRegisters.SOUND1CNT_L));
             }
             else
             {
@@ -163,6 +163,11 @@ public sealed class AudioController
         {
             _square1.ClockLength();
             _square2.ClockLength();
+        }
+
+        if (_frameSequencerStep is 2 or 6)
+        {
+            _square1.ClockSweep();
         }
 
         if (_frameSequencerStep == 7)
@@ -260,10 +265,15 @@ public sealed class AudioController
             _envelopePeriod = 0;
             _envelopeTimer = 0;
             _envelopeIncrease = false;
+            _sweepPeriod = 0;
+            _sweepTimer = 0;
+            _sweepShift = 0;
+            _sweepNegate = false;
+            _sweepEnabled = false;
             _phase = 0;
         }
 
-        public void Trigger(ushort control, ushort frequencyControl)
+        public void Trigger(ushort control, ushort frequencyControl, ushort sweepControl = 0)
         {
             _frequency = frequencyControl & 0x07FF;
             _volume = (control >> 12) & 0xF;
@@ -275,6 +285,7 @@ public sealed class AudioController
             var lengthLoad = control & 0x3F;
             _lengthCounter = lengthLoad == 0 ? 64 : 64 - lengthLoad;
             _lengthEnabled = (frequencyControl & (1 << 14)) != 0;
+            ConfigureSweep(sweepControl);
             _phase = 0;
             _enabled = _envelopeVolume > 0 && _frequency < 2048;
         }
@@ -324,6 +335,36 @@ public sealed class AudioController
             }
         }
 
+        public void ClockSweep()
+        {
+            if (!_enabled || !_sweepEnabled)
+            {
+                return;
+            }
+
+            _sweepTimer--;
+            if (_sweepTimer > 0)
+            {
+                return;
+            }
+
+            _sweepTimer = _sweepPeriod == 0 ? 8 : _sweepPeriod;
+            if (_sweepShift == 0)
+            {
+                return;
+            }
+
+            var delta = _frequency >> _sweepShift;
+            var next = _sweepNegate ? _frequency - delta : _frequency + delta;
+            if (next is < 0 or > 2047)
+            {
+                _enabled = false;
+                return;
+            }
+
+            _frequency = next;
+        }
+
         public int NextOutput()
         {
             if (!_enabled || _envelopeVolume == 0)
@@ -339,6 +380,21 @@ public sealed class AudioController
         }
 
         public override string ToString() => $"Square {channel + 1}";
+
+        private int _sweepPeriod;
+        private int _sweepTimer;
+        private int _sweepShift;
+        private bool _sweepNegate;
+        private bool _sweepEnabled;
+
+        private void ConfigureSweep(ushort sweepControl)
+        {
+            _sweepPeriod = (sweepControl >> 4) & 0x7;
+            _sweepTimer = _sweepPeriod == 0 ? 8 : _sweepPeriod;
+            _sweepNegate = (sweepControl & (1 << 3)) != 0;
+            _sweepShift = sweepControl & 0x7;
+            _sweepEnabled = channel == 0 && (_sweepPeriod > 0 || _sweepShift > 0);
+        }
     }
 }
 

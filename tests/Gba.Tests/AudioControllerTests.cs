@@ -218,4 +218,25 @@ public sealed class AudioControllerTests
         var after = Assert.Single(gba.Audio.DrainPsgSamples());
         Assert.Equal(64, after.Left);
     }
+
+    [Fact]
+    public void Square1SweepOverflowDisablesChannel()
+    {
+        var gba = new GbaSystem();
+        gba.Audio.CapturePsgSamples = true;
+        gba.Bus.Write16(IoRegisters.SOUNDCNT_X, 1 << 7);
+        gba.Bus.Write16(IoRegisters.SOUNDCNT_L, (7 << 4) | 7 | (1 << 12) | (1 << 8));
+        gba.Bus.Write16(IoRegisters.SOUND1CNT_L, (1 << 4) | 1);
+        gba.Bus.Write16(IoRegisters.SOUND1CNT_H, (2 << 6) | (8 << 12));
+        gba.Bus.Write16(IoRegisters.SOUND1CNT_X, (1 << 15) | 2047);
+
+        gba.Audio.Advance(512, 512);
+        Assert.NotEmpty(gba.Audio.DrainPsgSamples());
+
+        gba.Audio.Advance(97_792, 98_304);
+        gba.Audio.DrainPsgSamples();
+        gba.Audio.Advance(512, 98_816);
+
+        Assert.Empty(gba.Audio.DrainPsgSamples());
+    }
 }
