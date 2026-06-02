@@ -13,6 +13,7 @@ public sealed class MemoryBus
     private const uint PostStartupBiosOpenBus = 0;
     private const byte LegendsPostStartupBiosByteC3 = 0xE1;
     private const ushort InitialRemoteControl = 0x8000;
+    private const int WaveRamBankSize = 16;
     private static readonly int[,] MultiplayerSerialTransferCycles =
     {
         { 31976, 63427, 94884, 125829 },
@@ -28,6 +29,7 @@ public sealed class MemoryBus
     private readonly byte[] _vram;
     private readonly byte[] _oam;
     private readonly byte[] _sram;
+    private readonly byte[,] _waveRam = new byte[2, WaveRamBankSize];
     private readonly List<Action<uint, int>> _ioReadObservers = [];
     private readonly List<Action<uint, int>> _ioWriteObservers = [];
     private readonly List<Action<uint, int, uint>> _memoryReadObservers = [];
@@ -196,6 +198,16 @@ public sealed class MemoryBus
 
         _io[offset] = (byte)value;
         _io[offset + 1] = (byte)(value >> 8);
+    }
+
+    public byte ReadWaveRamPlaybackByte(int bank, int offset)
+    {
+        if ((uint)bank >= 2 || (uint)offset >= WaveRamBankSize)
+        {
+            return 0;
+        }
+
+        return _waveRam[bank, offset];
     }
 
     public void AddIoWriteObserver(Action<uint, int> observer)
@@ -391,6 +403,11 @@ public sealed class MemoryBus
         if (GetRegion(address) == MemoryRegion.Io)
         {
             NotifyIoRead(address, 1);
+            if (IsWaveRamAddress(address))
+            {
+                return ReadCpuWaveRam(address);
+            }
+
             return ReadIo8(address);
         }
 
@@ -458,6 +475,11 @@ public sealed class MemoryBus
         if (mapping.Region == MemoryRegion.Io)
         {
             NotifyIoRead(aligned, 2);
+            if (IsWaveRamAddress(aligned))
+            {
+                return (ushort)(ReadCpuWaveRam(aligned) | (ReadCpuWaveRam(aligned + 1) << 8));
+            }
+
             return ReadIo16(aligned);
         }
 
@@ -513,6 +535,14 @@ public sealed class MemoryBus
         if (mapping.Region == MemoryRegion.Io)
         {
             NotifyIoRead(aligned, 4);
+            if (IsWaveRamAddress(aligned))
+            {
+                return (uint)(ReadCpuWaveRam(aligned)
+                    | (ReadCpuWaveRam(aligned + 1) << 8)
+                    | (ReadCpuWaveRam(aligned + 2) << 16)
+                    | (ReadCpuWaveRam(aligned + 3) << 24));
+            }
+
             return (uint)(ReadIo16(aligned) | (ReadIo16(aligned + 2) << 16));
         }
 
@@ -618,7 +648,14 @@ public sealed class MemoryBus
         }
         else if (mapping.Region == MemoryRegion.Io)
         {
-            WriteIo8(address, value);
+            if (IsWaveRamAddress(address))
+            {
+                WriteCpuWaveRam(address, value);
+            }
+            else
+            {
+                WriteIo8(address, value);
+            }
         }
         else
         {
@@ -653,6 +690,14 @@ public sealed class MemoryBus
 
         if (GetRegion(aligned) == MemoryRegion.Io)
         {
+            if (IsWaveRamAddress(aligned))
+            {
+                WriteCpuWaveRam(aligned, (byte)value);
+                WriteCpuWaveRam(aligned + 1, (byte)(value >> 8));
+                NotifyIoWrite(aligned, 2);
+                return;
+            }
+
             WriteIo16(aligned, value);
             NotifyIoWrite(aligned, 2);
             return;
@@ -974,6 +1019,21 @@ public sealed class MemoryBus
     private void WriteSoundControlStatus(ushort value)
         => PokeIo16(IoRegisters.SOUNDCNT_X, (ushort)(value & 0x0080));
 
+    private byte ReadCpuWaveRam(uint address)
+        => _waveRam[CpuWaveRamBank(), WaveRamOffset(address)];
+
+    private void WriteCpuWaveRam(uint address, byte value)
+        => _waveRam[CpuWaveRamBank(), WaveRamOffset(address)] = value;
+
+    private int CpuWaveRamBank()
+        => (((PeekIo16(IoRegisters.SOUND3CNT_L) >> 6) & 1) ^ 1);
+
+    private static bool IsWaveRamAddress(uint address)
+        => address is >= IoRegisters.WAVE_RAM and < IoRegisters.WAVE_RAM + WaveRamBankSize;
+
+    private static int WaveRamOffset(uint address)
+        => (int)((address - IoRegisters.WAVE_RAM) & (WaveRamBankSize - 1));
+
     private ushort ReadRemoteControl()
     {
         var control = PeekIo16(IoRegisters.RCNT);
@@ -1107,6 +1167,7 @@ public sealed class MemoryBus
         PokeIo16(IoRegisters.SOUNDBIAS, 0x0200);
         PokeIo32(IoRegisters.FIFO_A, 0);
         PokeIo32(IoRegisters.FIFO_B, 0);
+        Array.Clear(_waveRam);
         SoundIoReset?.Invoke();
     }
 
@@ -1211,6 +1272,7 @@ public sealed class MemoryBus
     private void ResetIoRegisters()
     {
         Array.Clear(_io);
+        Array.Clear(_waveRam);
         PokeIo16(IoRegisters.DISPCNT, 0x0080);
         PokeIo16(IoRegisters.RCNT, InitialRemoteControl);
         PokeIo16(IoRegisters.KEYINPUT, 0x03FF);

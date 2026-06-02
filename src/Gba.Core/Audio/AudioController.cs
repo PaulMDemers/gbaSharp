@@ -235,6 +235,7 @@ public sealed class AudioController
         {
             _square1.ClockLength();
             _square2.ClockLength();
+            _wave.ClockLength();
             _noise.ClockLength();
         }
 
@@ -534,6 +535,11 @@ public sealed class AudioController
         private bool _enabled;
         private int _frequency;
         private int _volumeCode;
+        private bool _forceVolume;
+        private int _lengthCounter;
+        private bool _lengthEnabled;
+        private bool _twoBankMode;
+        private int _playbackBank;
         private double _sampleIndex;
 
         public bool IsActive => _enabled;
@@ -543,6 +549,11 @@ public sealed class AudioController
             _enabled = false;
             _frequency = 0;
             _volumeCode = 0;
+            _forceVolume = false;
+            _lengthCounter = 0;
+            _lengthEnabled = false;
+            _twoBankMode = false;
+            _playbackBank = 0;
             _sampleIndex = 0;
         }
 
@@ -550,13 +561,34 @@ public sealed class AudioController
         {
             _frequency = frequencyControl & 0x07FF;
             _volumeCode = (lengthAndVolume >> 13) & 0x3;
+            _forceVolume = (lengthAndVolume & (1 << 15)) != 0;
+            var lengthLoad = lengthAndVolume & 0xFF;
+            _lengthCounter = lengthLoad == 0 ? 256 : 256 - lengthLoad;
+            _lengthEnabled = (frequencyControl & (1 << 14)) != 0;
+            _twoBankMode = (control & (1 << 5)) != 0;
+            _playbackBank = (control >> 6) & 1;
             _sampleIndex = 0;
-            _enabled = (control & (1 << 7)) != 0 && _volumeCode != 0 && _frequency < 2048;
+            _enabled = (control & (1 << 7)) != 0 && (_forceVolume || _volumeCode != 0) && _frequency < 2048;
         }
 
         public void UpdateFrequencyControl(ushort frequencyControl)
         {
             _frequency = frequencyControl & 0x07FF;
+            _lengthEnabled = (frequencyControl & (1 << 14)) != 0;
+        }
+
+        public void ClockLength()
+        {
+            if (!_enabled || !_lengthEnabled || _lengthCounter <= 0)
+            {
+                return;
+            }
+
+            _lengthCounter--;
+            if (_lengthCounter == 0)
+            {
+                _enabled = false;
+            }
         }
 
         public int NextOutput()
@@ -568,23 +600,33 @@ public sealed class AudioController
 
             var sample = ReadWaveSample((int)_sampleIndex);
             var centered = sample - 8;
-            var scaled = _volumeCode switch
+            var output = _forceVolume
+                ? centered * 6
+                : _volumeCode switch
             {
-                1 => centered,
-                2 => centered / 2,
-                3 => centered / 4,
+                1 => centered * 8,
+                2 => centered * 4,
+                3 => centered * 2,
                 _ => 0
             };
             var stepRate = 2_097_152.0 / (2048 - _frequency);
             _sampleIndex += stepRate / PsgSampleRate;
-            _sampleIndex %= 32;
-            return scaled * 8;
+            _sampleIndex %= _twoBankMode ? 64 : 32;
+            return output;
         }
 
         private int ReadWaveSample(int index)
         {
-            var value = bus.Read8(IoRegisters.WAVE_RAM + (uint)(index / 2));
-            return (index & 1) == 0 ? value >> 4 : value & 0xF;
+            var bank = _playbackBank;
+            var localIndex = index;
+            if (_twoBankMode && localIndex >= 32)
+            {
+                bank ^= 1;
+                localIndex -= 32;
+            }
+
+            var value = bus.ReadWaveRamPlaybackByte(bank, localIndex / 2);
+            return (localIndex & 1) == 0 ? value >> 4 : value & 0xF;
         }
     }
 

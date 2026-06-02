@@ -291,6 +291,7 @@ public sealed class AudioControllerTests
     {
         var gba = new GbaSystem();
         gba.Audio.CapturePsgSamples = true;
+        gba.Bus.Write16(IoRegisters.SOUND3CNT_L, 1 << 6);
         gba.Bus.Write8(IoRegisters.WAVE_RAM, 0xF0);
         gba.Bus.Write16(IoRegisters.SOUNDCNT_X, 1 << 7);
         gba.Bus.Write16(IoRegisters.SOUNDCNT_L, (7 << 4) | 7 | (1 << 14) | (1 << 10));
@@ -306,10 +307,72 @@ public sealed class AudioControllerTests
     }
 
     [Fact]
+    public void WaveRamCpuAccessUsesNonPlaybackBank()
+    {
+        var gba = new GbaSystem();
+
+        gba.Bus.Write16(IoRegisters.SOUND3CNT_L, 0);
+        gba.Bus.Write8(IoRegisters.WAVE_RAM, 0x12);
+        Assert.Equal(0x12, gba.Bus.Read8(IoRegisters.WAVE_RAM));
+        Assert.Equal(0x00, gba.Bus.ReadWaveRamPlaybackByte(0, 0));
+        Assert.Equal(0x12, gba.Bus.ReadWaveRamPlaybackByte(1, 0));
+
+        gba.Bus.Write16(IoRegisters.SOUND3CNT_L, 1 << 6);
+        Assert.Equal(0x00, gba.Bus.Read8(IoRegisters.WAVE_RAM));
+        gba.Bus.Write8(IoRegisters.WAVE_RAM, 0x34);
+
+        Assert.Equal(0x34, gba.Bus.ReadWaveRamPlaybackByte(0, 0));
+        Assert.Equal(0x12, gba.Bus.ReadWaveRamPlaybackByte(1, 0));
+    }
+
+    [Fact]
+    public void WaveChannelPlaysSelectedBank()
+    {
+        var gba = new GbaSystem();
+        gba.Audio.CapturePsgSamples = true;
+        gba.Bus.Write16(IoRegisters.SOUNDCNT_X, 1 << 7);
+        gba.Bus.Write16(IoRegisters.SOUNDCNT_L, (7 << 4) | (1 << 14));
+        gba.Bus.Write16(IoRegisters.SOUND3CNT_L, 1 << 6);
+        gba.Bus.Write8(IoRegisters.WAVE_RAM, 0xF0);
+        gba.Bus.Write16(IoRegisters.SOUND3CNT_L, 0);
+        gba.Bus.Write8(IoRegisters.WAVE_RAM, 0x00);
+        gba.Bus.Write16(IoRegisters.SOUND3CNT_L, 1 << 7);
+        gba.Bus.Write16(IoRegisters.SOUND3CNT_H, 1 << 13);
+        gba.Bus.Write16(IoRegisters.SOUND3CNT_X, (1 << 15) | 2047);
+
+        gba.Audio.Advance(512, 512);
+
+        Assert.Equal(448, Assert.Single(gba.Audio.DrainPsgSamples()).Left);
+    }
+
+    [Fact]
+    public void WaveDimensionModeContinuesIntoSecondBank()
+    {
+        var gba = new GbaSystem();
+        gba.Audio.CapturePsgSamples = true;
+        gba.Bus.Write16(IoRegisters.SOUNDCNT_X, 1 << 7);
+        gba.Bus.Write16(IoRegisters.SOUNDCNT_L, (7 << 4) | (1 << 14));
+        gba.Bus.Write16(IoRegisters.SOUND3CNT_L, 1 << 6);
+        gba.Bus.Write8(IoRegisters.WAVE_RAM, 0xF0);
+        gba.Bus.Write16(IoRegisters.SOUND3CNT_L, 0);
+        gba.Bus.Write8(IoRegisters.WAVE_RAM, 0x00);
+        gba.Bus.Write16(IoRegisters.SOUND3CNT_L, (1 << 7) | (1 << 5));
+        gba.Bus.Write16(IoRegisters.SOUND3CNT_H, 1 << 13);
+        gba.Bus.Write16(IoRegisters.SOUND3CNT_X, (1 << 15) | 2046);
+
+        gba.Audio.Advance(512, 512);
+        Assert.Equal(448, Assert.Single(gba.Audio.DrainPsgSamples()).Left);
+        gba.Audio.Advance(512, 1024);
+
+        Assert.Equal(-512, Assert.Single(gba.Audio.DrainPsgSamples()).Left);
+    }
+
+    [Fact]
     public void WaveChannelVolumeCodeHalvesOutput()
     {
         var gba = new GbaSystem();
         gba.Audio.CapturePsgSamples = true;
+        gba.Bus.Write16(IoRegisters.SOUND3CNT_L, 1 << 6);
         gba.Bus.Write8(IoRegisters.WAVE_RAM, 0xF0);
         gba.Bus.Write16(IoRegisters.SOUNDCNT_X, 1 << 7);
         gba.Bus.Write16(IoRegisters.SOUNDCNT_L, (7 << 4) | (1 << 14));
@@ -320,8 +383,50 @@ public sealed class AudioControllerTests
         gba.Audio.Advance(512, 512);
 
         var sample = Assert.Single(gba.Audio.DrainPsgSamples());
-        Assert.Equal(192, sample.Left);
+        Assert.Equal(224, sample.Left);
         Assert.Equal(0, sample.Right);
+    }
+
+    [Fact]
+    public void WaveChannelForceVolumeOutputsSeventyFivePercent()
+    {
+        var gba = new GbaSystem();
+        gba.Audio.CapturePsgSamples = true;
+        gba.Bus.Write16(IoRegisters.SOUND3CNT_L, 1 << 6);
+        gba.Bus.Write8(IoRegisters.WAVE_RAM, 0xF0);
+        gba.Bus.Write16(IoRegisters.SOUNDCNT_X, 1 << 7);
+        gba.Bus.Write16(IoRegisters.SOUNDCNT_L, (7 << 4) | (1 << 14));
+        gba.Bus.Write16(IoRegisters.SOUND3CNT_L, 1 << 7);
+        gba.Bus.Write16(IoRegisters.SOUND3CNT_H, 1 << 15);
+        gba.Bus.Write16(IoRegisters.SOUND3CNT_X, (1 << 15) | 2047);
+
+        gba.Audio.Advance(512, 512);
+
+        Assert.Equal(336, Assert.Single(gba.Audio.DrainPsgSamples()).Left);
+    }
+
+    [Fact]
+    public void WaveLengthCounterStopsChannel()
+    {
+        var gba = new GbaSystem();
+        gba.Audio.CapturePsgSamples = true;
+        gba.Bus.Write16(IoRegisters.SOUND3CNT_L, 1 << 6);
+        gba.Bus.Write8(IoRegisters.WAVE_RAM, 0xF0);
+        gba.Bus.Write16(IoRegisters.SOUNDCNT_X, 1 << 7);
+        gba.Bus.Write16(IoRegisters.SOUNDCNT_L, (7 << 4) | (1 << 14));
+        gba.Bus.Write16(IoRegisters.SOUND3CNT_L, 1 << 7);
+        gba.Bus.Write16(IoRegisters.SOUND3CNT_H, 255 | (1 << 13));
+        gba.Bus.Write16(IoRegisters.SOUND3CNT_X, (1 << 15) | (1 << 14) | 2047);
+
+        gba.Audio.Advance(512, 512);
+        Assert.NotEmpty(gba.Audio.DrainPsgSamples());
+
+        gba.Audio.Advance(32_768, 33_280);
+        gba.Audio.DrainPsgSamples();
+        gba.Audio.Advance(512, 33_792);
+
+        Assert.Empty(gba.Audio.DrainPsgSamples());
+        Assert.Equal(0x0080, gba.Bus.Read16(IoRegisters.SOUNDCNT_X));
     }
 
     [Fact]
