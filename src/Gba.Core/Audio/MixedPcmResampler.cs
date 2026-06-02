@@ -8,6 +8,7 @@ public sealed class MixedPcmResampler
     private readonly int _clockHz;
     private readonly int _directScale;
     private readonly int _psgScale;
+    private readonly double _outputGain;
     private readonly int _maxFramesPerEvent;
     private readonly short[,] _currentDirectByFifo = new short[2, 2];
     private short _currentPsgLeft;
@@ -20,6 +21,7 @@ public sealed class MixedPcmResampler
         int clockHz = DirectSoundPcmResampler.DefaultGbaClockHz,
         int directScale = DefaultDirectScale,
         int psgScale = DefaultPsgScale,
+        double outputGain = 1.0,
         int maxFramesPerEvent = 4_410)
     {
         if (sampleRate <= 0)
@@ -42,6 +44,11 @@ public sealed class MixedPcmResampler
             throw new ArgumentOutOfRangeException(nameof(psgScale), psgScale, "PSG scale must be greater than zero.");
         }
 
+        if (outputGain <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(outputGain), outputGain, "Output gain must be greater than zero.");
+        }
+
         if (maxFramesPerEvent <= 0)
         {
             throw new ArgumentOutOfRangeException(nameof(maxFramesPerEvent), maxFramesPerEvent, "Frame cap must be greater than zero.");
@@ -51,6 +58,7 @@ public sealed class MixedPcmResampler
         _clockHz = clockHz;
         _directScale = directScale;
         _psgScale = psgScale;
+        _outputGain = outputGain;
         _maxFramesPerEvent = maxFramesPerEvent;
     }
 
@@ -131,13 +139,13 @@ public sealed class MixedPcmResampler
 
     private short MixLeft()
         => Clamp16(
-            ((_currentDirectByFifo[0, 0] + _currentDirectByFifo[1, 0]) * _directScale)
-            + (_currentPsgLeft * _psgScale));
+            (int)Math.Round((((_currentDirectByFifo[0, 0] + _currentDirectByFifo[1, 0]) * _directScale)
+            + (_currentPsgLeft * _psgScale)) * _outputGain));
 
     private short MixRight()
         => Clamp16(
-            ((_currentDirectByFifo[0, 1] + _currentDirectByFifo[1, 1]) * _directScale)
-            + (_currentPsgRight * _psgScale));
+            (int)Math.Round((((_currentDirectByFifo[0, 1] + _currentDirectByFifo[1, 1]) * _directScale)
+            + (_currentPsgRight * _psgScale)) * _outputGain));
 
     private static short Clamp16(int value)
         => (short)Math.Clamp(value, short.MinValue, short.MaxValue);

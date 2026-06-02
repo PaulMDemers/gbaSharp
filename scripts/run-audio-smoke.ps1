@@ -181,6 +181,80 @@ function Get-WavSecondsFromOutput {
     return 0.0
 }
 
+function Get-WavPcmMetrics {
+    param([string]$Path)
+
+    $empty = [pscustomobject]@{
+        PeakPercent = 0.0
+        RmsPercent = 0.0
+        ClippedSamples = 0
+    }
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return $empty
+    }
+
+    $bytes = [System.IO.File]::ReadAllBytes((Resolve-Path -LiteralPath $Path))
+    if ($bytes.Length -lt 44) {
+        return $empty
+    }
+
+    $riff = [System.Text.Encoding]::ASCII.GetString($bytes, 0, 4)
+    $wave = [System.Text.Encoding]::ASCII.GetString($bytes, 8, 4)
+    if ($riff -ne "RIFF" -or $wave -ne "WAVE") {
+        return $empty
+    }
+
+    $dataOffset = -1
+    $dataLength = 0
+    $offset = 12
+    while ($offset + 8 -le $bytes.Length) {
+        $chunkId = [System.Text.Encoding]::ASCII.GetString($bytes, $offset, 4)
+        $chunkLength = [BitConverter]::ToUInt32($bytes, $offset + 4)
+        $chunkDataOffset = $offset + 8
+        if ($chunkId -eq "data") {
+            $dataOffset = $chunkDataOffset
+            $dataLength = [Math]::Min([int]$chunkLength, $bytes.Length - $chunkDataOffset)
+            break
+        }
+
+        $offset = $chunkDataOffset + [int]$chunkLength
+        if (($chunkLength % 2) -ne 0) {
+            $offset++
+        }
+    }
+
+    if ($dataOffset -lt 0 -or $dataLength -lt 2) {
+        return $empty
+    }
+
+    $sampleCount = [int]($dataLength / 2)
+    $peak = 0
+    $clipped = 0
+    $sumSquares = 0.0
+    for ($sampleIndex = 0; $sampleIndex -lt $sampleCount; $sampleIndex++) {
+        $sample = [BitConverter]::ToInt16($bytes, $dataOffset + ($sampleIndex * 2))
+        $absolute = [Math]::Abs([int]$sample)
+        if ($absolute -gt $peak) {
+            $peak = $absolute
+        }
+
+        if ($sample -eq 32767 -or $sample -eq -32768) {
+            $clipped++
+        }
+
+        $value = [double]$sample
+        $sumSquares += $value * $value
+    }
+
+    $rms = if ($sampleCount -gt 0) { [Math]::Sqrt($sumSquares / $sampleCount) } else { 0.0 }
+    return [pscustomobject]@{
+        PeakPercent = [Math]::Round(($peak / 32768.0) * 100.0, 3)
+        RmsPercent = [Math]::Round(($rms / 32768.0) * 100.0, 3)
+        ClippedSamples = $clipped
+    }
+}
+
 function Write-MarkdownReport {
     param(
         [object[]]$Rows,
@@ -198,14 +272,17 @@ function Write-MarkdownReport {
         "- Pass: $passed",
         "- Non-pass: $failed",
         "",
-        "| Label | Status | Frame | Direct Samples | PSG Samples | WAV Seconds | Mixed WAV |",
-        "| --- | --- | ---: | ---: | ---: | ---: | --- |"
+        "| Label | Status | Frame | Direct Samples | PSG Samples | WAV Seconds | Peak % | RMS % | Clipped | Mixed WAV |",
+        "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |"
     )
 
     foreach ($row in $Rows) {
         $wav = if ([string]::IsNullOrWhiteSpace($row.mixedWav)) { "" } else { $row.mixedWav }
         $wavSeconds = if ($row.PSObject.Properties.Name -contains "wavSeconds") { "{0:N3}" -f [double]$row.wavSeconds } else { "0.000" }
-        $lines += "| $($row.label) | $($row.status) | $($row.observedFrame) | $($row.directSamples) | $($row.psgSamples) | $wavSeconds | $wav |"
+        $wavPeak = if ($row.PSObject.Properties.Name -contains "wavPeakPercent") { "{0:N3}" -f [double]$row.wavPeakPercent } else { "0.000" }
+        $wavRms = if ($row.PSObject.Properties.Name -contains "wavRmsPercent") { "{0:N3}" -f [double]$row.wavRmsPercent } else { "0.000" }
+        $wavClipped = if ($row.PSObject.Properties.Name -contains "wavClippedSamples") { [long]$row.wavClippedSamples } else { 0 }
+        $lines += "| $($row.label) | $($row.status) | $($row.observedFrame) | $($row.directSamples) | $($row.psgSamples) | $wavSeconds | $wavPeak | $wavRms | $wavClipped | $wav |"
     }
 
     $lines | Set-Content -LiteralPath $Path -Encoding UTF8
@@ -282,6 +359,9 @@ try {
                 psgSummary = ""
                 wavFrames = 0
                 wavSeconds = 0
+                wavPeakPercent = 0
+                wavRmsPercent = 0
+                wavClippedSamples = 0
                 mixedWav = ""
                 romPath = ""
                 message = "Manifest row has no romPath"
@@ -306,6 +386,9 @@ try {
                 psgSummary = ""
                 wavFrames = 0
                 wavSeconds = 0
+                wavPeakPercent = 0
+                wavRmsPercent = 0
+                wavClippedSamples = 0
                 mixedWav = ""
                 romPath = $romPath
                 message = "ROM not found"
@@ -409,6 +492,7 @@ try {
 
         $wavFrames = Get-WavFramesFromOutput $wavResult.Stdout
         $wavSeconds = Get-WavSecondsFromOutput $wavResult.Stdout
+        $wavMetrics = Get-WavPcmMetrics $mixedWav
 
         $status = if ($result.ExitCode -eq 124) {
             "process-timeout"
@@ -438,6 +522,9 @@ try {
             psgSummary = $psgSummary
             wavFrames = $wavFrames
             wavSeconds = $wavSeconds
+            wavPeakPercent = $wavMetrics.PeakPercent
+            wavRmsPercent = $wavMetrics.RmsPercent
+            wavClippedSamples = $wavMetrics.ClippedSamples
             mixedWav = if (Test-Path -LiteralPath $mixedWav) { $mixedWav } else { "" }
             romPath = $resolvedRom.Path
             message = $message

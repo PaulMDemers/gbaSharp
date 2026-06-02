@@ -46,6 +46,19 @@ public sealed class MixedPcmResamplerTests
     }
 
     [Fact]
+    public void OutputGainScalesMixedFrames()
+    {
+        var resampler = new MixedPcmResampler(sampleRate: 4, clockHz: 8, directScale: 2, psgScale: 3, outputGain: 0.5);
+        var frames = new List<(short Left, short Right)>();
+
+        resampler.Process(new DirectSoundPcmSample(0, 0, 0, 0, 4, -4), (left, right) => frames.Add((left, right)));
+        resampler.Process(new PsgPcmSample(0, 2, 1), (left, right) => frames.Add((left, right)));
+        resampler.Process(new DirectSoundPcmSample(0, 0, 2, 0, 8, 8), (left, right) => frames.Add((left, right)));
+
+        Assert.Equal([(7, -2)], frames);
+    }
+
+    [Fact]
     public void ResetClearsHeldMixedState()
     {
         var resampler = new MixedPcmResampler(sampleRate: 4, clockHz: 8, directScale: 1, psgScale: 1);

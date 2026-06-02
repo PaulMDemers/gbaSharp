@@ -101,7 +101,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("wav", help="Output WAV path")
     parser.add_argument("--mix", action="append", default=[], help="Additional direct-sound or PSG CSV to mix into the output WAV")
     parser.add_argument("--sample-rate", "-r", type=int, default=44_100, help="Output sample rate")
-    parser.add_argument("--gain", "-g", type=float, default=1.0, help="Linear output gain applied after source scale")
+    parser.add_argument("--gain", "-g", type=float, default=0.5, help="Linear output gain applied after source scale")
     parser.add_argument("--direct-scale", type=float, default=DEFAULT_DIRECT_SCALE, help="Direct-sound sample scale before gain")
     parser.add_argument("--psg-scale", type=float, default=DEFAULT_PSG_SCALE, help="PSG sample scale before gain")
     parser.add_argument("--scale", type=float, default=0, help="Legacy override for all source scales before gain")

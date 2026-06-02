@@ -13,6 +13,7 @@ internal sealed class WaveOutAudioOutput : IDisposable
     private const int FrameBytes = Channels * BytesPerSample;
     private const int BufferFrames = 1_024;
     private const int BufferCount = 4;
+    private const double MasterGain = 0.5;
     private const int MaxQueuedFrames = SampleRate / 2;
     private const int MaxFramesPerEvent = SampleRate / 10;
     private const uint WaveMapper = 0xFFFF_FFFF;
@@ -23,7 +24,7 @@ internal sealed class WaveOutAudioOutput : IDisposable
     private readonly object _queueSync = new();
     private readonly object _deviceSync = new();
     private readonly Queue<short> _queuedSamples = new(MaxQueuedFrames * Channels);
-    private readonly MixedPcmResampler _resampler = new(SampleRate, maxFramesPerEvent: MaxFramesPerEvent);
+    private readonly MixedPcmResampler _resampler = new(SampleRate, outputGain: MasterGain, maxFramesPerEvent: MaxFramesPerEvent);
     private readonly WaveBuffer[] _buffers = new WaveBuffer[BufferCount];
     private readonly Thread? _pumpThread;
     private volatile bool _disposed;
