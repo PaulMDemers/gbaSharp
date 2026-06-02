@@ -7,12 +7,15 @@ public sealed class AudioController
 {
     private const int PsgSampleRate = 32_768;
     private const int PsgCyclesPerSample = DirectSoundPcmResampler.DefaultGbaClockHz / PsgSampleRate;
+    private const int PsgSamplesPerFrameSequencerTick = PsgSampleRate / 512;
     private readonly MemoryBus _bus;
     private readonly List<DirectSoundPcmSample> _pendingSamples = [];
     private readonly List<PsgPcmSample> _pendingPsgSamples = [];
     private readonly SquareChannel _square1 = new(0);
     private readonly SquareChannel _square2 = new(1);
     private long _psgCyclesUntilNext = PsgCyclesPerSample;
+    private int _psgSamplesUntilFrameSequencer = PsgSamplesPerFrameSequencerTick;
+    private int _frameSequencerStep;
 
     public AudioController(MemoryBus bus, DmaController dma)
     {
@@ -52,6 +55,7 @@ public sealed class AudioController
             sampleCycle += _psgCyclesUntilNext;
             remaining -= _psgCyclesUntilNext;
             EmitPsgSample(sampleCycle);
+            ClockFrameSequencerIfNeeded();
             _psgCyclesUntilNext = PsgCyclesPerSample;
         }
 
@@ -110,15 +114,29 @@ public sealed class AudioController
     private void OnIoWrite(uint address, int bytes)
     {
         if (Overlaps(address, bytes, IoRegisters.SOUND1CNT_X, 2)
-            && (_bus.PeekIo16(IoRegisters.SOUND1CNT_X) & (1 << 15)) != 0)
+            && (_bus.PeekIo16(IoRegisters.SOUND1CNT_X) is var square1FrequencyControl))
         {
-            _square1.Trigger(_bus.PeekIo16(IoRegisters.SOUND1CNT_H), _bus.PeekIo16(IoRegisters.SOUND1CNT_X));
+            if ((square1FrequencyControl & (1 << 15)) != 0)
+            {
+                _square1.Trigger(_bus.PeekIo16(IoRegisters.SOUND1CNT_H), square1FrequencyControl);
+            }
+            else
+            {
+                _square1.UpdateFrequencyControl(square1FrequencyControl);
+            }
         }
 
         if (Overlaps(address, bytes, IoRegisters.SOUND2CNT_H, 2)
-            && (_bus.PeekIo16(IoRegisters.SOUND2CNT_H) & (1 << 15)) != 0)
+            && (_bus.PeekIo16(IoRegisters.SOUND2CNT_H) is var square2FrequencyControl))
         {
-            _square2.Trigger(_bus.PeekIo16(IoRegisters.SOUND2CNT_L), _bus.PeekIo16(IoRegisters.SOUND2CNT_H));
+            if ((square2FrequencyControl & (1 << 15)) != 0)
+            {
+                _square2.Trigger(_bus.PeekIo16(IoRegisters.SOUND2CNT_L), square2FrequencyControl);
+            }
+            else
+            {
+                _square2.UpdateFrequencyControl(square2FrequencyControl);
+            }
         }
     }
 
@@ -128,6 +146,32 @@ public sealed class AudioController
         _square1.Reset();
         _square2.Reset();
         _psgCyclesUntilNext = PsgCyclesPerSample;
+        _psgSamplesUntilFrameSequencer = PsgSamplesPerFrameSequencerTick;
+        _frameSequencerStep = 0;
+    }
+
+    private void ClockFrameSequencerIfNeeded()
+    {
+        _psgSamplesUntilFrameSequencer--;
+        if (_psgSamplesUntilFrameSequencer > 0)
+        {
+            return;
+        }
+
+        _psgSamplesUntilFrameSequencer = PsgSamplesPerFrameSequencerTick;
+        if ((_frameSequencerStep & 1) == 0)
+        {
+            _square1.ClockLength();
+            _square2.ClockLength();
+        }
+
+        if (_frameSequencerStep == 7)
+        {
+            _square1.ClockEnvelope();
+            _square2.ClockEnvelope();
+        }
+
+        _frameSequencerStep = (_frameSequencerStep + 1) & 7;
     }
 
     private void EmitPsgSample(long cycle)
@@ -196,6 +240,12 @@ public sealed class AudioController
         private int _frequency;
         private int _volume;
         private int _duty;
+        private int _lengthCounter;
+        private bool _lengthEnabled;
+        private int _envelopeVolume;
+        private int _envelopePeriod;
+        private int _envelopeTimer;
+        private bool _envelopeIncrease;
         private double _phase;
 
         public void Reset()
@@ -204,6 +254,12 @@ public sealed class AudioController
             _frequency = 0;
             _volume = 0;
             _duty = 0;
+            _lengthCounter = 0;
+            _lengthEnabled = false;
+            _envelopeVolume = 0;
+            _envelopePeriod = 0;
+            _envelopeTimer = 0;
+            _envelopeIncrease = false;
             _phase = 0;
         }
 
@@ -211,14 +267,66 @@ public sealed class AudioController
         {
             _frequency = frequencyControl & 0x07FF;
             _volume = (control >> 12) & 0xF;
+            _envelopeVolume = _volume;
+            _envelopeIncrease = (control & (1 << 11)) != 0;
+            _envelopePeriod = (control >> 8) & 0x7;
+            _envelopeTimer = _envelopePeriod;
             _duty = (control >> 6) & 0x3;
+            var lengthLoad = control & 0x3F;
+            _lengthCounter = lengthLoad == 0 ? 64 : 64 - lengthLoad;
+            _lengthEnabled = (frequencyControl & (1 << 14)) != 0;
             _phase = 0;
-            _enabled = _volume > 0 && _frequency < 2048;
+            _enabled = _envelopeVolume > 0 && _frequency < 2048;
+        }
+
+        public void UpdateFrequencyControl(ushort frequencyControl)
+        {
+            _frequency = frequencyControl & 0x07FF;
+            _lengthEnabled = (frequencyControl & (1 << 14)) != 0;
+        }
+
+        public void ClockLength()
+        {
+            if (!_enabled || !_lengthEnabled || _lengthCounter <= 0)
+            {
+                return;
+            }
+
+            _lengthCounter--;
+            if (_lengthCounter == 0)
+            {
+                _enabled = false;
+            }
+        }
+
+        public void ClockEnvelope()
+        {
+            if (!_enabled || _envelopePeriod == 0)
+            {
+                return;
+            }
+
+            _envelopeTimer--;
+            if (_envelopeTimer > 0)
+            {
+                return;
+            }
+
+            _envelopeTimer = _envelopePeriod;
+            var nextVolume = _envelopeVolume + (_envelopeIncrease ? 1 : -1);
+            if (nextVolume is >= 0 and <= 15)
+            {
+                _envelopeVolume = nextVolume;
+                if (_envelopeVolume == 0)
+                {
+                    _enabled = false;
+                }
+            }
         }
 
         public int NextOutput()
         {
-            if (!_enabled)
+            if (!_enabled || _envelopeVolume == 0)
             {
                 return 0;
             }
@@ -227,7 +335,7 @@ public sealed class AudioController
             _phase += frequencyHz / PsgSampleRate;
             _phase -= Math.Floor(_phase);
             var sign = _phase < DutyThresholds[_duty] ? 1 : -1;
-            return sign * _volume * 8;
+            return sign * _envelopeVolume * 8;
         }
 
         public override string ToString() => $"Square {channel + 1}";

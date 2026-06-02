@@ -176,4 +176,46 @@ public sealed class AudioControllerTests
 
         Assert.Equal(before, gba.Scheduler.CyclesUntilNextEvent);
     }
+
+    [Fact]
+    public void SquareLengthCounterStopsChannel()
+    {
+        var gba = new GbaSystem();
+        gba.Audio.CapturePsgSamples = true;
+        gba.Bus.Write16(IoRegisters.SOUNDCNT_X, 1 << 7);
+        gba.Bus.Write16(IoRegisters.SOUNDCNT_L, (7 << 4) | 7 | (1 << 12) | (1 << 8));
+        gba.Bus.Write16(IoRegisters.SOUND1CNT_H, 63 | (2 << 6) | (8 << 12));
+        gba.Bus.Write16(IoRegisters.SOUND1CNT_X, (1 << 15) | (1 << 14) | 2047);
+
+        gba.Audio.Advance(512, 512);
+        Assert.NotEmpty(gba.Audio.DrainPsgSamples());
+
+        gba.Audio.Advance(32_768, 33_280);
+        gba.Audio.DrainPsgSamples();
+        gba.Audio.Advance(512, 33_792);
+
+        Assert.Empty(gba.Audio.DrainPsgSamples());
+    }
+
+    [Fact]
+    public void SquareEnvelopeCanDecreaseVolume()
+    {
+        var gba = new GbaSystem();
+        gba.Audio.CapturePsgSamples = true;
+        gba.Bus.Write16(IoRegisters.SOUNDCNT_X, 1 << 7);
+        gba.Bus.Write16(IoRegisters.SOUNDCNT_L, (7 << 4) | 7 | (1 << 12) | (1 << 8));
+        gba.Bus.Write16(IoRegisters.SOUND1CNT_H, (2 << 6) | (1 << 8) | (2 << 12));
+        gba.Bus.Write16(IoRegisters.SOUND1CNT_X, (1 << 15) | 2047);
+
+        gba.Audio.Advance(512, 512);
+        var before = Assert.Single(gba.Audio.DrainPsgSamples());
+        Assert.Equal(128, before.Left);
+
+        gba.Audio.Advance(262_144, 262_656);
+        gba.Audio.DrainPsgSamples();
+        gba.Audio.Advance(512, 263_168);
+
+        var after = Assert.Single(gba.Audio.DrainPsgSamples());
+        Assert.Equal(64, after.Left);
+    }
 }
