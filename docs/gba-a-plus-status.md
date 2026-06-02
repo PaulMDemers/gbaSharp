@@ -1,6 +1,6 @@
 # GBA A+ Milestone Status
 
-Last updated: 2026-06-01
+Last updated: 2026-06-02
 
 ## Current Compatibility Notes
 
@@ -58,11 +58,11 @@ The PSG capture tooling is verified through `dump-frame --psg-csv`; a short Soni
 
 `scripts/run-audio-smoke.ps1` now drives repeatable retail audio captures from `docs/gba-audio-smoke-routes.csv`, writing final frames, direct/PSG CSVs, per-stream summaries, mixed WAVs, logs, a CSV report, and a Markdown summary. The starter no-BIOS run `artifacts/audio-smoke-script-check-2` passes Sonic Advance and Pokemon Ruby to frame 300: Sonic reports 104,194 direct-sound samples at ~10.5 kHz and Ruby reports 133,502 direct-sound samples at ~13.4 kHz, with both early windows producing 0 PSG samples. PSG CSVs intentionally contain emitted mixed PSG rows only, not silent 32.768 kHz ticks.
 
-The audio smoke manifest now includes save-assisted gameplay routes for Zelda Minish Cap, Advance Wars, Metroid Fusion, Sonic Advance, Mario Kart, Mario & Luigi, Tony Hawk 2, and Castlevania Aria/Harmony. Initial expanded slices are clean through frame 1,800 for six routes: Zelda and Sonic controlled gameplay exercise both direct sound and PSG, Advance Wars and Metroid are direct-sound-only in these windows, and Mario Kart/Mario & Luigi exercise heavy mixed direct+PSG output. PSG cadence summaries report the expected 512-cycle/32.768 kHz mode delta whenever PSG is active.
+The audio smoke manifest now includes save-assisted gameplay routes for Zelda Minish Cap, Advance Wars, Metroid Fusion, Sonic Advance, Mario Kart, Mario & Luigi, Tony Hawk 2, and Castlevania Aria/Harmony. The expanded manifest is clean through frame 1,800 for all 9 gameplay routes plus the 2 short title/intro routes. Zelda, Sonic controlled gameplay, Mario Kart, Mario & Luigi, and Castlevania Harmony exercise mixed direct-sound plus PSG output; Advance Wars, Metroid, Tony Hawk 2, and Castlevania Aria are direct-sound-only in these windows. PSG cadence summaries report the expected 512-cycle/32.768 kHz mode delta whenever PSG is active.
 
 The WinForms desktop frontend now has an opt-in toolbar audio toggle backed by a bounded WaveOut sink. It subscribes to the core direct-sound and PSG sample streams, holds/mixes FIFO A/B values through the shared tested `DirectSoundPcmResampler`, resamples PSG through `PsgPcmResampler`, outputs 44.1 kHz stereo PCM, and clears queued audio on pause/reset.
 
-The first PSG pass adds cycle-advanced square channel 1/2 sampling for trigger, duty, frequency, length counters, envelope volume progression, square-1 sweep overflow/update behavior, basic wave-channel wave RAM playback/output level, basic noise-channel LFSR output, master enable, and `SOUNDCNT_L` routing/volume. The desktop audio sink now subscribes to those PSG samples through a tested `PsgPcmResampler`, making square/wave/noise PSG tones audible alongside direct sound. Wave bank/dimension edge cases and exact noise frequency refinements remain open.
+The first PSG pass adds cycle-advanced square channel 1/2 sampling for trigger, duty, frequency, length counters, envelope volume progression, square-1 sweep overflow/update behavior, basic wave-channel wave RAM playback/output level, basic noise-channel LFSR output, master enable, and `SOUNDCNT_L` routing/volume. `SOUNDCNT_X` readback now preserves the writable master-enable bit while reporting live PSG channel active flags, and disabling master sound clears tracked PSG activity. The desktop audio sink now subscribes to those PSG samples through a tested `PsgPcmResampler`, making square/wave/noise PSG tones audible alongside direct sound. Wave bank/dimension edge cases and exact noise frequency refinements remain open.
 
 After the audio/timer changes, bounded real-BIOS retail smoke probes completed for Sonic Advance at frame 600, Pokemon Ruby with its approved Flash128K save/input script at frame 1,200, and Mario Kart Super Circuit with its save/input script at frame 1,200. A full save-assisted suite attempt was stopped after exceeding the shell wall timeout while still on the long Zelda route, so longer route validation should continue in small chunks or with an external heartbeat rather than one large foreground command.
 

@@ -151,6 +151,52 @@ public sealed class AudioControllerTests
     }
 
     [Fact]
+    public void SoundControlStatusIgnoresChannelStatusWrites()
+    {
+        var gba = new GbaSystem();
+
+        gba.Bus.Write16(IoRegisters.SOUNDCNT_X, 0xFFFF);
+
+        Assert.Equal(0x0080, gba.Bus.Read16(IoRegisters.SOUNDCNT_X));
+        Assert.Equal(0x80, gba.Bus.Read8(IoRegisters.SOUNDCNT_X));
+        Assert.Equal(0x00, gba.Bus.Read8(IoRegisters.SOUNDCNT_X + 1));
+    }
+
+    [Fact]
+    public void SoundControlStatusReportsActivePsgChannels()
+    {
+        var gba = new GbaSystem();
+
+        gba.Bus.Write16(IoRegisters.SOUNDCNT_X, 1 << 7);
+        gba.Bus.Write16(IoRegisters.SOUND1CNT_H, (2 << 6) | (8 << 12));
+        gba.Bus.Write16(IoRegisters.SOUND1CNT_X, 1 << 15);
+        gba.Bus.Write16(IoRegisters.SOUND2CNT_L, (2 << 6) | (6 << 12));
+        gba.Bus.Write16(IoRegisters.SOUND2CNT_H, 1 << 15);
+        gba.Bus.Write8(IoRegisters.WAVE_RAM, 0xF0);
+        gba.Bus.Write16(IoRegisters.SOUND3CNT_L, 1 << 7);
+        gba.Bus.Write16(IoRegisters.SOUND3CNT_H, 1 << 13);
+        gba.Bus.Write16(IoRegisters.SOUND3CNT_X, (1 << 15) | 2047);
+        gba.Bus.Write16(IoRegisters.SOUND4CNT_L, 8 << 12);
+        gba.Bus.Write16(IoRegisters.SOUND4CNT_H, 1 << 15);
+
+        Assert.Equal(0x008F, gba.Bus.Read16(IoRegisters.SOUNDCNT_X));
+    }
+
+    [Fact]
+    public void SoundControlStatusClearsActiveChannelsWhenMasterDisabled()
+    {
+        var gba = new GbaSystem();
+        gba.Bus.Write16(IoRegisters.SOUNDCNT_X, 1 << 7);
+        gba.Bus.Write16(IoRegisters.SOUND1CNT_H, (2 << 6) | (8 << 12));
+        gba.Bus.Write16(IoRegisters.SOUND1CNT_X, 1 << 15);
+        Assert.Equal(0x0081, gba.Bus.Read16(IoRegisters.SOUNDCNT_X));
+
+        gba.Bus.Write16(IoRegisters.SOUNDCNT_X, 0);
+
+        Assert.Equal(0, gba.Bus.Read16(IoRegisters.SOUNDCNT_X));
+    }
+
+    [Fact]
     public void SoundIoResetClearsPsgChannels()
     {
         var gba = new GbaSystem();

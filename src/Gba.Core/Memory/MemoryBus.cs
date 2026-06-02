@@ -99,6 +99,8 @@ public sealed class MemoryBus
 
     public event Action? SoundIoReset;
 
+    public Func<ushort>? SoundStatusProvider { get; set; }
+
     public int SaveDataSize => _saveType switch
     {
         SaveType.Sram => 32 * 1024,
@@ -899,7 +901,7 @@ public sealed class MemoryBus
     private byte ReadIo8(uint address)
     {
         var aligned = address & ~1u;
-        if (aligned is IoRegisters.SIOCNT or IoRegisters.RCNT or IoRegisters.JOYCNT
+        if (aligned is IoRegisters.SIOCNT or IoRegisters.RCNT or IoRegisters.JOYCNT or IoRegisters.SOUNDCNT_X
             or IoRegisters.SIOMULTI0 or IoRegisters.SIOMULTI1 or IoRegisters.SIOMULTI2
             or IoRegisters.SIOMULTI3 or IoRegisters.SIOMLT_SEND)
         {
@@ -918,6 +920,7 @@ public sealed class MemoryBus
             IoRegisters.SIOCNT => ReadSerialControl(),
             IoRegisters.RCNT => ReadRemoteControl(),
             IoRegisters.JOYCNT => (ushort)(PeekIo16(address) & 0x0047),
+            IoRegisters.SOUNDCNT_X => ReadSoundControlStatus(),
             _ => PeekIo16(address)
         };
     }
@@ -938,6 +941,10 @@ public sealed class MemoryBus
                 PokeIo16(IoRegisters.JOYCNT, (ushort)(PeekIo16(IoRegisters.JOYCNT) & ~(value & 0x0007) | (value & 0x0040)));
                 break;
 
+            case IoRegisters.SOUNDCNT_X:
+                WriteSoundControlStatus(value);
+                break;
+
             default:
                 PokeIo16(address, value);
                 break;
@@ -947,7 +954,7 @@ public sealed class MemoryBus
     private void WriteIo8(uint address, byte value)
     {
         var aligned = address & ~1u;
-        if (aligned is not (IoRegisters.SIOCNT or IoRegisters.RCNT or IoRegisters.JOYCNT))
+        if (aligned is not (IoRegisters.SIOCNT or IoRegisters.RCNT or IoRegisters.JOYCNT or IoRegisters.SOUNDCNT_X))
         {
             var mapping = Map(address);
             mapping.Buffer[mapping.Offset] = value;
@@ -960,6 +967,12 @@ public sealed class MemoryBus
             : (ushort)((current & 0x00FF) | (value << 8));
         WriteIo16(aligned, merged);
     }
+
+    private ushort ReadSoundControlStatus()
+        => SoundStatusProvider?.Invoke() ?? (ushort)(PeekIo16(IoRegisters.SOUNDCNT_X) & 0x0080);
+
+    private void WriteSoundControlStatus(ushort value)
+        => PokeIo16(IoRegisters.SOUNDCNT_X, (ushort)(value & 0x0080));
 
     private ushort ReadRemoteControl()
     {

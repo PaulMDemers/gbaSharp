@@ -23,6 +23,7 @@ public sealed class AudioController
     {
         _bus = bus;
         _wave = new WaveChannel(bus);
+        bus.SoundStatusProvider = ReadSoundControlStatus;
         dma.SoundFifoSampleClockedDetailed += OnSoundFifoSampleClocked;
         bus.AddIoWriteObserver(OnIoWrite);
         bus.SoundIoReset += ResetPsg;
@@ -116,6 +117,17 @@ public sealed class AudioController
 
     private void OnIoWrite(uint address, int bytes)
     {
+        if (Overlaps(address, bytes, IoRegisters.SOUNDCNT_X, 2)
+            && (_bus.PeekIo16(IoRegisters.SOUNDCNT_X) & (1 << 7)) == 0)
+        {
+            ResetPsg();
+        }
+
+        if ((_bus.PeekIo16(IoRegisters.SOUNDCNT_X) & (1 << 7)) == 0)
+        {
+            return;
+        }
+
         if (Overlaps(address, bytes, IoRegisters.SOUND1CNT_X, 2)
             && (_bus.PeekIo16(IoRegisters.SOUND1CNT_X) is var square1FrequencyControl))
         {
@@ -164,6 +176,38 @@ public sealed class AudioController
         {
             _noise.Trigger(_bus.PeekIo16(IoRegisters.SOUND4CNT_L), noiseControl);
         }
+    }
+
+    private ushort ReadSoundControlStatus()
+    {
+        var masterEnable = _bus.PeekIo16(IoRegisters.SOUNDCNT_X) & 0x0080;
+        if (masterEnable == 0)
+        {
+            return 0;
+        }
+
+        var status = masterEnable;
+        if (_square1.IsActive)
+        {
+            status |= 1 << 0;
+        }
+
+        if (_square2.IsActive)
+        {
+            status |= 1 << 1;
+        }
+
+        if (_wave.IsActive)
+        {
+            status |= 1 << 2;
+        }
+
+        if (_noise.IsActive)
+        {
+            status |= 1 << 3;
+        }
+
+        return (ushort)status;
     }
 
     private void ResetPsg()
@@ -339,6 +383,8 @@ public sealed class AudioController
         private bool _envelopeIncrease;
         private double _phase;
 
+        public bool IsActive => _enabled;
+
         public void Reset()
         {
             _enabled = false;
@@ -490,6 +536,8 @@ public sealed class AudioController
         private int _volumeCode;
         private double _sampleIndex;
 
+        public bool IsActive => _enabled;
+
         public void Reset()
         {
             _enabled = false;
@@ -554,6 +602,8 @@ public sealed class AudioController
         private bool _width7Bit;
         private double _clockAccumulator;
         private double _clocksPerPsgSample;
+
+        public bool IsActive => _enabled;
 
         public void Reset()
         {
