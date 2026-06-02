@@ -161,6 +161,26 @@ function Get-CsvDataRows {
     return [Math]::Max(0, @((Get-Content -LiteralPath $Path) | Select-Object -Skip 1).Count)
 }
 
+function Get-WavFramesFromOutput {
+    param([string]$Text)
+
+    if ($Text -match 'Wrote\s+([0-9,]+)\s+stereo frames') {
+        return [long](($Matches[1]).Replace(",", ""))
+    }
+
+    return 0
+}
+
+function Get-WavSecondsFromOutput {
+    param([string]$Text)
+
+    if ($Text -match '\(([0-9.]+)s\)') {
+        return [double]$Matches[1]
+    }
+
+    return 0.0
+}
+
 function Write-MarkdownReport {
     param(
         [object[]]$Rows,
@@ -178,13 +198,14 @@ function Write-MarkdownReport {
         "- Pass: $passed",
         "- Non-pass: $failed",
         "",
-        "| Label | Status | Frame | Direct Samples | PSG Samples | Mixed WAV |",
-        "| --- | --- | ---: | ---: | ---: | --- |"
+        "| Label | Status | Frame | Direct Samples | PSG Samples | WAV Seconds | Mixed WAV |",
+        "| --- | --- | ---: | ---: | ---: | ---: | --- |"
     )
 
     foreach ($row in $Rows) {
         $wav = if ([string]::IsNullOrWhiteSpace($row.mixedWav)) { "" } else { $row.mixedWav }
-        $lines += "| $($row.label) | $($row.status) | $($row.observedFrame) | $($row.directSamples) | $($row.psgSamples) | $wav |"
+        $wavSeconds = if ($row.PSObject.Properties.Name -contains "wavSeconds") { "{0:N3}" -f [double]$row.wavSeconds } else { "0.000" }
+        $lines += "| $($row.label) | $($row.status) | $($row.observedFrame) | $($row.directSamples) | $($row.psgSamples) | $wavSeconds | $wav |"
     }
 
     $lines | Set-Content -LiteralPath $Path -Encoding UTF8
@@ -259,6 +280,8 @@ try {
                 psgCsv = ""
                 directSummary = ""
                 psgSummary = ""
+                wavFrames = 0
+                wavSeconds = 0
                 mixedWav = ""
                 romPath = ""
                 message = "Manifest row has no romPath"
@@ -281,6 +304,8 @@ try {
                 psgCsv = ""
                 directSummary = ""
                 psgSummary = ""
+                wavFrames = 0
+                wavSeconds = 0
                 mixedWav = ""
                 romPath = $romPath
                 message = "ROM not found"
@@ -382,6 +407,9 @@ try {
             $message = "$message wav-error: $($wavResult.Stderr)"
         }
 
+        $wavFrames = Get-WavFramesFromOutput $wavResult.Stdout
+        $wavSeconds = Get-WavSecondsFromOutput $wavResult.Stdout
+
         $status = if ($result.ExitCode -eq 124) {
             "process-timeout"
         }
@@ -408,6 +436,8 @@ try {
             psgCsv = $psgCsv
             directSummary = $directSummary
             psgSummary = $psgSummary
+            wavFrames = $wavFrames
+            wavSeconds = $wavSeconds
             mixedWav = if (Test-Path -LiteralPath $mixedWav) { $mixedWav } else { "" }
             romPath = $resolvedRom.Path
             message = $message
