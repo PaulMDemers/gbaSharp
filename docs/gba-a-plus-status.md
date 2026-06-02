@@ -52,7 +52,7 @@ Direct-sound and PSG sample buffering are now opt-in so long headless compatibil
 
 `scripts/analyze-audio-csv.py` summarizes those captures into sample counts, non-zero routing, value ranges, timer/FIFO split for direct sound, cycle deltas, and estimated native sample rates. This gives us a quick diagnostic bridge before full host-rate audio output exists.
 
-`scripts/audio-csv-to-wav.py` can also turn direct-sound and/or PSG CSVs into a stereo PCM WAV by holding the latest values and resampling them to a requested host rate; use `--mix other.csv` to combine direct and PSG captures into one audible smoke artifact. This is diagnostic output rather than a final mixer, but it makes retail audio regressions audible.
+`scripts/audio-csv-to-wav.py` can also turn direct-sound and/or PSG CSVs into a stereo PCM WAV; use `--mix other.csv` to combine direct and PSG captures into one audible smoke artifact. It now uses the same default direct/PSG scales as the desktop mixed resampler and advances on a shared event-driven GBA-cycle timeline. This remains diagnostic because the capture CSVs only contain emitted audio events, but it keeps smoke WAVs aligned with desktop audio assumptions.
 
 The PSG capture tooling is verified through `dump-frame --psg-csv`; a short Sonic Advance no-BIOS smoke writes the empty-PSG case cleanly while direct sound still reports both FIFOs at ~10.5 kHz, and a synthetic PSG CSV exercises the non-empty analyzer/WAV conversion path at the expected 32.768 kHz cadence.
 
