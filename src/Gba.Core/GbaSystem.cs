@@ -85,6 +85,7 @@ public sealed class GbaSystem
         var cycles = Cpu.Step();
         Bus.Advance(cycles);
         Scheduler.Advance(cycles);
+        Audio.Advance(cycles, Scheduler.Now);
         cycles += DrainDmaCycles();
         return cycles;
     }
@@ -97,6 +98,7 @@ public sealed class GbaSystem
         Bus.Advance(cycles);
         var afterBus = Stopwatch.GetTimestamp();
         Scheduler.Advance(cycles);
+        Audio.Advance(cycles, Scheduler.Now);
         cycles += DrainDmaCycles();
         var afterScheduler = Stopwatch.GetTimestamp();
 
@@ -121,6 +123,7 @@ public sealed class GbaSystem
             total += cycles;
             Bus.Advance(cycles);
             Scheduler.Advance(cycles);
+            Audio.Advance(cycles, Scheduler.Now);
         }
     }
 

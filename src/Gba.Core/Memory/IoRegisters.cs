@@ -72,6 +72,11 @@ public static class IoRegisters
     public const uint BLDCNT = GbaMemoryMap.IoStart + 0x0050;
     public const uint BLDALPHA = GbaMemoryMap.IoStart + 0x0052;
     public const uint BLDY = GbaMemoryMap.IoStart + 0x0054;
+    public const uint SOUND1CNT_L = GbaMemoryMap.IoStart + 0x0060;
+    public const uint SOUND1CNT_H = GbaMemoryMap.IoStart + 0x0062;
+    public const uint SOUND1CNT_X = GbaMemoryMap.IoStart + 0x0064;
+    public const uint SOUND2CNT_L = GbaMemoryMap.IoStart + 0x0068;
+    public const uint SOUND2CNT_H = GbaMemoryMap.IoStart + 0x006C;
     public const uint SOUNDCNT_L = GbaMemoryMap.IoStart + 0x0080;
     public const uint SOUNDCNT_H = GbaMemoryMap.IoStart + 0x0082;
     public const uint SOUNDCNT_X = GbaMemoryMap.IoStart + 0x0084;

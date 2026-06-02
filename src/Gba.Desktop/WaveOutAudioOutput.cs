@@ -25,6 +25,7 @@ internal sealed class WaveOutAudioOutput : IDisposable
     private readonly object _deviceSync = new();
     private readonly Queue<short> _queuedSamples = new(MaxQueuedFrames * Channels);
     private readonly DirectSoundPcmResampler _resampler = new(SampleRate, scale: PcmScale, maxFramesPerEvent: MaxFramesPerEvent);
+    private readonly PsgPcmResampler _psgResampler = new(SampleRate);
     private readonly WaveBuffer[] _buffers = new WaveBuffer[BufferCount];
     private readonly Thread? _pumpThread;
     private volatile bool _disposed;
@@ -87,12 +88,26 @@ internal sealed class WaveOutAudioOutput : IDisposable
         }
     }
 
+    public void Enqueue(PsgPcmSample sample)
+    {
+        if (!_enabled || !IsAvailable || _disposed)
+        {
+            return;
+        }
+
+        lock (_queueSync)
+        {
+            _psgResampler.Process(sample, EnqueueFrame);
+        }
+    }
+
     public void Clear()
     {
         lock (_queueSync)
         {
             _queuedSamples.Clear();
             _resampler.Reset();
+            _psgResampler.Reset();
         }
     }
 

@@ -5,27 +5,70 @@ namespace Gba.Core.Audio;
 
 public sealed class AudioController
 {
+    private const int PsgSampleRate = 32_768;
+    private const int PsgCyclesPerSample = DirectSoundPcmResampler.DefaultGbaClockHz / PsgSampleRate;
     private readonly MemoryBus _bus;
     private readonly List<DirectSoundPcmSample> _pendingSamples = [];
+    private readonly List<PsgPcmSample> _pendingPsgSamples = [];
+    private readonly SquareChannel _square1 = new(0);
+    private readonly SquareChannel _square2 = new(1);
+    private long _psgCyclesUntilNext = PsgCyclesPerSample;
 
     public AudioController(MemoryBus bus, DmaController dma)
     {
         _bus = bus;
         dma.SoundFifoSampleClockedDetailed += OnSoundFifoSampleClocked;
+        bus.AddIoWriteObserver(OnIoWrite);
+        bus.SoundIoReset += ResetPsg;
     }
 
     public IReadOnlyList<DirectSoundPcmSample> PendingSamples => _pendingSamples;
 
     public bool CaptureSamples { get; set; }
 
+    public bool CapturePsgSamples { get; set; }
+
     public event Action<DirectSoundPcmSample>? SampleProduced;
 
-    public void Reset() => _pendingSamples.Clear();
+    public event Action<PsgPcmSample>? PsgSampleProduced;
+
+    public void Reset()
+    {
+        _pendingSamples.Clear();
+        ResetPsg();
+    }
+
+    public void Advance(long cycles, long currentCycle)
+    {
+        if (cycles <= 0)
+        {
+            return;
+        }
+
+        var remaining = cycles;
+        var sampleCycle = currentCycle - cycles;
+        while (remaining >= _psgCyclesUntilNext)
+        {
+            sampleCycle += _psgCyclesUntilNext;
+            remaining -= _psgCyclesUntilNext;
+            EmitPsgSample(sampleCycle);
+            _psgCyclesUntilNext = PsgCyclesPerSample;
+        }
+
+        _psgCyclesUntilNext -= remaining;
+    }
 
     public DirectSoundPcmSample[] DrainSamples()
     {
         var samples = _pendingSamples.ToArray();
         _pendingSamples.Clear();
+        return samples;
+    }
+
+    public PsgPcmSample[] DrainPsgSamples()
+    {
+        var samples = _pendingPsgSamples.ToArray();
+        _pendingPsgSamples.Clear();
         return samples;
     }
 
@@ -63,6 +106,134 @@ public sealed class AudioController
 
     private static short ScaleSample(sbyte sample, int divisor)
         => (short)(sample / divisor);
+
+    private void OnIoWrite(uint address, int bytes)
+    {
+        if (Overlaps(address, bytes, IoRegisters.SOUND1CNT_X, 2)
+            && (_bus.PeekIo16(IoRegisters.SOUND1CNT_X) & (1 << 15)) != 0)
+        {
+            _square1.Trigger(_bus.PeekIo16(IoRegisters.SOUND1CNT_H), _bus.PeekIo16(IoRegisters.SOUND1CNT_X));
+        }
+
+        if (Overlaps(address, bytes, IoRegisters.SOUND2CNT_H, 2)
+            && (_bus.PeekIo16(IoRegisters.SOUND2CNT_H) & (1 << 15)) != 0)
+        {
+            _square2.Trigger(_bus.PeekIo16(IoRegisters.SOUND2CNT_L), _bus.PeekIo16(IoRegisters.SOUND2CNT_H));
+        }
+    }
+
+    private void ResetPsg()
+    {
+        _pendingPsgSamples.Clear();
+        _square1.Reset();
+        _square2.Reset();
+        _psgCyclesUntilNext = PsgCyclesPerSample;
+    }
+
+    private void EmitPsgSample(long cycle)
+    {
+        if ((_bus.PeekIo16(IoRegisters.SOUNDCNT_X) & (1 << 7)) == 0)
+        {
+            return;
+        }
+
+        var soundControl = _bus.PeekIo16(IoRegisters.SOUNDCNT_L);
+        var leftVolume = ((soundControl >> 4) & 0x7) + 1;
+        var rightVolume = (soundControl & 0x7) + 1;
+        var left = 0;
+        var right = 0;
+        MixSquare(_square1, soundControl, 8, 12, leftVolume, rightVolume, ref left, ref right);
+        MixSquare(_square2, soundControl, 9, 13, leftVolume, rightVolume, ref left, ref right);
+        if (left == 0 && right == 0)
+        {
+            return;
+        }
+
+        var sample = new PsgPcmSample(cycle, ClampPsg(left), ClampPsg(right));
+        PsgSampleProduced?.Invoke(sample);
+        if (CapturePsgSamples)
+        {
+            _pendingPsgSamples.Add(sample);
+        }
+    }
+
+    private static void MixSquare(
+        SquareChannel channel,
+        ushort soundControl,
+        int rightEnableBit,
+        int leftEnableBit,
+        int leftVolume,
+        int rightVolume,
+        ref int left,
+        ref int right)
+    {
+        var output = channel.NextOutput();
+        if (output == 0)
+        {
+            return;
+        }
+
+        if ((soundControl & (1 << leftEnableBit)) != 0)
+        {
+            left += output * leftVolume;
+        }
+
+        if ((soundControl & (1 << rightEnableBit)) != 0)
+        {
+            right += output * rightVolume;
+        }
+    }
+
+    private static short ClampPsg(int value) => (short)Math.Clamp(value, short.MinValue, short.MaxValue);
+
+    private static bool Overlaps(uint writeAddress, int writeBytes, uint registerAddress, int registerBytes)
+        => writeAddress < registerAddress + registerBytes && registerAddress < writeAddress + writeBytes;
+
+    private sealed class SquareChannel(int channel)
+    {
+        private static readonly double[] DutyThresholds = [0.125, 0.25, 0.5, 0.75];
+        private bool _enabled;
+        private int _frequency;
+        private int _volume;
+        private int _duty;
+        private double _phase;
+
+        public void Reset()
+        {
+            _enabled = false;
+            _frequency = 0;
+            _volume = 0;
+            _duty = 0;
+            _phase = 0;
+        }
+
+        public void Trigger(ushort control, ushort frequencyControl)
+        {
+            _frequency = frequencyControl & 0x07FF;
+            _volume = (control >> 12) & 0xF;
+            _duty = (control >> 6) & 0x3;
+            _phase = 0;
+            _enabled = _volume > 0 && _frequency < 2048;
+        }
+
+        public int NextOutput()
+        {
+            if (!_enabled)
+            {
+                return 0;
+            }
+
+            var frequencyHz = 131_072.0 / (2048 - _frequency);
+            _phase += frequencyHz / PsgSampleRate;
+            _phase -= Math.Floor(_phase);
+            var sign = _phase < DutyThresholds[_duty] ? 1 : -1;
+            return sign * _volume * 8;
+        }
+
+        public override string ToString() => $"Square {channel + 1}";
+    }
 }
 
 public readonly record struct DirectSoundPcmSample(int Fifo, int Timer, long Cycle, sbyte RawSample, short Left, short Right);
+
+public readonly record struct PsgPcmSample(long Cycle, short Left, short Right);

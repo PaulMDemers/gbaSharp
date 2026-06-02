@@ -1073,6 +1073,11 @@ public sealed class MemoryBus
 
     private void ResetSoundIo()
     {
+        PokeIo16(IoRegisters.SOUND1CNT_L, 0);
+        PokeIo16(IoRegisters.SOUND1CNT_H, 0);
+        PokeIo16(IoRegisters.SOUND1CNT_X, 0);
+        PokeIo16(IoRegisters.SOUND2CNT_L, 0);
+        PokeIo16(IoRegisters.SOUND2CNT_H, 0);
         PokeIo16(IoRegisters.SOUNDCNT_L, 0);
         PokeIo16(IoRegisters.SOUNDCNT_H, 0);
         PokeIo16(IoRegisters.SOUNDCNT_X, 0);

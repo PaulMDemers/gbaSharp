@@ -149,6 +149,7 @@ public sealed class MainForm : Form
             gba.LoadCartridge(cartridge);
             gba.Video.VBlankStarted += () => CaptureFrame(gba);
             gba.Audio.SampleProduced += _audioOutput.Enqueue;
+            gba.Audio.PsgSampleProduced += _audioOutput.Enqueue;
             _audioOutput.Clear();
 
             lock (_sync)
@@ -278,6 +279,7 @@ public sealed class MainForm : Form
             gba.LoadCartridge(cartridge);
             gba.Video.VBlankStarted += () => CaptureFrame(gba);
             gba.Audio.SampleProduced += _audioOutput.Enqueue;
+            gba.Audio.PsgSampleProduced += _audioOutput.Enqueue;
             _audioOutput.Clear();
             lock (_sync)
             {
