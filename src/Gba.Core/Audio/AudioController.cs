@@ -14,6 +14,7 @@ public sealed class AudioController
     private readonly SquareChannel _square1 = new(0);
     private readonly SquareChannel _square2 = new(1);
     private readonly WaveChannel _wave;
+    private readonly NoiseChannel _noise = new();
     private long _psgCyclesUntilNext = PsgCyclesPerSample;
     private int _psgSamplesUntilFrameSequencer = PsgSamplesPerFrameSequencerTick;
     private int _frameSequencerStep;
@@ -156,6 +157,13 @@ public sealed class AudioController
                 _wave.UpdateFrequencyControl(waveFrequencyControl);
             }
         }
+
+        if (Overlaps(address, bytes, IoRegisters.SOUND4CNT_H, 2)
+            && (_bus.PeekIo16(IoRegisters.SOUND4CNT_H) is var noiseControl)
+            && (noiseControl & (1 << 15)) != 0)
+        {
+            _noise.Trigger(_bus.PeekIo16(IoRegisters.SOUND4CNT_L), noiseControl);
+        }
     }
 
     private void ResetPsg()
@@ -164,6 +172,7 @@ public sealed class AudioController
         _square1.Reset();
         _square2.Reset();
         _wave.Reset();
+        _noise.Reset();
         _psgCyclesUntilNext = PsgCyclesPerSample;
         _psgSamplesUntilFrameSequencer = PsgSamplesPerFrameSequencerTick;
         _frameSequencerStep = 0;
@@ -182,6 +191,7 @@ public sealed class AudioController
         {
             _square1.ClockLength();
             _square2.ClockLength();
+            _noise.ClockLength();
         }
 
         if (_frameSequencerStep is 2 or 6)
@@ -193,6 +203,7 @@ public sealed class AudioController
         {
             _square1.ClockEnvelope();
             _square2.ClockEnvelope();
+            _noise.ClockEnvelope();
         }
 
         _frameSequencerStep = (_frameSequencerStep + 1) & 7;
@@ -213,6 +224,7 @@ public sealed class AudioController
         MixSquare(_square1, soundControl, 8, 12, leftVolume, rightVolume, ref left, ref right);
         MixSquare(_square2, soundControl, 9, 13, leftVolume, rightVolume, ref left, ref right);
         MixWave(_wave, soundControl, 10, 14, leftVolume, rightVolume, ref left, ref right);
+        MixNoise(_noise, soundControl, 11, 15, leftVolume, rightVolume, ref left, ref right);
         if (left == 0 && right == 0)
         {
             return;
@@ -255,6 +267,33 @@ public sealed class AudioController
 
     private static void MixWave(
         WaveChannel channel,
+        ushort soundControl,
+        int rightEnableBit,
+        int leftEnableBit,
+        int leftVolume,
+        int rightVolume,
+        ref int left,
+        ref int right)
+    {
+        var output = channel.NextOutput();
+        if (output == 0)
+        {
+            return;
+        }
+
+        if ((soundControl & (1 << leftEnableBit)) != 0)
+        {
+            left += output * leftVolume;
+        }
+
+        if ((soundControl & (1 << rightEnableBit)) != 0)
+        {
+            right += output * rightVolume;
+        }
+    }
+
+    private static void MixNoise(
+        NoiseChannel channel,
         ushort soundControl,
         int rightEnableBit,
         int leftEnableBit,
@@ -498,6 +537,123 @@ public sealed class AudioController
         {
             var value = bus.Read8(IoRegisters.WAVE_RAM + (uint)(index / 2));
             return (index & 1) == 0 ? value >> 4 : value & 0xF;
+        }
+    }
+
+    private sealed class NoiseChannel
+    {
+        private static readonly int[] DivisorCodes = [8, 16, 32, 48, 64, 80, 96, 112];
+        private bool _enabled;
+        private int _envelopeVolume;
+        private int _envelopePeriod;
+        private int _envelopeTimer;
+        private bool _envelopeIncrease;
+        private int _lengthCounter;
+        private bool _lengthEnabled;
+        private int _lfsr = 0x7FFF;
+        private bool _width7Bit;
+        private double _clockAccumulator;
+        private double _clocksPerPsgSample;
+
+        public void Reset()
+        {
+            _enabled = false;
+            _envelopeVolume = 0;
+            _envelopePeriod = 0;
+            _envelopeTimer = 0;
+            _envelopeIncrease = false;
+            _lengthCounter = 0;
+            _lengthEnabled = false;
+            _lfsr = 0x7FFF;
+            _width7Bit = false;
+            _clockAccumulator = 0;
+            _clocksPerPsgSample = 0;
+        }
+
+        public void Trigger(ushort lengthAndEnvelope, ushort control)
+        {
+            _envelopeVolume = (lengthAndEnvelope >> 12) & 0xF;
+            _envelopeIncrease = (lengthAndEnvelope & (1 << 11)) != 0;
+            _envelopePeriod = (lengthAndEnvelope >> 8) & 0x7;
+            _envelopeTimer = _envelopePeriod;
+            var lengthLoad = lengthAndEnvelope & 0x3F;
+            _lengthCounter = lengthLoad == 0 ? 64 : 64 - lengthLoad;
+            _lengthEnabled = (control & (1 << 14)) != 0;
+            _width7Bit = (control & (1 << 3)) != 0;
+            var divisor = DivisorCodes[control & 0x7];
+            var shift = (control >> 4) & 0xF;
+            var noiseClock = 524_288.0 / divisor / (1 << Math.Min(shift, 13));
+            _clocksPerPsgSample = noiseClock / PsgSampleRate;
+            _clockAccumulator = 0;
+            _lfsr = 0x7FFF;
+            _enabled = _envelopeVolume > 0;
+        }
+
+        public void ClockLength()
+        {
+            if (!_enabled || !_lengthEnabled || _lengthCounter <= 0)
+            {
+                return;
+            }
+
+            _lengthCounter--;
+            if (_lengthCounter == 0)
+            {
+                _enabled = false;
+            }
+        }
+
+        public void ClockEnvelope()
+        {
+            if (!_enabled || _envelopePeriod == 0)
+            {
+                return;
+            }
+
+            _envelopeTimer--;
+            if (_envelopeTimer > 0)
+            {
+                return;
+            }
+
+            _envelopeTimer = _envelopePeriod;
+            var nextVolume = _envelopeVolume + (_envelopeIncrease ? 1 : -1);
+            if (nextVolume is >= 0 and <= 15)
+            {
+                _envelopeVolume = nextVolume;
+                if (_envelopeVolume == 0)
+                {
+                    _enabled = false;
+                }
+            }
+        }
+
+        public int NextOutput()
+        {
+            if (!_enabled || _envelopeVolume == 0)
+            {
+                return 0;
+            }
+
+            var output = (_lfsr & 1) == 0 ? _envelopeVolume * 8 : -_envelopeVolume * 8;
+            _clockAccumulator += _clocksPerPsgSample;
+            while (_clockAccumulator >= 1)
+            {
+                ClockLfsr();
+                _clockAccumulator -= 1;
+            }
+
+            return output;
+        }
+
+        private void ClockLfsr()
+        {
+            var feedback = (_lfsr ^ (_lfsr >> 1)) & 1;
+            _lfsr = (_lfsr >> 1) | (feedback << 14);
+            if (_width7Bit)
+            {
+                _lfsr = (_lfsr & ~(1 << 6)) | (feedback << 6);
+            }
         }
     }
 }

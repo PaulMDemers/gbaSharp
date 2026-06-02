@@ -80,6 +80,8 @@ public static class IoRegisters
     public const uint SOUND3CNT_L = GbaMemoryMap.IoStart + 0x0070;
     public const uint SOUND3CNT_H = GbaMemoryMap.IoStart + 0x0072;
     public const uint SOUND3CNT_X = GbaMemoryMap.IoStart + 0x0074;
+    public const uint SOUND4CNT_L = GbaMemoryMap.IoStart + 0x0078;
+    public const uint SOUND4CNT_H = GbaMemoryMap.IoStart + 0x007C;
     public const uint SOUNDCNT_L = GbaMemoryMap.IoStart + 0x0080;
     public const uint SOUNDCNT_H = GbaMemoryMap.IoStart + 0x0082;
     public const uint SOUNDCNT_X = GbaMemoryMap.IoStart + 0x0084;

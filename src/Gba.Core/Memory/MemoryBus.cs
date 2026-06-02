@@ -1081,6 +1081,8 @@ public sealed class MemoryBus
         PokeIo16(IoRegisters.SOUND3CNT_L, 0);
         PokeIo16(IoRegisters.SOUND3CNT_H, 0);
         PokeIo16(IoRegisters.SOUND3CNT_X, 0);
+        PokeIo16(IoRegisters.SOUND4CNT_L, 0);
+        PokeIo16(IoRegisters.SOUND4CNT_H, 0);
         for (var offset = 0u; offset < 0x10; offset += 2)
         {
             PokeIo16(IoRegisters.WAVE_RAM + offset, 0);
