@@ -13,7 +13,7 @@ tony-hawk-sk8land-gameplay,257,,scripts\visual-input\tony-hawk-sk8land-gameplay.
 tony-hawk-underground2-gameplay,263,,scripts\visual-input\tony-hawk-underground2-gameplay.input,12000,6000000000,900,1200,,,gameplay,true,,Active skate scene,Late-era sports gameplay route and low-priority boot-static follow-up
 super-mario-advance2-map,129,,scripts\visual-input\super-mario-advance2-gameplay.input,12000,6000000000,1200,300,,,gameplay,true,4,Super Mario World map/gameplay scene,Platformer expansion route with stable 4-PC route-loop diversity
 banjo-pilot-race,77,,scripts\visual-input\banjo-pilot-gameplay.input,12000,6000000000,1200,300,,,gameplay,true,5,Active Banjo-Pilot race,Former DMA/EEPROM bug anchor and racing expansion route with stable 5-PC diversity
-mega-man-battle-network-room,78,,scripts\visual-input\mega-man-battle-network-gameplay.input,18000,9000000000,1200,1200,,,gameplay,true,,Lan bedroom gameplay scene,Battle Network RPG/action expansion route
+mega-man-battle-network-room,78,,scripts\visual-input\mega-man-battle-network-gameplay.input,18000,9000000000,1200,1200,,,gameplay,true,5,Lan bedroom gameplay scene,Battle Network RPG/action expansion route with stable 5-PC room-loop diversity
 advance-wars2-map,273,,scripts\visual-input\advance-wars2-map.input,18000,9000000000,1200,1200,,,gameplay,true,,Advance Wars 2 tactical map with command menu,Strategy expansion route
 riviera-battle,213,,scripts\visual-input\riviera-gameplay.input,22000,11000000000,1500,1200,,,gameplay,true,,Riviera battle scene,Prior bug-cluster RPG/adventure route
 summon-night-room,240,,scripts\visual-input\summon-night-gameplay.input,22000,11000000000,1500,1200,,,gameplay,true,,Summon Night room gameplay scene,RPG/action/save-heavy expansion route
