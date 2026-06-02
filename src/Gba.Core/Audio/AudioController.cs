@@ -13,6 +13,7 @@ public sealed class AudioController
     private readonly List<PsgPcmSample> _pendingPsgSamples = [];
     private readonly SquareChannel _square1 = new(0);
     private readonly SquareChannel _square2 = new(1);
+    private readonly WaveChannel _wave;
     private long _psgCyclesUntilNext = PsgCyclesPerSample;
     private int _psgSamplesUntilFrameSequencer = PsgSamplesPerFrameSequencerTick;
     private int _frameSequencerStep;
@@ -20,6 +21,7 @@ public sealed class AudioController
     public AudioController(MemoryBus bus, DmaController dma)
     {
         _bus = bus;
+        _wave = new WaveChannel(bus);
         dma.SoundFifoSampleClockedDetailed += OnSoundFifoSampleClocked;
         bus.AddIoWriteObserver(OnIoWrite);
         bus.SoundIoReset += ResetPsg;
@@ -138,6 +140,22 @@ public sealed class AudioController
                 _square2.UpdateFrequencyControl(square2FrequencyControl);
             }
         }
+
+        if (Overlaps(address, bytes, IoRegisters.SOUND3CNT_X, 2)
+            && (_bus.PeekIo16(IoRegisters.SOUND3CNT_X) is var waveFrequencyControl))
+        {
+            if ((waveFrequencyControl & (1 << 15)) != 0)
+            {
+                _wave.Trigger(
+                    _bus.PeekIo16(IoRegisters.SOUND3CNT_L),
+                    _bus.PeekIo16(IoRegisters.SOUND3CNT_H),
+                    waveFrequencyControl);
+            }
+            else
+            {
+                _wave.UpdateFrequencyControl(waveFrequencyControl);
+            }
+        }
     }
 
     private void ResetPsg()
@@ -145,6 +163,7 @@ public sealed class AudioController
         _pendingPsgSamples.Clear();
         _square1.Reset();
         _square2.Reset();
+        _wave.Reset();
         _psgCyclesUntilNext = PsgCyclesPerSample;
         _psgSamplesUntilFrameSequencer = PsgSamplesPerFrameSequencerTick;
         _frameSequencerStep = 0;
@@ -193,6 +212,7 @@ public sealed class AudioController
         var right = 0;
         MixSquare(_square1, soundControl, 8, 12, leftVolume, rightVolume, ref left, ref right);
         MixSquare(_square2, soundControl, 9, 13, leftVolume, rightVolume, ref left, ref right);
+        MixWave(_wave, soundControl, 10, 14, leftVolume, rightVolume, ref left, ref right);
         if (left == 0 && right == 0)
         {
             return;
@@ -208,6 +228,33 @@ public sealed class AudioController
 
     private static void MixSquare(
         SquareChannel channel,
+        ushort soundControl,
+        int rightEnableBit,
+        int leftEnableBit,
+        int leftVolume,
+        int rightVolume,
+        ref int left,
+        ref int right)
+    {
+        var output = channel.NextOutput();
+        if (output == 0)
+        {
+            return;
+        }
+
+        if ((soundControl & (1 << leftEnableBit)) != 0)
+        {
+            left += output * leftVolume;
+        }
+
+        if ((soundControl & (1 << rightEnableBit)) != 0)
+        {
+            right += output * rightVolume;
+        }
+    }
+
+    private static void MixWave(
+        WaveChannel channel,
         ushort soundControl,
         int rightEnableBit,
         int leftEnableBit,
@@ -394,6 +441,63 @@ public sealed class AudioController
             _sweepNegate = (sweepControl & (1 << 3)) != 0;
             _sweepShift = sweepControl & 0x7;
             _sweepEnabled = channel == 0 && (_sweepPeriod > 0 || _sweepShift > 0);
+        }
+    }
+
+    private sealed class WaveChannel(MemoryBus bus)
+    {
+        private bool _enabled;
+        private int _frequency;
+        private int _volumeCode;
+        private double _sampleIndex;
+
+        public void Reset()
+        {
+            _enabled = false;
+            _frequency = 0;
+            _volumeCode = 0;
+            _sampleIndex = 0;
+        }
+
+        public void Trigger(ushort control, ushort lengthAndVolume, ushort frequencyControl)
+        {
+            _frequency = frequencyControl & 0x07FF;
+            _volumeCode = (lengthAndVolume >> 13) & 0x3;
+            _sampleIndex = 0;
+            _enabled = (control & (1 << 7)) != 0 && _volumeCode != 0 && _frequency < 2048;
+        }
+
+        public void UpdateFrequencyControl(ushort frequencyControl)
+        {
+            _frequency = frequencyControl & 0x07FF;
+        }
+
+        public int NextOutput()
+        {
+            if (!_enabled)
+            {
+                return 0;
+            }
+
+            var sample = ReadWaveSample((int)_sampleIndex);
+            var centered = sample - 8;
+            var scaled = _volumeCode switch
+            {
+                1 => centered,
+                2 => centered / 2,
+                3 => centered / 4,
+                _ => 0
+            };
+            var stepRate = 2_097_152.0 / (2048 - _frequency);
+            _sampleIndex += stepRate / PsgSampleRate;
+            _sampleIndex %= 32;
+            return scaled * 8;
+        }
+
+        private int ReadWaveSample(int index)
+        {
+            var value = bus.Read8(IoRegisters.WAVE_RAM + (uint)(index / 2));
+            return (index & 1) == 0 ? value >> 4 : value & 0xF;
         }
     }
 }
