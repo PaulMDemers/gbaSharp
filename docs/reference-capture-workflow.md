@@ -18,6 +18,7 @@ external emulator captures from tools such as mGBA or no$gba.
   optionally refresh the save-assisted deep gameplay suite first.
 - Reference images should be placed under `reference-captures/<source>/`.
   These images are local artifacts and are intentionally ignored by git.
+- `docs/gba-reference-status.md` records the latest capture intake status.
 
 ## Initial Targets
 
@@ -31,6 +32,12 @@ The starter set covers every save-assisted gameplay route:
 - `tony-hawk2-save-gameplay`: EEPROM skate tutorial gameplay.
 - `pokemon-ruby-save-bedroom`: Flash128K save-loaded Ruby bedroom scene.
 - `mario-kart-save-race`: affine racing scene.
+
+## Current Status
+
+As of 2026-06-03, the dashboard tooling is ready and the post-audio check
+reports 8 missing mGBA PNG captures. See `docs/gba-reference-status.md` for the
+current missing file list and strict dashboard commands.
 
 ## Manual Reference Capture
 
