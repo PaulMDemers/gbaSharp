@@ -1,0 +1,37 @@
+# Save-assisted Tony Hawk 2 route: enter tutorial gameplay and continue moving/tricking.
+at 120 Start 5
+at 240 A 5
+at 360 Start 5
+at 480 A 5
+at 660 A 5
+at 840 Start 5
+at 1020 A 5
+at 1200 Down 8
+at 1320 A 5
+at 1500 Start 5
+at 1680 A 5
+at 2200 L 30
+at 2600 R 30
+at 3200 Right 900
+at 4400 B 60
+at 5400 Up 900
+at 6600 A 60
+at 7600 Right 900
+at 8600 L 45
+at 9300 R 45
+at 10000 B 90
+at 11200 Up 900
+at 12400 Left 900
+at 13600 A 90
+press 14800 Right
+at 16400 Right,B 90
+press 16490 Right
+at 18200 Right,A 90
+press 18290 Right
+at 20200 Up,B 90
+press 20290 Up
+at 22200 Left,A 90
+press 22290 Left
+at 24200 Down,B 90
+press 24290 Down
+release 27000

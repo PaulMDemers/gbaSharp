@@ -1,0 +1,39 @@
+# Save-assisted Mario Kart route: enter race, then keep accelerating with light steering.
+at 120 Start 5
+at 240 A 5
+at 360 A 5
+at 480 A 5
+at 660 A 5
+at 840 Right 12
+at 1020 A 5
+at 1200 A 5
+at 1380 Start 5
+at 1560 A 5
+at 1740 A 5
+at 1920 A 5
+at 2100 A 5
+at 2400 A 5
+at 2700 A 5
+at 3000 A 5
+at 3300 A 5
+at 3600 A 5
+at 3900 A 5
+at 4200 A 5
+at 4500 A 5
+at 4800 A 5
+at 5100 A 5
+at 5400 A 5
+at 5700 A 5
+at 6000 A 5
+press 6300 A
+at 8200 A,Right 180
+press 8380 A
+at 10400 A,Left 180
+press 10580 A
+at 12600 A,Right 180
+press 12780 A
+at 14800 A,Left 180
+press 14980 A
+at 17000 A,Right 180
+press 17180 A
+release 20000

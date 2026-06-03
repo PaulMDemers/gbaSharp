@@ -1,0 +1,28 @@
+# Save-assisted Sonic Advance route: enter active beach gameplay, then keep moving.
+at 2200 Start 12
+at 2500 Start 12
+at 2800 A 12
+at 3200 A 12
+at 3600 A 12
+at 4200 A 12
+at 5000 A 12
+at 5800 A 12
+at 6600 A 12
+press 7600 Right
+at 9800 Right,A 30
+press 9830 Right
+at 12400 Right,A 30
+press 12430 Right
+at 15000 Right,A 30
+press 15030 Right
+at 17600 Right,A 30
+press 17630 Right
+at 20200 Right,A 30
+press 20230 Right
+at 22800 Right,A 30
+press 22830 Right
+at 25400 Right,A 30
+press 25430 Right
+at 28000 Right,A 30
+press 28030 Right
+release 30000
