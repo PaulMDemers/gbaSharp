@@ -55,19 +55,25 @@ function Invoke-DotnetChecked {
     try {
         $stdoutTask = $process.StandardOutput.ReadToEndAsync()
         $stderrTask = $process.StandardError.ReadToEndAsync()
-        if ($TimeoutSeconds -gt 0 -and -not $process.WaitForExit($TimeoutSeconds * 1000)) {
-            try {
-                $process.Kill($true)
-            }
-            catch {
-                Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+        $timer = [System.Diagnostics.Stopwatch]::StartNew()
+        while (-not $process.HasExited) {
+            if ($TimeoutSeconds -gt 0 -and $timer.Elapsed.TotalSeconds -ge $TimeoutSeconds) {
+                try {
+                    $process.Kill($true)
+                    $process.WaitForExit(5000) | Out-Null
+                }
+                catch {
+                    Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+                }
+
+                return [pscustomobject]@{
+                    ExitCode = 124
+                    Stdout = ""
+                    Stderr = "$Description exceeded process timeout of ${TimeoutSeconds}s"
+                }
             }
 
-            return [pscustomobject]@{
-                ExitCode = 124
-                Stdout = ""
-                Stderr = "$Description exceeded process timeout of ${TimeoutSeconds}s"
-            }
+            Start-Sleep -Milliseconds 500
         }
 
         $stdout = $stdoutTask.GetAwaiter().GetResult()
@@ -79,6 +85,16 @@ function Invoke-DotnetChecked {
         }
     }
     finally {
+        if (-not $process.HasExited) {
+            try {
+                $process.Kill($true)
+                $process.WaitForExit(5000) | Out-Null
+            }
+            catch {
+                Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+            }
+        }
+
         $process.Dispose()
     }
 }

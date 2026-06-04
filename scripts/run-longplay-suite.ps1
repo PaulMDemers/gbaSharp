@@ -12,6 +12,7 @@ param(
     [int]$LowDiversityWarningThreshold = 8,
     [switch]$NoBuild,
     [switch]$NoContactSheet,
+    [switch]$Resume,
     [switch]$NormalPriority
 )
 
@@ -52,6 +53,10 @@ try {
 
     if ($NoContactSheet) {
         $params.NoContactSheet = $true
+    }
+
+    if ($Resume) {
+        $params.Resume = $true
     }
 
     if ($NormalPriority) {

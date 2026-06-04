@@ -16,6 +16,7 @@ param(
     [switch]$NoBuild,
     [switch]$NoContactSheet,
     [switch]$IncludeNonPassContactSheet,
+    [switch]$Resume,
     [switch]$NormalPriority
 )
 
@@ -47,7 +48,7 @@ try {
     }
 
     $combinedPath = Join-Path $OutputRoot "deep-gameplay.csv"
-    if (Test-Path -LiteralPath $combinedPath) {
+    if ((-not $Resume) -and (Test-Path -LiteralPath $combinedPath)) {
         Remove-Item -LiteralPath $combinedPath -Force
     }
 
@@ -89,6 +90,10 @@ try {
 
         if ($NormalPriority) {
             $runnerParams.NormalPriority = $true
+        }
+
+        if ($Resume) {
+            $runnerParams.Resume = $true
         }
 
         Write-Host "Running deep gameplay suite $chunkName"
