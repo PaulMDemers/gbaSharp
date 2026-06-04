@@ -47,8 +47,26 @@ The first attempt completed chunk 1 and most of chunk 2 before the outer shell t
 | `castlevania-harmony-longplay` | 34,000 | pass | 10 | 34 | Fresh-start castle movement/combat soak. |
 | `pokemon-ruby-longplay` | 78,000 | pass | 11 | 52 | Flash128K save-assisted room/text/map soak. |
 
+## 2026-06-04 Next Batch Smoke
+
+The next-batch rollup is `artifacts/longplay-nextbatch-rollup-20260604`, with contact sheet `artifacts/longplay-nextbatch-rollup-20260604/contact-sheet.png`. It adds eight non-Pokemon routes and reports 8/8 pass rows with 0 route-threshold diversity warnings after tuning Doom to the verified 18,000-frame window.
+
+This batch is compatibility evidence, not baseline-promotion material yet. Doom, Golden Sun, and Wario Land 4 land in strong active gameplay scenes. GTA, Mario & Luigi, and Mega Man Battle Network are useful longer runtime/dialogue/room stability checks, but their final scenes still need tighter route scripting before promotion. The two F-Zero routes prove longer affine-race runtime stability, but the current scripts end in failure/loss states and should be revisited for stronger driven-race evidence.
+
+| Route | Frame | Status | Distinct PCs | Snapshots | Notes |
+| --- | ---: | --- | ---: | ---: | --- |
+| `doom-longplay` | 18,000 | pass | 23 | 30 | First-person gameplay; 26,000-frame attempt reached frame 19,794 before the 2,400-second budget. |
+| `gta-longplay` | 30,000 | pass | 16 | 30 | Former DMA/generated-code crash anchor; final frame currently lands in story dialogue. |
+| `golden-sun-longplay` | 52,000 | pass | 18 | 40 | Outdoor RPG gameplay scene. |
+| `mario-luigi-longplay` | 66,000 | pass | 10 | 44 | Save-assisted EEPROM route; final frame lands on the find-Mario prompt. |
+| `mega-man-battle-network-longplay` | 32,000 | pass | 5 | 32 | Stable low-diversity room/dialogue route. |
+| `wario-land4-longplay` | 30,000 | pass | 19 | 30 | Active platforming scene. |
+| `fzero-gp-longplay` | 22,000 | pass | 2 | 36 | Longer race runtime but final frame is a mission-failed state. |
+| `fzero-maximum-longplay` | 24,000 | pass | 3 | 40 | Longer race runtime but final frame is a loss state. |
+
 ## Next Candidates
 
 - Promote selected longplay frames to baselines only after the final scenes are stable and visually useful.
-- Add the next non-Pokemon longplay batch: Golden Sun, Fire Emblem, WarioWare, Mario & Luigi, F-Zero, Mega Man Battle Network, Doom, and GTA are good candidates.
+- Tighten the GTA, Mario & Luigi, Mega Man Battle Network, and F-Zero longplay scripts so their final frames become stronger active-play scenes.
+- Add Fire Emblem and WarioWare longplay routes after bespoke entry scripts are available.
 - Promote or revise final scenes only after longer soak routes prove visually stable and useful enough for baselines.

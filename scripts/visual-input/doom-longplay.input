@@ -1,0 +1,39 @@
+# Extend the Doom gameplay route into a longer first-person movement/combat soak.
+at 120 Start 5
+at 240 A 5
+at 360 Start 5
+at 480 A 5
+at 660 A 5
+at 840 Start 5
+at 1020 A 5
+at 1200 Down 8
+at 1320 A 5
+at 1500 Start 5
+at 1680 A 5
+at 1900 A 8
+at 2200 A 8
+at 2500 Start 8
+at 2800 A 8
+at 3100 A 8
+at 3400 A 8
+at 3700 A 8
+at 4000 Start 8
+at 4300 A 8
+at 4600 A 8
+at 4900 A 8
+at 5200 Up 120
+at 5500 Right 120
+at 5800 A 8
+press 6200 Up
+at 8000 A 60
+press 8060 Up
+at 10500 Right 600
+press 11100 Up
+at 13800 A 60
+press 13860 Left
+at 16200 A 60
+press 16260 Up
+at 19000 Right 600
+press 19600 Up
+at 22000 A 60
+release 26000

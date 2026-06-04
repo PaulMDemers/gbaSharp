@@ -1,0 +1,50 @@
+# Extend the GTA gameplay route into longer on-foot movement and interaction.
+at 120 Start 5
+at 240 A 5
+at 360 Start 5
+at 480 A 5
+at 660 A 5
+at 840 Start 5
+at 1020 A 5
+at 1200 Down 8
+at 1320 A 5
+at 1500 Start 5
+at 1680 A 5
+at 1900 A 8
+at 2200 A 8
+at 2500 Start 8
+at 2800 A 8
+at 3100 A 8
+at 3400 A 8
+at 3700 Start 8
+at 4000 A 8
+at 4300 A 8
+at 4600 A 8
+at 4900 A 8
+at 5200 A 8
+at 5500 A 8
+at 5800 A 8
+at 6100 A 8
+at 6400 A 8
+at 6700 A 8
+at 7000 A 8
+at 7300 A 8
+at 7600 A 8
+at 7900 A 8
+at 8200 A 8
+at 8500 A 8
+at 8800 A 8
+at 9100 A 8
+at 9400 A 8
+press 9800 Right
+at 12600 A 60
+press 12660 Down
+at 15400 B 60
+press 15460 Left
+at 18200 A 60
+press 18260 Up
+at 21000 B 60
+press 21060 Right
+at 23800 A 60
+press 23860 Down
+release 30000

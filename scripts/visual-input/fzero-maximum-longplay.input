@@ -1,0 +1,41 @@
+# Extend the F-Zero Maximum Velocity race route into a longer active race soak.
+at 120 Start 5
+at 240 A 5
+at 360 Start 5
+at 480 A 5
+at 660 A 5
+at 840 Start 5
+at 1020 A 5
+at 1200 A 5
+at 1380 Start 5
+at 1560 A 5
+at 1740 Start 5
+at 1920 A 5
+at 2100 A 5
+at 2280 Start 5
+at 2460 A 5
+at 2640 A 5
+at 2820 A 5
+at 3000 A 5
+at 3180 A 5
+at 3360 A 5
+at 3540 A 5
+at 3720 A 5
+at 3900 A 5
+at 4200 A 5
+at 4500 A 5
+at 4800 A 5
+at 5100 A 5
+at 5400 A 5
+at 5700 A 5
+at 6000 A 5
+at 6600 A 5
+at 7200 A 5
+press 7800 A,Right
+at 10200 A,Left 600
+press 10800 A,Right
+at 13800 A,Left 600
+press 14400 A,Right
+at 17400 A,Left 600
+press 18000 A,Right
+release 24000
