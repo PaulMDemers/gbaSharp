@@ -56,7 +56,7 @@ This batch is compatibility evidence, not baseline-promotion material yet. Doom,
 | Route | Frame | Status | Distinct PCs | Snapshots | Notes |
 | --- | ---: | --- | ---: | ---: | --- |
 | `doom-longplay` | 18,000 | pass | 23 | 30 | First-person gameplay; 26,000-frame attempt reached frame 19,794 before the 2,400-second budget. |
-| `gta-longplay` | 30,000 | pass | 16 | 30 | Former DMA/generated-code crash anchor; final frame currently lands in story dialogue. |
+| `gta-longplay` | 30,000 | pass | 16 | 30 | Former DMA/generated-code crash anchor; final frame lands in story dialogue; superseded by the active-gameplay retune below. |
 | `golden-sun-longplay` | 52,000 | pass | 18 | 40 | Outdoor RPG gameplay scene. |
 | `mario-luigi-longplay` | 66,000 | pass | 10 | 44 | Save-assisted EEPROM route; final frame lands on the find-Mario prompt. |
 | `mega-man-battle-network-longplay` | 32,000 | pass | 5 | 32 | Stable low-diversity room/dialogue route. |
@@ -77,10 +77,20 @@ The verification artifact is `artifacts/fzero-retuned-longplay-20260604`, with c
 | `fzero-gp-longplay` | 9,000 | pass | 4 | 30 | Active GP Legend race frame, before mission failure. |
 | `fzero-maximum-longplay` | 7,200 | pass | 3 | 24 | Active Maximum Velocity race/checkpoint frame, before loss state. |
 
+## 2026-06-04 GTA Retune
+
+The candidate sweep `artifacts/gta-longplay-candidates-20260604/contact-sheet.png` shows GTA in active top-down gameplay at frames 12,000, 16,000, and 24,000, then story-dialogue screens by frames 28,000 and 30,000. The manifest now retunes `gta-longplay` to frame 24,000 so it remains a longer former-crash-anchor run while ending on active gameplay evidence.
+
+The verification artifact is `artifacts/gta-retuned-longplay-20260604`, with contact sheet `artifacts/gta-retuned-longplay-20260604/contact-sheet.png`.
+
+| Route | Frame | Status | Distinct PCs | Snapshots | Notes |
+| --- | ---: | --- | ---: | ---: | --- |
+| `gta-longplay` | 24,000 | pass | 14 | 30 | Active top-down gameplay scene before story dialogue. |
+
 ## Next Candidates
 
 - Promote selected longplay frames to baselines only after the final scenes are stable and visually useful.
-- Tighten the GTA, Mario & Luigi, and Mega Man Battle Network longplay scripts so their final frames become stronger active-play scenes.
+- Tighten the Mario & Luigi and Mega Man Battle Network longplay scripts so their final frames become stronger active-play scenes.
 - Revisit F-Zero driving inputs later if we want longer race windows than the current active-frame retune.
 - Add Fire Emblem and WarioWare longplay routes after bespoke entry scripts are available.
 - Promote or revise final scenes only after longer soak routes prove visually stable and useful enough for baselines.
