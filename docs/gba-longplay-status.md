@@ -61,12 +61,26 @@ This batch is compatibility evidence, not baseline-promotion material yet. Doom,
 | `mario-luigi-longplay` | 66,000 | pass | 10 | 44 | Save-assisted EEPROM route; final frame lands on the find-Mario prompt. |
 | `mega-man-battle-network-longplay` | 32,000 | pass | 5 | 32 | Stable low-diversity room/dialogue route. |
 | `wario-land4-longplay` | 30,000 | pass | 19 | 30 | Active platforming scene. |
-| `fzero-gp-longplay` | 22,000 | pass | 2 | 36 | Longer race runtime but final frame is a mission-failed state. |
-| `fzero-maximum-longplay` | 24,000 | pass | 3 | 40 | Longer race runtime but final frame is a loss state. |
+| `fzero-gp-longplay` | 22,000 | pass | 2 | 36 | Longer race runtime but final frame is a mission-failed state; superseded by the active-race retune below. |
+| `fzero-maximum-longplay` | 24,000 | pass | 3 | 40 | Longer race runtime but final frame is a loss state; superseded by the active-race retune below. |
+
+## 2026-06-04 F-Zero Retune
+
+Candidate sweeps for the two F-Zero longplay rows showed better visual evidence before the previous final frames. `artifacts/fzero-gp-longplay-candidates-20260604/contact-sheet.png` shows GP Legend still in active racing at frames 9,000 and 12,000, then mission-failed by frame 15,000. `artifacts/fzero-maximum-early-candidates-20260604/contact-sheet.png` shows Maximum Velocity in an active race/checkpoint window at frame 7,200, then loss-state frames by 8,200 and later. A B-button acceleration probe under `artifacts/fzero-maximum-bprobe-candidates-20260604` did not improve the route.
+
+The manifest now retunes `fzero-gp-longplay` to frame 9,000 and `fzero-maximum-longplay` to frame 7,200. These are shorter than the first next-batch smoke windows, but they are stronger active-play evidence and avoid locking in failure/loss-screen final frames.
+
+The verification artifact is `artifacts/fzero-retuned-longplay-20260604`, with contact sheet `artifacts/fzero-retuned-longplay-20260604/contact-sheet.png`.
+
+| Route | Frame | Status | Distinct PCs | Snapshots | Notes |
+| --- | ---: | --- | ---: | ---: | --- |
+| `fzero-gp-longplay` | 9,000 | pass | 4 | 30 | Active GP Legend race frame, before mission failure. |
+| `fzero-maximum-longplay` | 7,200 | pass | 3 | 24 | Active Maximum Velocity race/checkpoint frame, before loss state. |
 
 ## Next Candidates
 
 - Promote selected longplay frames to baselines only after the final scenes are stable and visually useful.
-- Tighten the GTA, Mario & Luigi, Mega Man Battle Network, and F-Zero longplay scripts so their final frames become stronger active-play scenes.
+- Tighten the GTA, Mario & Luigi, and Mega Man Battle Network longplay scripts so their final frames become stronger active-play scenes.
+- Revisit F-Zero driving inputs later if we want longer race windows than the current active-frame retune.
 - Add Fire Emblem and WarioWare longplay routes after bespoke entry scripts are available.
 - Promote or revise final scenes only after longer soak routes prove visually stable and useful enough for baselines.
