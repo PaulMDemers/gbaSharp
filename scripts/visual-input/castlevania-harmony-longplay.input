@@ -1,0 +1,76 @@
+# Extend the Harmony of Dissonance gameplay route into a longer castle movement soak.
+at 120 Start 5
+at 240 A 5
+at 360 Start 5
+at 480 A 5
+at 660 A 5
+at 840 Start 5
+at 1020 A 5
+at 1200 Down 8
+at 1320 A 5
+at 1500 Start 5
+at 1680 A 5
+at 1900 A 8
+at 2200 A 8
+at 2500 Start 8
+at 2800 A 8
+at 3100 A 8
+at 3400 A 8
+at 3700 A 8
+at 4000 A 8
+at 4300 A 8
+at 4600 A 8
+at 4900 A 8
+at 5200 A 8
+at 5500 A 8
+at 5800 A 8
+at 6100 A 8
+at 6400 A 8
+at 6700 A 8
+at 7000 A 8
+at 7300 A 8
+at 7600 A 8
+at 7900 A 30
+at 8200 A 30
+at 8500 A 30
+at 8800 A 30
+at 9100 A 30
+at 9400 A 30
+at 9700 A 30
+at 10000 A 30
+at 10300 A 30
+at 10600 A 30
+at 10900 A 30
+at 11200 A 30
+at 11500 A 30
+at 11800 A 30
+at 12100 A 30
+at 12400 A 30
+at 12700 A 30
+at 13000 A 30
+at 13300 A 30
+at 13600 A 30
+at 13900 A 30
+at 14200 A 30
+at 14500 A 30
+at 14800 A 30
+at 15100 A 30
+at 15400 A 30
+at 15700 A 30
+at 16000 A 30
+at 16300 A 30
+at 16600 A 30
+at 16900 A 30
+at 17200 A 30
+press 17500 Right
+at 19500 Right,B 60
+press 19560 Right
+at 22400 Right,A 30
+press 22430 Right
+at 25200 Right,B 60
+press 25260 Right
+at 28000 Right,A 30
+press 28030 Right
+at 30800 Right,B 60
+press 30860 Right
+release 34000
