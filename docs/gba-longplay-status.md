@@ -132,9 +132,20 @@ The suite ran in five chunks of three routes and was then rebuilt with `-Resume`
 | `fzero-gp-longplay` | 9,000 | pass | 4 | 30 |
 | `fzero-maximum-longplay` | 7,200 | pass | 3 | 24 |
 
+## 2026-06-05 Fire Emblem Route
+
+The first post-15-suite expansion route adds `fire-emblem-longplay` for `Fire Emblem (USA, Australia)`. The initial candidate sweep `artifacts/fire-emblem-longplay-candidates-20260605/contact-sheet.png` stalled around name/personal-info setup, so the late setup inputs were revised to finish personal information and advance into the tutorial map. The follow-up candidate sheet `artifacts/fire-emblem-longplay-candidates-v2-20260605/contact-sheet.png` showed usable tactical-map frames, with frame 36,000 selected before the later tutorial prompt.
+
+The verification artifact is `artifacts/fire-emblem-longplay-verify-20260605`, with contact sheet `artifacts/fire-emblem-longplay-verify-20260605/contact-sheet.png`.
+
+| Route | Frame | Status | Distinct PCs | Snapshots | Notes |
+| --- | ---: | --- | ---: | ---: | --- |
+| `fire-emblem-longplay` | 36,000 | pass | 9 | 40 | Fresh-start tactical map/grid scene with units visible. |
+
 ## Next Candidates
 
 - Promote selected longplay frames to baselines only after the final scenes are stable and visually useful.
 - Revisit F-Zero driving inputs later if we want longer race windows than the current active-frame retune.
-- Add Fire Emblem and WarioWare longplay routes after bespoke entry scripts are available.
+- Add a WarioWare longplay route after a bespoke entry script is available.
+- Run a fresh full 16-route longplay suite to verify the current manifest after the Fire Emblem expansion.
 - Promote or revise final scenes only after longer soak routes prove visually stable and useful enough for baselines.
