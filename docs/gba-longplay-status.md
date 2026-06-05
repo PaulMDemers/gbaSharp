@@ -59,7 +59,7 @@ This batch is compatibility evidence, not baseline-promotion material yet. Doom,
 | `gta-longplay` | 30,000 | pass | 16 | 30 | Former DMA/generated-code crash anchor; final frame lands in story dialogue; superseded by the active-gameplay retune below. |
 | `golden-sun-longplay` | 52,000 | pass | 18 | 40 | Outdoor RPG gameplay scene. |
 | `mario-luigi-longplay` | 66,000 | pass | 10 | 44 | Save-assisted EEPROM route; final frame lands on the find-Mario prompt; superseded by the room-scene retune below. |
-| `mega-man-battle-network-longplay` | 32,000 | pass | 5 | 32 | Stable low-diversity room/dialogue route. |
+| `mega-man-battle-network-longplay` | 32,000 | pass | 5 | 32 | Stable low-diversity room/dialogue route; superseded by the room-scene retune below. |
 | `wario-land4-longplay` | 30,000 | pass | 19 | 30 | Active platforming scene. |
 | `fzero-gp-longplay` | 22,000 | pass | 2 | 36 | Longer race runtime but final frame is a mission-failed state; superseded by the active-race retune below. |
 | `fzero-maximum-longplay` | 24,000 | pass | 3 | 40 | Longer race runtime but final frame is a loss state; superseded by the active-race retune below. |
@@ -97,10 +97,20 @@ The verification artifact is `artifacts/mario-luigi-retuned-longplay-20260604`, 
 | --- | ---: | --- | ---: | ---: | --- |
 | `mario-luigi-longplay` | 48,000 | pass | 9 | 40 | Clean room scene before the find-Mario prompt. |
 
+## 2026-06-04 Mega Man Battle Network Retune
+
+The candidate sweep `artifacts/mmbn-longplay-candidates-20260604/contact-sheet.png` shows clean room/control frames at 18,000 and 22,000, then PET dialogue prompt frames by 26,000 and later. The manifest now retunes `mega-man-battle-network-longplay` to frame 22,000 so the stable low-diversity route ends on room evidence instead of dialogue.
+
+The verification artifact is `artifacts/mmbn-retuned-longplay-20260604`, with contact sheet `artifacts/mmbn-retuned-longplay-20260604/contact-sheet.png`.
+
+| Route | Frame | Status | Distinct PCs | Snapshots | Notes |
+| --- | ---: | --- | ---: | ---: | --- |
+| `mega-man-battle-network-longplay` | 22,000 | pass | 5 | 27 | Clean room scene before the PET dialogue prompt. |
+
 ## Next Candidates
 
 - Promote selected longplay frames to baselines only after the final scenes are stable and visually useful.
-- Tighten the Mega Man Battle Network longplay script so its final frame becomes a stronger active-play scene.
 - Revisit F-Zero driving inputs later if we want longer race windows than the current active-frame retune.
 - Add Fire Emblem and WarioWare longplay routes after bespoke entry scripts are available.
+- Run a fresh full 15-route longplay suite to verify the current manifest after all final-frame retunes.
 - Promote or revise final scenes only after longer soak routes prove visually stable and useful enough for baselines.
