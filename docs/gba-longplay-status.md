@@ -58,7 +58,7 @@ This batch is compatibility evidence, not baseline-promotion material yet. Doom,
 | `doom-longplay` | 18,000 | pass | 23 | 30 | First-person gameplay; 26,000-frame attempt reached frame 19,794 before the 2,400-second budget. |
 | `gta-longplay` | 30,000 | pass | 16 | 30 | Former DMA/generated-code crash anchor; final frame lands in story dialogue; superseded by the active-gameplay retune below. |
 | `golden-sun-longplay` | 52,000 | pass | 18 | 40 | Outdoor RPG gameplay scene. |
-| `mario-luigi-longplay` | 66,000 | pass | 10 | 44 | Save-assisted EEPROM route; final frame lands on the find-Mario prompt. |
+| `mario-luigi-longplay` | 66,000 | pass | 10 | 44 | Save-assisted EEPROM route; final frame lands on the find-Mario prompt; superseded by the room-scene retune below. |
 | `mega-man-battle-network-longplay` | 32,000 | pass | 5 | 32 | Stable low-diversity room/dialogue route. |
 | `wario-land4-longplay` | 30,000 | pass | 19 | 30 | Active platforming scene. |
 | `fzero-gp-longplay` | 22,000 | pass | 2 | 36 | Longer race runtime but final frame is a mission-failed state; superseded by the active-race retune below. |
@@ -87,10 +87,20 @@ The verification artifact is `artifacts/gta-retuned-longplay-20260604`, with con
 | --- | ---: | --- | ---: | ---: | --- |
 | `gta-longplay` | 24,000 | pass | 14 | 30 | Active top-down gameplay scene before story dialogue. |
 
+## 2026-06-04 Mario & Luigi Retune
+
+The candidate sweep `artifacts/mario-luigi-longplay-candidates-20260604/contact-sheet.png` shows the previous route reaching the find-Mario prompt at frames 36,000 and 58,000, with a clean room scene at frame 48,000. The manifest now retunes `mario-luigi-longplay` to frame 48,000 so the save-assisted EEPROM route ends on room/exploration evidence rather than a dialogue prompt.
+
+The verification artifact is `artifacts/mario-luigi-retuned-longplay-20260604`, with contact sheet `artifacts/mario-luigi-retuned-longplay-20260604/contact-sheet.png`.
+
+| Route | Frame | Status | Distinct PCs | Snapshots | Notes |
+| --- | ---: | --- | ---: | ---: | --- |
+| `mario-luigi-longplay` | 48,000 | pass | 9 | 40 | Clean room scene before the find-Mario prompt. |
+
 ## Next Candidates
 
 - Promote selected longplay frames to baselines only after the final scenes are stable and visually useful.
-- Tighten the Mario & Luigi and Mega Man Battle Network longplay scripts so their final frames become stronger active-play scenes.
+- Tighten the Mega Man Battle Network longplay script so its final frame becomes a stronger active-play scene.
 - Revisit F-Zero driving inputs later if we want longer race windows than the current active-frame retune.
 - Add Fire Emblem and WarioWare longplay routes after bespoke entry scripts are available.
 - Promote or revise final scenes only after longer soak routes prove visually stable and useful enough for baselines.
