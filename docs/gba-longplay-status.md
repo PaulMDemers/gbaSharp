@@ -142,10 +142,19 @@ The verification artifact is `artifacts/fire-emblem-longplay-verify-20260605`, w
 | --- | ---: | --- | ---: | ---: | --- |
 | `fire-emblem-longplay` | 36,000 | pass | 9 | 40 | Fresh-start tactical map/grid scene with units visible. |
 
+## 2026-06-05 WarioWare Route
+
+The second post-15-suite expansion route adds `warioware-longplay` for `WarioWare, Inc. - Mega Microgame$! (USA)`. The candidate sweep `artifacts/warioware-longplay-candidates-20260605/contact-sheet.png` reached fast microgame flow, but later frames fell into retry/exit screens. The manifest therefore targets frame 18,000, an active microgame window before the retry state.
+
+The verification artifact is `artifacts/warioware-longplay-verify-20260605`, with contact sheet `artifacts/warioware-longplay-verify-20260605/contact-sheet.png`.
+
+| Route | Frame | Status | Distinct PCs | Snapshots | Notes |
+| --- | ---: | --- | ---: | ---: | --- |
+| `warioware-longplay` | 18,000 | pass | 4 | 30 | Fast low-diversity microgame state before retry screens. |
+
 ## Next Candidates
 
 - Promote selected longplay frames to baselines only after the final scenes are stable and visually useful.
 - Revisit F-Zero driving inputs later if we want longer race windows than the current active-frame retune.
-- Add a WarioWare longplay route after a bespoke entry script is available.
-- Run a fresh full 16-route longplay suite to verify the current manifest after the Fire Emblem expansion.
+- Run a fresh full 17-route longplay suite to verify the current manifest after the Fire Emblem and WarioWare expansions.
 - Promote or revise final scenes only after longer soak routes prove visually stable and useful enough for baselines.
