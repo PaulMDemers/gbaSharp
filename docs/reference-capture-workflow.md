@@ -5,7 +5,9 @@ external emulator captures from tools such as mGBA or no$gba.
 
 ## Files
 
-- `docs/gba-reference-frames.csv` lists the first reference targets.
+- `docs/gba-reference-frames.csv` lists the first save-assisted reference targets.
+- `docs/gba-longplay-reference-frames.csv` lists the first strict longplay
+  reference targets.
 - `scripts/new-reference-capture-checklist.py` joins those targets to the
   save-assisted route manifest and writes a capture checklist.
 - `scripts/validate-reference-captures.py` checks dropped reference PNGs for
@@ -33,11 +35,21 @@ The starter set covers every save-assisted gameplay route:
 - `pokemon-ruby-save-bedroom`: Flash128K save-loaded Ruby bedroom scene.
 - `mario-kart-save-race`: affine racing scene.
 
+The first strict longplay set covers longer exact-match scenes:
+
+- `sonic-advance-longplay`: extended beach gameplay timing scene.
+- `metroid-fusion-longplay`: extended boss-room/action-platformer scene.
+- `doom-longplay`: extended first-person gameplay scene.
+- `gta-longplay`: former DMA/generated-code crash anchor in active top-down gameplay.
+- `wario-land4-longplay`: extended platforming scene.
+- `fire-emblem-longplay`: tactical map/grid scene.
+
 ## Current Status
 
-As of 2026-06-03, the dashboard tooling is ready and the post-audio check
-reports 8 missing mGBA PNG captures. See `docs/gba-reference-status.md` for the
-current missing file list and strict dashboard commands.
+As of 2026-06-06, the dashboard tooling is ready. The save-assisted set reports
+8 missing mGBA PNG captures, and the strict longplay set reports 6 missing mGBA
+PNG captures. See `docs/gba-reference-status.md` for the current missing file
+list and strict commands.
 
 ## Manual Reference Capture
 
@@ -45,6 +57,12 @@ Generate the current capture checklist first:
 
 ```powershell
 python .\scripts\new-reference-capture-checklist.py
+```
+
+For the strict longplay checklist:
+
+```powershell
+python .\scripts\new-reference-capture-checklist.py --reference-manifest docs\gba-longplay-reference-frames.csv --route-manifest docs\gba-longplay-strict-routes.csv --csv-output artifacts\longplay-reference-checklist\reference-capture-checklist.csv --markdown-output artifacts\longplay-reference-checklist\reference-capture-checklist.md
 ```
 
 1. Open the same ROM in the reference emulator.
@@ -91,6 +109,12 @@ Validate dropped captures first:
 python .\scripts\validate-reference-captures.py --manifest docs\gba-reference-frames.csv --output artifacts\reference-capture-validation.csv
 ```
 
+Validate strict longplay captures:
+
+```powershell
+python .\scripts\validate-reference-captures.py --manifest docs\gba-longplay-reference-frames.csv --output artifacts\longplay-reference-capture-validation.csv --reference-root reference-captures\mgba\longplay
+```
+
 Useful strict intake mode once all reference images should be present:
 
 ```powershell
@@ -101,6 +125,12 @@ Run:
 
 ```powershell
 python .\scripts\compare-reference-frames.py --manifest docs\gba-reference-frames.csv --output reference-frame-comparison.csv --write-diffs --contact-sheet artifacts\reference-frame-comparison.png
+```
+
+Run strict longplay comparison:
+
+```powershell
+python .\scripts\compare-reference-frames.py --manifest docs\gba-longplay-reference-frames.csv --output artifacts\longplay-reference-frame-comparison.csv --write-diffs --contact-sheet artifacts\longplay-reference-frame-comparison.png
 ```
 
 Useful strict mode once all reference images exist:

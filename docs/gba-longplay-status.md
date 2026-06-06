@@ -3,9 +3,12 @@
 The longplay suite is a non-baseline gameplay soak layer. It reuses approved save fixtures, runs longer than the strict final-frame smoke routes, and records snapshots for stability and PC-diversity evidence. These rows intentionally use `baselineRequired=false`; final frames are evidence, not locked regression baselines yet.
 
 - Manifest: `docs/gba-longplay-routes.csv`
+- Strict baseline manifest: `docs/gba-longplay-strict-routes.csv`
 - Runner wrapper: `scripts/run-longplay-suite.ps1`
 - Current full-suite artifact: `artifacts/longplay-suite-full17-20260605`
 - Contact sheet: `artifacts/longplay-suite-full17-20260605/contact-sheet.png`
+- Current strict artifact: `artifacts/longplay-strict-verify-20260606`
+- Strict contact sheet: `artifacts/longplay-strict-verify-20260606/contact-sheet.png`
 - Historical 15-route full-suite artifact: `artifacts/longplay-suite-full15-20260605`
 - Historical 7-route full-suite artifact: `artifacts/longplay-suite-full7-20260604`
 - Historical first rollup artifact: `artifacts/longplay-post-audio-smoke-rollup`
@@ -179,9 +182,28 @@ The suite ran in six bounded chunks and was then rebuilt with `-Resume` to produ
 | `fire-emblem-longplay` | 36,000 | pass | 9 | 40 |
 | `warioware-longplay` | 18,000 | pass | 4 | 30 |
 
+## 2026-06-06 Strict Longplay Baselines
+
+The first strict longplay subset is tracked in `docs/gba-longplay-strict-routes.csv`. It promotes six high-signal rows from the full 17-route soak into exact local baseline checks under `visual-baselines/longplay`: Sonic Advance, Metroid Fusion, Doom, GTA, Wario Land 4, and Fire Emblem. These rows were selected for useful final scenes, route diversity, and compatibility risk coverage; broader soak rows remain non-baseline in `docs/gba-longplay-routes.csv`.
+
+Baselines were seeded from `artifacts/longplay-suite-full17-20260605/deep-gameplay.csv` with `scripts/promote-deep-gameplay-baselines.ps1`, producing `artifacts/longplay-strict-promote-20260606/promotion.csv`. A fresh strict verification then ran through `scripts/run-deep-gameplay-suite.ps1` with `-FailOnBaselineDiff`; the verification artifact is `artifacts/longplay-strict-verify-20260606`, with contact sheet `artifacts/longplay-strict-verify-20260606/contact-sheet.png`.
+
+Results: 6/6 pass rows, 6/6 exact baseline matches, 0 failures, and 0 low-diversity warnings.
+
+| Route | Frame | Status | Baseline | Distinct PCs | Snapshots |
+| --- | ---: | --- | --- | ---: | ---: |
+| `sonic-advance-longplay` | 30,000 | pass | match | 11 | 50 |
+| `metroid-fusion-longplay` | 56,000 | pass | match | 17 | 35 |
+| `doom-longplay` | 18,000 | pass | match | 23 | 30 |
+| `gta-longplay` | 24,000 | pass | match | 14 | 30 |
+| `wario-land4-longplay` | 30,000 | pass | match | 19 | 30 |
+| `fire-emblem-longplay` | 36,000 | pass | match | 9 | 40 |
+
+The matching external-reference manifest is `docs/gba-longplay-reference-frames.csv`. The generated checklist lives at `artifacts/longplay-reference-checklist-20260606/reference-capture-checklist.md`; validation and comparison currently report 6/6 missing mGBA PNG captures, which is expected until external captures are added under `reference-captures/mgba/longplay`.
+
 ## Next Candidates
 
-- Promote selected longplay frames to baselines only after the final scenes are stable and visually useful.
+- Promote another small strict tranche from the full 17-route set after final-scene review, likely starting with Golden Sun and the Castlevania routes.
 - Revisit F-Zero driving inputs later if we want longer race windows than the current active-frame retune.
-- Add reference-capture comparison for the highest-signal full-17 rows before baseline promotion.
-- Deepen or replace any final scenes that are representative but not ideal gameplay evidence.
+- Capture mGBA/no$gba references for the six strict longplay rows and run strict pixel comparison.
+- Deepen or replace any remaining final scenes that are representative but not ideal gameplay evidence.

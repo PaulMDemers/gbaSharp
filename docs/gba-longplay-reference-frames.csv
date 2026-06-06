@@ -1,0 +1,7 @@
+label,actualImage,referenceImage,maxDifferentPixels,maxChannelDelta,notes
+sonic-advance-longplay,visual-baselines/longplay/sonic-advance-longplay.ppm,reference-captures/mgba/longplay/sonic-advance-longplay.png,0,0,Sonic Advance extended beach longplay reference
+metroid-fusion-longplay,visual-baselines/longplay/metroid-fusion-longplay.ppm,reference-captures/mgba/longplay/metroid-fusion-longplay.png,0,0,Metroid Fusion extended gameplay longplay reference
+doom-longplay,visual-baselines/longplay/doom-longplay.ppm,reference-captures/mgba/longplay/doom-longplay.png,0,0,Doom extended first-person longplay reference
+gta-longplay,visual-baselines/longplay/gta-longplay.ppm,reference-captures/mgba/longplay/gta-longplay.png,0,0,GTA extended on-foot longplay reference
+wario-land4-longplay,visual-baselines/longplay/wario-land4-longplay.ppm,reference-captures/mgba/longplay/wario-land4-longplay.png,0,0,Wario Land 4 extended platforming longplay reference
+fire-emblem-longplay,visual-baselines/longplay/fire-emblem-longplay.ppm,reference-captures/mgba/longplay/fire-emblem-longplay.png,0,0,Fire Emblem tactical map longplay reference
