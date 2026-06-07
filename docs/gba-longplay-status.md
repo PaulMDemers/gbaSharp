@@ -7,8 +7,11 @@ The longplay suite is a non-baseline gameplay soak layer. It reuses approved sav
 - Runner wrapper: `scripts/run-longplay-suite.ps1`
 - Current full-suite artifact: `artifacts/longplay-suite-full17-20260605`
 - Contact sheet: `artifacts/longplay-suite-full17-20260605/contact-sheet.png`
-- Current strict tranche artifact: `artifacts/longplay-strict-verify-20260606-tranche2`
-- Current strict tranche contact sheet: `artifacts/longplay-strict-verify-20260606-tranche2/contact-sheet.png`
+- Current strict rollup artifact: `artifacts/longplay-strict-rollup-20260606`
+- Current strict rollup contact sheet: `artifacts/longplay-strict-rollup-20260606/contact-sheet.png`
+- Current strict tranche artifact: `artifacts/longplay-strict-verify-20260606-tranche3`
+- Current strict tranche contact sheet: `artifacts/longplay-strict-verify-20260606-tranche3/contact-sheet.png`
+- Historical second strict artifact: `artifacts/longplay-strict-verify-20260606-tranche2`
 - Historical first strict artifact: `artifacts/longplay-strict-verify-20260606`
 - Historical 15-route full-suite artifact: `artifacts/longplay-suite-full15-20260605`
 - Historical 7-route full-suite artifact: `artifacts/longplay-suite-full7-20260604`
@@ -218,11 +221,31 @@ Results: 5/5 pass rows, 5/5 exact baseline matches, 0 failures, and 0 low-divers
 | `castlevania-harmony-longplay` | 34,000 | pass | match | 10 | 34 |
 | `golden-sun-longplay` | 52,000 | pass | match | 18 | 40 |
 
-The regenerated external-reference checklist for all 11 strict longplay rows is `artifacts/longplay-reference-checklist-20260606-tranche2/reference-capture-checklist.md`. Validation and comparison currently report 11/11 missing mGBA PNG captures.
+The regenerated external-reference checklist for all 11 strict longplay rows is `artifacts/longplay-reference-checklist-20260606-tranche2/reference-capture-checklist.md`. Validation and comparison reported 11/11 missing mGBA PNG captures.
+
+## 2026-06-06 Strict Longplay Tranche 3
+
+The third strict tranche promotes the remaining six longplay rows: Pokemon Ruby, Mario & Luigi, Mega Man Battle Network, F-Zero GP Legend, F-Zero Maximum Velocity, and WarioWare. This expands `docs/gba-longplay-strict-routes.csv` to all 17 rows from the broad longplay manifest. The lower-diversity routes use route-specific thresholds matching their stable main-loop behavior.
+
+Baselines were seeded from `artifacts/longplay-suite-full17-20260605/deep-gameplay.csv` with `scripts/promote-deep-gameplay-baselines.ps1`, producing `artifacts/longplay-strict-promote-20260606-tranche3/promotion.csv`. The fresh verification artifact for the new rows is `artifacts/longplay-strict-verify-20260606-tranche3`, with contact sheet `artifacts/longplay-strict-verify-20260606-tranche3/contact-sheet.png`.
+
+Results: 6/6 pass rows, 6/6 exact baseline matches, 0 failures, and 0 low-diversity warnings.
+
+| Route | Frame | Status | Baseline | Distinct PCs | Snapshots |
+| --- | ---: | --- | --- | ---: | ---: |
+| `pokemon-ruby-longplay` | 78,000 | pass | match | 10 | 52 |
+| `mario-luigi-longplay` | 48,000 | pass | match | 9 | 40 |
+| `mega-man-battle-network-longplay` | 22,000 | pass | match | 5 | 27 |
+| `fzero-gp-longplay` | 9,000 | pass | match | 4 | 30 |
+| `fzero-maximum-longplay` | 7,200 | pass | match | 3 | 24 |
+| `warioware-longplay` | 18,000 | pass | match | 4 | 30 |
+
+The combined strict rollup is `artifacts/longplay-strict-rollup-20260606`, with contact sheet `artifacts/longplay-strict-rollup-20260606/contact-sheet.png`. It merges the three tranche verification reports and shows 17/17 `pass, match` rows, 0 failures, and 0 low-diversity warnings.
+
+The regenerated external-reference checklist for all 17 strict longplay rows is `artifacts/longplay-reference-checklist-20260606-tranche3/reference-capture-checklist.md`. Validation and comparison currently report 17/17 missing mGBA PNG captures.
 
 ## Next Candidates
 
-- Review the remaining non-strict rows for a third tranche: Pokemon Ruby, Mario & Luigi, Mega Man Battle Network, WarioWare, and the two F-Zero routes need stricter final-scene judgment before promotion.
+- Capture mGBA/no$gba references for the 17 strict longplay rows and run strict pixel comparison.
 - Revisit F-Zero driving inputs later if we want longer race windows than the current active-frame retune.
-- Capture mGBA/no$gba references for the 11 strict longplay rows and run strict pixel comparison.
 - Deepen or replace any remaining final scenes that are representative but not ideal gameplay evidence.

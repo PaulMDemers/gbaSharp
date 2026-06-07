@@ -48,11 +48,17 @@ The first strict longplay set covers longer exact-match scenes:
 - `castlevania-aria-longplay`: extended castle gameplay scene.
 - `castlevania-harmony-longplay`: extended castle gameplay scene.
 - `golden-sun-longplay`: extended outdoor RPG scene.
+- `pokemon-ruby-longplay`: extended save-assisted room scene.
+- `mario-luigi-longplay`: extended room scene.
+- `mega-man-battle-network-longplay`: extended room scene.
+- `fzero-gp-longplay`: active GP Legend race scene.
+- `fzero-maximum-longplay`: active Maximum Velocity race scene.
+- `warioware-longplay`: active microgame scene.
 
 ## Current Status
 
 As of 2026-06-06, the dashboard tooling is ready. The save-assisted set reports
-8 missing mGBA PNG captures, and the strict longplay set reports 11 missing mGBA
+8 missing mGBA PNG captures, and the strict longplay set reports 17 missing mGBA
 PNG captures. See `docs/gba-reference-status.md` for the current missing file
 list and strict commands.
 

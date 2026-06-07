@@ -10,3 +10,9 @@ tony-hawk2-longplay,visual-baselines/longplay/tony-hawk2-longplay.ppm,reference-
 castlevania-aria-longplay,visual-baselines/longplay/castlevania-aria-longplay.ppm,reference-captures/mgba/longplay/castlevania-aria-longplay.png,0,0,Castlevania Aria extended castle longplay reference
 castlevania-harmony-longplay,visual-baselines/longplay/castlevania-harmony-longplay.ppm,reference-captures/mgba/longplay/castlevania-harmony-longplay.png,0,0,Castlevania Harmony extended castle longplay reference
 golden-sun-longplay,visual-baselines/longplay/golden-sun-longplay.ppm,reference-captures/mgba/longplay/golden-sun-longplay.png,0,0,Golden Sun extended outdoor RPG longplay reference
+pokemon-ruby-longplay,visual-baselines/longplay/pokemon-ruby-longplay.ppm,reference-captures/mgba/longplay/pokemon-ruby-longplay.png,0,0,Pokemon Ruby extended save-assisted room longplay reference
+mario-luigi-longplay,visual-baselines/longplay/mario-luigi-longplay.ppm,reference-captures/mgba/longplay/mario-luigi-longplay.png,0,0,Mario and Luigi extended room longplay reference
+mega-man-battle-network-longplay,visual-baselines/longplay/mega-man-battle-network-longplay.ppm,reference-captures/mgba/longplay/mega-man-battle-network-longplay.png,0,0,Mega Man Battle Network extended room longplay reference
+fzero-gp-longplay,visual-baselines/longplay/fzero-gp-longplay.ppm,reference-captures/mgba/longplay/fzero-gp-longplay.png,0,0,F-Zero GP Legend active race longplay reference
+fzero-maximum-longplay,visual-baselines/longplay/fzero-maximum-longplay.ppm,reference-captures/mgba/longplay/fzero-maximum-longplay.png,0,0,F-Zero Maximum Velocity active race longplay reference
+warioware-longplay,visual-baselines/longplay/warioware-longplay.ppm,reference-captures/mgba/longplay/warioware-longplay.png,0,0,WarioWare active microgame longplay reference
