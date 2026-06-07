@@ -43,11 +43,16 @@ The first strict longplay set covers longer exact-match scenes:
 - `gta-longplay`: former DMA/generated-code crash anchor in active top-down gameplay.
 - `wario-land4-longplay`: extended platforming scene.
 - `fire-emblem-longplay`: tactical map/grid scene.
+- `mario-kart-longplay`: extended affine race scene.
+- `tony-hawk2-longplay`: extended skate tutorial scene.
+- `castlevania-aria-longplay`: extended castle gameplay scene.
+- `castlevania-harmony-longplay`: extended castle gameplay scene.
+- `golden-sun-longplay`: extended outdoor RPG scene.
 
 ## Current Status
 
 As of 2026-06-06, the dashboard tooling is ready. The save-assisted set reports
-8 missing mGBA PNG captures, and the strict longplay set reports 6 missing mGBA
+8 missing mGBA PNG captures, and the strict longplay set reports 11 missing mGBA
 PNG captures. See `docs/gba-reference-status.md` for the current missing file
 list and strict commands.
 

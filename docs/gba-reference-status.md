@@ -7,9 +7,9 @@ The external reference dashboard tooling is ready, but the current reference set
 ## Current Result
 
 - Save-assisted reference targets: 8
-- Strict longplay reference targets: 6
+- Strict longplay reference targets: 11
 - Present reference captures: 0
-- Missing reference captures: 14
+- Missing reference captures: 19
 - Invalid reference captures: 0
 - Pixel comparisons ready: 0
 
@@ -40,6 +40,11 @@ Place 240x160 PNG captures at these paths:
 | `gta-longplay` | `reference-captures/mgba/longplay/gta-longplay.png` |
 | `wario-land4-longplay` | `reference-captures/mgba/longplay/wario-land4-longplay.png` |
 | `fire-emblem-longplay` | `reference-captures/mgba/longplay/fire-emblem-longplay.png` |
+| `mario-kart-longplay` | `reference-captures/mgba/longplay/mario-kart-longplay.png` |
+| `tony-hawk2-longplay` | `reference-captures/mgba/longplay/tony-hawk2-longplay.png` |
+| `castlevania-aria-longplay` | `reference-captures/mgba/longplay/castlevania-aria-longplay.png` |
+| `castlevania-harmony-longplay` | `reference-captures/mgba/longplay/castlevania-harmony-longplay.png` |
+| `golden-sun-longplay` | `reference-captures/mgba/longplay/golden-sun-longplay.png` |
 
 ## Useful Commands
 
