@@ -18,6 +18,59 @@ dotnet run --project src\Gba.Cli -- verify-frame game.gba --stop-frame 600 --bas
 
 The report records status, classification, frame activity, timing rates (`framesPerMillionSteps`, `cyclesPerFrame`), final PC/state, video registers, object counts, ROM header fields, and optional capture paths.
 
+## 2026-06-10 Curated Official Boot Sweep
+
+The latest broad curated pass is `artifacts/compat-curated-boot-20260610`. It
+covers all 300 ROMs in `curated_official_gba` with aligned real-BIOS boot
+probes.
+
+Initial 120-frame boot pass:
+
+| Report | Rows | Boot | Static | Timeout | Crash |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `artifacts/compat-curated-boot-20260610/compat-all.csv` | 300 | 287 | 4 | 9 | 0 |
+
+The 9 timeout rows were all `slow-progress-timeout` and passed when rerun with a
+larger boot budget in
+`artifacts/compat-curated-boot-20260610/reprobe/boot-reprobe.csv`. The 4 static
+rows were all `early-window-static` and animated when rerun to frame 600 in
+`artifacts/compat-curated-boot-20260610/reprobe/static-late-probe.csv`.
+
+Best-known overlay after those reprobes:
+
+| Report | Rows | Boot | Static | Timeout | Crash |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `artifacts/compat-curated-boot-20260610/compat-best.csv` | 300 | 300 | 0 | 0 | 0 |
+
+Best-known classifications are 191 `stalled-late`, 58 `animated`, and 51
+`low-motion`. Treat this as a strong boot-confidence gate, not as full gameplay
+compatibility. The next broad pass should run `standard` or targeted `input`
+phases against representative categories and prior stress titles.
+
+The follow-up targeted input slice is
+`artifacts/compat-curated-input-slice-20260610`. It covers 28 stress and
+representative titles: the initial weak boot rows plus Doom, GTA, Mario Kart,
+Metroid Fusion, Sonic Advance, Wario Land 4, WarioWare, F-Zero GP Legend,
+Golden Sun, Pokemon, Tony Hawk, and Castlevania anchors.
+
+Initial input slice:
+
+| Report | Rows | Boot | Static | Timeout | Crash |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `artifacts/compat-curated-input-slice-20260610/compat-input-slice.csv` | 84 | 80 | 4 | 0 | 0 |
+
+The 4 static rows are the same 120-frame `early-window-static` boot-only probes;
+all four pass later-window or input phases. The best-known input-slice overlay
+uses the 600-frame late probes for those boot rows:
+
+| Report | Rows | Boot | Static | Timeout | Crash |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `artifacts/compat-curated-input-slice-20260610/compat-input-slice-best.csv` | 84 | 84 | 0 | 0 | 0 |
+
+This gives the current broad confidence picture: 300/300 curated official titles
+boot under the aligned real-BIOS path, and a 28-title stress slice passes boot,
+Start-probe, and broad-input phases without crashes or timeouts.
+
 Use `--profile-output` on performance-focused compatibility runs. This enables profiled stepping and writes a second CSV with wall time, steps/sec, frames/sec, and CPU/bus/scheduler percentages:
 
 ```powershell
