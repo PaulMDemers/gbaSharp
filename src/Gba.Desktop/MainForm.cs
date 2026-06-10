@@ -18,6 +18,7 @@ public sealed class MainForm : Form
     private readonly PictureBox _display = new();
     private readonly ToolStripButton _runButton = new("Run");
     private readonly ToolStripButton _pauseButton = new("Pause");
+    private readonly ToolStripButton _frameStepButton = new("Frame");
     private readonly ToolStripButton _resetButton = new("Reset");
     private readonly ToolStripButton _audioButton = new("Audio") { CheckOnClick = true, Checked = true };
     private readonly ToolStripMenuItem _useBiosMenuItem = new("Use BIOS when available") { CheckOnClick = true, Checked = true };
@@ -25,6 +26,7 @@ public sealed class MainForm : Form
     private readonly ToolStripMenuItem _writeSaveMenuItem = new("Write Save");
     private readonly ToolStripMenuItem _screenshotMenuItem = new("Save Screenshot...");
     private readonly ToolStripMenuItem _pauseResumeMenuItem = new("Pause");
+    private readonly ToolStripMenuItem _frameStepMenuItem = new("Step Frame");
     private readonly ToolStripMenuItem _resetMenuItem = new("Reset");
     private readonly ToolStripMenuItem _speedMenuItem = new("Speed");
     private readonly ToolStripStatusLabel _status = new("No ROM loaded");
@@ -92,9 +94,12 @@ public sealed class MainForm : Form
         var emulation = new ToolStripMenuItem("Emulation");
         _pauseResumeMenuItem.Click += (_, _) => TogglePause();
         _pauseResumeMenuItem.ShortcutKeys = Keys.Space;
+        _frameStepMenuItem.Click += (_, _) => StepFrame();
+        _frameStepMenuItem.ShortcutKeys = Keys.Control | Keys.F;
         _resetMenuItem.Click += (_, _) => ResetRom();
         _resetMenuItem.ShortcutKeys = Keys.F5;
         emulation.DropDownItems.Add(_pauseResumeMenuItem);
+        emulation.DropDownItems.Add(_frameStepMenuItem);
         emulation.DropDownItems.Add(_resetMenuItem);
         emulation.DropDownItems.Add(new ToolStripSeparator());
         AddSpeedMenuItem("1x", 1.0, unlimited: false, checkedByDefault: true);
@@ -107,13 +112,14 @@ public sealed class MainForm : Form
         var toolbar = new ToolStrip();
         _runButton.Click += (_, _) => StartEmulation();
         _pauseButton.Click += (_, _) => PauseEmulation();
+        _frameStepButton.Click += (_, _) => StepFrame();
         _resetButton.Click += (_, _) => ResetRom();
         _audioButton.CheckedChanged += (_, _) =>
         {
             _audioOutput.Enabled = _audioButton.Checked;
             UpdateAudioButton();
         };
-        toolbar.Items.AddRange([_runButton, _pauseButton, _resetButton, new ToolStripSeparator(), _audioButton]);
+        toolbar.Items.AddRange([_runButton, _pauseButton, _frameStepButton, _resetButton, new ToolStripSeparator(), _audioButton]);
 
         _display.Dock = DockStyle.Fill;
         _display.BackColor = Color.Black;
@@ -384,6 +390,47 @@ public sealed class MainForm : Form
         }
     }
 
+    private void StepFrame()
+    {
+        const int MaxStepsPerFrame = 1_000_000;
+
+        if (_gba is null)
+        {
+            return;
+        }
+
+        if (_runCancellation is not null)
+        {
+            SetStatus("Pause before stepping a single frame.");
+            return;
+        }
+
+        var startFrame = Interlocked.Read(ref _emulatedFrames);
+        var steps = 0;
+        lock (_sync)
+        {
+            if (_gba is null)
+            {
+                return;
+            }
+
+            while (Interlocked.Read(ref _emulatedFrames) == startFrame && steps < MaxStepsPerFrame)
+            {
+                _gba.Step();
+                steps++;
+            }
+        }
+
+        if (steps >= MaxStepsPerFrame)
+        {
+            SetStatus("Frame step stopped before VBlank; the ROM may be stalled.");
+            return;
+        }
+
+        PresentFrame();
+        UpdateStatusFps();
+    }
+
     private void RunLoop(CancellationToken cancellationToken)
     {
         var nextFrameTime = Stopwatch.GetTimestamp();
@@ -574,11 +621,13 @@ public sealed class MainForm : Form
         var running = _runCancellation is not null;
         _runButton.Enabled = hasRom && !running;
         _pauseButton.Enabled = running;
+        _frameStepButton.Enabled = hasRom && !running;
         _resetButton.Enabled = hasRom;
         _writeSaveMenuItem.Enabled = hasRom;
         _screenshotMenuItem.Enabled = hasRom;
         _pauseResumeMenuItem.Enabled = hasRom;
         _pauseResumeMenuItem.Text = running ? "Pause" : "Run";
+        _frameStepMenuItem.Enabled = hasRom && !running;
         _resetMenuItem.Enabled = hasRom;
     }
 
@@ -847,6 +896,9 @@ public sealed class MainForm : Form
                 return true;
             case Keys.Control | Keys.S:
                 WriteSave();
+                return true;
+            case Keys.Control | Keys.F:
+                StepFrame();
                 return true;
             case Keys.Space:
                 TogglePause();
