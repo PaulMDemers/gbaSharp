@@ -63,7 +63,7 @@ The frontend supports:
 - ROM open dialog, drag/drop loading, and recent ROMs.
 - Run, pause, reset, single-frame step, and speed controls.
 - Audio enable/disable.
-- Save export to the ROM-adjacent `.sav` path.
+- Save export and autosave to the ROM-adjacent `.sav` path.
 - PNG screenshots.
 - Status display with title, game code, BIOS state, FPS, frame count, and speed.
 

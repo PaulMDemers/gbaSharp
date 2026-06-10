@@ -24,6 +24,7 @@ public sealed class MainForm : Form
     private readonly ToolStripMenuItem _useBiosMenuItem = new("Use BIOS when available") { CheckOnClick = true, Checked = true };
     private readonly ToolStripMenuItem _recentRomsMenuItem = new("Recent ROMs");
     private readonly ToolStripMenuItem _writeSaveMenuItem = new("Write Save");
+    private readonly ToolStripMenuItem _autosaveMenuItem = new("Autosave") { CheckOnClick = true, Checked = true };
     private readonly ToolStripMenuItem _screenshotMenuItem = new("Save Screenshot...");
     private readonly ToolStripMenuItem _pauseResumeMenuItem = new("Pause");
     private readonly ToolStripMenuItem _frameStepMenuItem = new("Step Frame");
@@ -31,6 +32,7 @@ public sealed class MainForm : Form
     private readonly ToolStripMenuItem _speedMenuItem = new("Speed");
     private readonly ToolStripStatusLabel _status = new("No ROM loaded");
     private readonly System.Windows.Forms.Timer _presentTimer = new();
+    private readonly System.Windows.Forms.Timer _autosaveTimer = new();
     private readonly WaveOutAudioOutput _audioOutput = new();
     private readonly int[] _argbFrame = new int[VideoController.Pixels];
     private readonly string? _startupRomPath;
@@ -80,6 +82,7 @@ public sealed class MainForm : Form
         _writeSaveMenuItem.Click += (_, _) => WriteSave();
         _writeSaveMenuItem.ShortcutKeys = Keys.Control | Keys.S;
         file.DropDownItems.Add(_writeSaveMenuItem);
+        file.DropDownItems.Add(_autosaveMenuItem);
         _screenshotMenuItem.Click += (_, _) => SaveScreenshot();
         _screenshotMenuItem.ShortcutKeys = Keys.F9;
         file.DropDownItems.Add(_screenshotMenuItem);
@@ -141,6 +144,15 @@ public sealed class MainForm : Form
         _presentTimer.Interval = 16;
         _presentTimer.Tick += (_, _) => PresentFrame();
         _presentTimer.Start();
+        _autosaveTimer.Interval = 15_000;
+        _autosaveTimer.Tick += (_, _) =>
+        {
+            if (_autosaveMenuItem.Checked)
+            {
+                WriteSave(quiet: true);
+            }
+        };
+        _autosaveTimer.Start();
         LoadPersistedSettings();
         TryLoadDefaultBios();
         RefreshRecentRomsMenu();
@@ -184,7 +196,7 @@ public sealed class MainForm : Form
     protected override void OnFormClosing(FormClosingEventArgs e)
     {
         PauseEmulation();
-        WriteSave();
+        WriteSave(quiet: true);
         SavePersistedSettings();
         _display.Image = null;
         _frontBitmap.Dispose();
@@ -212,6 +224,7 @@ public sealed class MainForm : Form
     private async Task OpenRomPathAsync(string path)
     {
         PauseEmulation();
+        WriteSave(quiet: true);
         try
         {
             var fullPath = Path.GetFullPath(path);
@@ -346,6 +359,7 @@ public sealed class MainForm : Form
 
         var shouldRun = _runCancellation is not null;
         PauseEmulation();
+        WriteSave(quiet: true);
         try
         {
             var cartridge = Cartridge.Load(File.ReadAllBytes(_romPath));
@@ -539,7 +553,7 @@ public sealed class MainForm : Form
         }
     }
 
-    private void WriteSave()
+    private void WriteSave(bool quiet = false)
     {
         var wrote = false;
         lock (_sync)
@@ -553,7 +567,7 @@ public sealed class MainForm : Form
             wrote = true;
         }
 
-        if (wrote && _savePath is not null)
+        if (wrote && !quiet && _savePath is not null)
         {
             SetStatus($"Save written: {Path.GetFileName(_savePath)}");
         }
@@ -624,6 +638,7 @@ public sealed class MainForm : Form
         _frameStepButton.Enabled = hasRom && !running;
         _resetButton.Enabled = hasRom;
         _writeSaveMenuItem.Enabled = hasRom;
+        _autosaveMenuItem.Enabled = hasRom;
         _screenshotMenuItem.Enabled = hasRom;
         _pauseResumeMenuItem.Enabled = hasRom;
         _pauseResumeMenuItem.Text = running ? "Pause" : "Run";
@@ -797,6 +812,7 @@ public sealed class MainForm : Form
     private void LoadPersistedSettings()
     {
         _useBiosMenuItem.Checked = _settings.UseBios;
+        _autosaveMenuItem.Checked = _settings.Autosave;
         _speedMultiplier = _settings.SpeedMultiplier <= 0 ? 1.0 : _settings.SpeedMultiplier;
         _unlimitedSpeed = _settings.UnlimitedSpeed;
 
@@ -817,6 +833,7 @@ public sealed class MainForm : Form
     private void SavePersistedSettings()
     {
         _settings.UseBios = _useBiosMenuItem.Checked;
+        _settings.Autosave = _autosaveMenuItem.Checked;
         _settings.BiosPath = _biosPath;
         _settings.SpeedMultiplier = _speedMultiplier;
         _settings.UnlimitedSpeed = _unlimitedSpeed;
@@ -973,6 +990,8 @@ public sealed class MainForm : Form
         public string? BiosPath { get; set; }
 
         public bool UseBios { get; set; } = true;
+
+        public bool Autosave { get; set; } = true;
 
         public double SpeedMultiplier { get; set; } = 1.0;
 
