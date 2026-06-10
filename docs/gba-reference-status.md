@@ -1,8 +1,14 @@
 # GBA Reference Capture Status
 
-Last checked: 2026-06-09
+Last checked: 2026-06-10
 
 The external reference dashboard tooling is ready. The non-strict save-assisted dashboard run at `artifacts/reference-dashboard-post-audio-check` generated a capture checklist, validation CSV, comparison CSV, and placeholder comparison contact sheet. Strict longplay reference validation at `artifacts/longplay-reference-validation-gta-20260609.csv` now reports all 17 manifest rows as valid, with seven extra local artifacts left from older targets.
+
+The latest strict longplay external oracle run is
+`artifacts/strict-reference-suite-20260610-035200`. It was launched through
+`scripts/run-local-verification.ps1 -NoRestore -IncludeStrictReference`; the
+quick build/test gate passed, capture validation reported 17 `ok` rows plus 7
+extra local captures, and frame comparison reported 17/17 `pass`.
 
 ## Current Result
 
@@ -12,6 +18,19 @@ The external reference dashboard tooling is ready. The non-strict save-assisted 
 - Missing save-assisted reference captures: 8
 - Invalid reference captures: 0
 - Strict longplay pixel comparisons ready: 17 current references, with 17/17 passing the current bounded comparison
+
+Highest current bounded deltas from the latest strict run:
+
+| Label | Different Pixels | Allowed |
+| --- | ---: | ---: |
+| `castlevania-harmony-longplay` | 5174 | 5500 |
+| `golden-sun-longplay` | 3517 | 4000 |
+| `sonic-advance-external-reference` | 2350 | 4000 |
+| `wario-land4-longplay` | 603 | 800 |
+| `metroid-fusion-longplay` | 442 | 600 |
+| `warioware-longplay` | 324 | 500 |
+| `pokemon-ruby-external-reference` | 116 | 150 |
+| `fzero-maximum-longplay` | 111 | 200 |
 
 ## Missing Save-Assisted mGBA Captures
 
