@@ -43,6 +43,12 @@ Use `-IncludeStrictReference` and `-IncludeHardSoak` when the local reference
 captures, baselines, BIOS, and curated ROM collection are present and you want a
 heavier release-style pass.
 
+Create a desktop publish folder and zip under `artifacts`:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\package-desktop.ps1
+```
+
 ## Desktop Frontend
 
 Launch the WinForms frontend:
