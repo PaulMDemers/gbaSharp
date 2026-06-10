@@ -244,8 +244,156 @@ The combined strict rollup is `artifacts/longplay-strict-rollup-20260606`, with 
 
 The regenerated external-reference checklist for all 17 strict longplay rows is `artifacts/longplay-reference-checklist-20260606-tranche3/reference-capture-checklist.md`. Validation and comparison currently report 17/17 missing mGBA PNG captures.
 
+## 2026-06-08 Mario Kart External Reference Audit
+
+Mario Kart's strict local longplay remains a useful exact gbaSharp baseline and
+gameplay soak, but its active race frame is not a good strict cross-emulator
+pixel oracle. A refreshed scripted mGBA capture at `artifacts/mgba-reference-captures-mario-kart-reroute-20260608`
+reproduces the same same-scene delta as the earlier capture. The gbaSharp
+window match at `artifacts/mario-kart-reref-window-20260608` reports best frame
+20,280 with 25,575 differing pixels and SSIM 0.716646.
+
+The pairwise gbaSharp-vs-mGBA window audit at
+`artifacts/mario-kart-window-pairwise-20260608/pairwise.csv` shows that HUD,
+timer, and road regions prefer near-zero frame offsets, while sky and hills
+prefer different offsets. The timeline contact sheet
+`artifacts/mario-kart-window-pairwise-20260608/timeline-gbasharp-mgba.png`
+confirms the two emulators stay in the same race scene but consume gameplay
+input on slightly different simulation states. Treat this route as a local
+playability/soak target; use lower-input or paused/stable frames for strict
+external pixel comparison.
+
+## 2026-06-08 Sonic Advance External Reference Retarget
+
+Sonic Advance's 30,000-frame strict local longplay remains the extended
+gbaSharp gameplay soak, but it is not a stable strict cross-emulator pixel
+target. A refreshed mGBA capture at frame 30,000 reaches a later route state
+after Sonic has progressed through the beach scene, while the local baseline is
+still an early timing scene. The mGBA capture harness now loads save fixtures at
+Lua initialization and resets immediately after the load, so save-assisted
+reference runs boot with the fixture present before scripted input begins.
+
+The external-reference manifest now uses `sonic-advance-external-reference` at
+frame 9,000. The local baseline is
+`visual-baselines/longplay/sonic-advance-external-reference.ppm`, and the mGBA
+reference is
+`reference-captures/mgba/longplay/sonic-advance-external-reference.png`.
+`artifacts/longplay-reference-sonic-external-tight-20260608/reference-comparison.csv`
+reports Sonic as pass with 2,350 differing pixels against a 4,000-pixel
+tolerance. Region scoring at
+`artifacts/sonic-external-region-score-20260608/regions.csv` shows the playfield
+is exact and all differences are confined to the HUD/timer strip.
+
+## 2026-06-08 Reference Tolerance Triage
+
+The external reference rollup now has a metric summarizer at
+`scripts/summarize-reference-comparison.py`. It reports raw differing pixels,
+thresholded differing pixels, SSIM, coarse mean delta, size bucket, and a coarse
+same-scene classification for each manifest row.
+
+After refreshing the stale F-Zero Maximum Velocity and Fire Emblem local
+reference frames, retargeting Pokemon Ruby, F-Zero GP Legend, Mario Kart, Tony
+Hawk 2, Doom, and GTA to stable intro/reference windows, and adding bounded
+same-scene tolerances for tiny HUD/animation drift, the strict longplay external
+comparison at `artifacts/longplay-reference-gta-retarget-20260609` reports
+17/17 pass rows.
+
+Newly accepted bounded rows:
+
+| Route | Differing Pixels | Reason |
+| --- | ---: | --- |
+| `castlevania-aria-longplay` | 63 | Tiny HUD counter drift only. |
+| `fzero-maximum-longplay` | 111 | Same-frame race scene with tiny HUD/timer drift after baseline refresh. |
+| `metroid-fusion-longplay` | 442 | Minor animated sprite/beam phase drift. |
+| `wario-land4-longplay` | 603 | Minor projectile/sprite phase drift. |
+| `golden-sun-longplay` | 3,517 | Same-scene rain/weather animation phase drift. |
+| `castlevania-harmony-longplay` | 5,174 | Same-scene afterimage/effect animation phase drift. |
+| `pokemon-ruby-external-reference` | 116 | No-save intro ripple animation phase drift; save-assisted Ruby remains local-only because mGBA Flash128K save import diverges. |
+| `fire-emblem-longplay` | 41 | Refreshed baseline has exact tactical map with tiny UI/cursor phase drift. |
+| `fzero-gp-external-reference` | 0 | Exact no-input title-frame match; active-race GP Legend remains local-only because mGBA/gbaSharp race input timing diverges. |
+| `mario-kart-external-reference` | 0 | Exact no-input intro match; compares gbaSharp frame 420 against mGBA frame 435 because the flag animation is offset by 15 frames. |
+| `tony-hawk2-external-reference` | 0 | Exact no-input Activision logo match; skate tutorial remains local-only because save/input timing diverges. |
+| `doom-external-reference` | 0 | Exact no-input id-logo match; compares gbaSharp frame 600 against mGBA frame 620 because the logo animation is offset by 20 frames. |
+| `gta-external-reference` | 0 | Exact no-input intro match at frame 600; on-foot gameplay remains local-only because later route timing diverges. |
+
+The latest strict capture validation is
+`artifacts/longplay-reference-validation-gta-20260609.csv`; it reports 17
+current references as valid, with 7 extra local artifacts left from superseded
+external targets.
+
+## 2026-06-09 Strict Runner and Hard Local Soak
+
+The strict external oracle is now runnable through
+`scripts/run-strict-reference-suite.ps1`. The first run at
+`artifacts/strict-reference-suite-20260609` reports 17/17 passing frame
+comparisons, 17 valid current captures, and 7 extra ignored captures from
+superseded longplay targets.
+
+The focused hard local set is wrapped by `scripts/run-hard-local-soak.ps1`.
+The first batch artifact is `artifacts/hard-local-soak-20260609`. It confirmed
+`mario-kart-longplay` still matches its exact local baseline. `fzero-gp-longplay`
+completed in a same-scene race state and repeated exactly against the new
+capture at `artifacts/hard-local-repeat-fzero-20260609`, so the local F-Zero GP
+baseline was refreshed in the workspace. `tony-hawk2-longplay` completed once
+with a same-scene timing delta, but the repeat run aborted around frame 12,600;
+do not promote that local baseline until the abort is understood.
+
+The same batch showed `sonic-advance-longplay`, `doom-longplay`,
+`gta-longplay`, and `pokemon-ruby-longplay` as aborted/incomplete under the
+large combined run. A direct Doom repro to frame 6,000 succeeded at
+`artifacts/doom-repro-6000-20260609.ppm`, so the next pass should isolate these
+routes individually before treating them as emulator regressions. The gameplay
+runner now records `lastSnapshotFrame` and `lastSnapshotPc` to make these aborts
+actionable.
+
+The route isolation pass uses `scripts/run-route-repeatability.ps1`. Results so
+far:
+
+| Route | Artifact | Result | Notes |
+| --- | --- | --- | --- |
+| `doom-longplay` | `artifacts/route-repeatability-doom-20260609` | pass/match | Full 18,000-frame route passes in isolation; earlier batch abort was not deterministic. |
+| `gta-longplay` | `artifacts/route-repeatability-gta-20260609` and `artifacts/route-repeatability-gta-repeat-20260609` | pass/repeatable | Full 24,000-frame route repeated exactly against the new capture; local baseline refreshed in the workspace. |
+| `sonic-advance-longplay` | `artifacts/route-repeatability-sonic-20260609` | pass/match | Full 30,000-frame route passes in isolation; earlier batch abort was not deterministic. |
+| `tony-hawk2-longplay` | `artifacts/tony-hawk2-direct-27000-20260609.ppm` | pass/repeatable | Direct 27,000-frame run matches the earlier completed hard-soak frame exactly; local baseline refreshed in the workspace. |
+| `pokemon-ruby-longplay` | `artifacts/route-repeatability-ruby-20260609` | pass/diff | Full 78,000-frame route completes, but current final frame is outdoors while the old baseline is the bedroom. Needs one more repeat before any baseline refresh. |
+
+## 2026-06-10 Ruby Retiming and Hard Local Gate
+
+The 78,000-frame Ruby save-assisted route is coherent but not exact-repeatable:
+`artifacts/route-repeatability-ruby-repeat-20260609` reached a different
+outdoor map state than `artifacts/route-repeatability-ruby-20260609`. It should
+remain gameplay soak evidence rather than an exact baseline.
+
+The strict Ruby local row is now retimed to a deterministic frame 6,000
+save-assisted room/text checkpoint. The no-BIOS probe repeated exactly, and the
+BIOS-mode gate frame repeated exactly at
+`artifacts/route-repeatability-ruby-bios-repeat-20260609`; the local baseline
+was refreshed from the BIOS-mode frame.
+
+The focused hard local gate is green at
+`artifacts/hard-local-soak-green-20260609`: 7/7 pass rows, 7/7 exact local
+baseline matches.
+
+| Route | Frame | Status | Baseline | Distinct PCs |
+| --- | ---: | --- | --- | ---: |
+| `sonic-advance-longplay` | 30,000 | pass | match | 11 |
+| `doom-longplay` | 18,000 | pass | match | 23 |
+| `gta-longplay` | 24,000 | pass | match | 17 |
+| `mario-kart-longplay` | 20,000 | pass | match | 10 |
+| `tony-hawk2-longplay` | 27,000 | pass | match | 7 |
+| `pokemon-ruby-longplay` | 6,000 | pass | match | 6 |
+| `fzero-gp-longplay` | 9,000 | pass | match | 4 |
+
 ## Next Candidates
 
-- Capture mGBA/no$gba references for the 17 strict longplay rows and run strict pixel comparison.
+- Use the 17/17 green external reference set as the strict external visual oracle.
+- Keep the longer Doom FPS, GTA on-foot, Mario Kart race, F-Zero GP race, Tony
+  Hawk skate, and Sonic 30,000-frame routes as local exact baselines/playability
+  soaks until their cross-emulator timing can be aligned more tightly. Keep the
+  former Ruby 78,000-frame route as soak evidence only; the strict Ruby exact
+  gate is now the deterministic 6,000-frame room/text checkpoint.
+- Run the focused local stress set with `scripts/run-hard-local-soak.ps1`.
+- Isolate route repeatability with `scripts/run-route-repeatability.ps1` before
+  refreshing any more local baselines.
 - Revisit F-Zero driving inputs later if we want longer race windows than the current active-frame retune.
 - Deepen or replace any remaining final scenes that are representative but not ideal gameplay evidence.

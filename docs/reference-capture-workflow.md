@@ -15,6 +15,12 @@ external emulator captures from tools such as mGBA or no$gba.
   captures.
 - `scripts/compare-reference-frames.py` compares actual gbaSharp frames against
   reference images and can write diff PNGs.
+- `scripts/match-mgba-reference-windows.py` captures a gbaSharp frame window
+  around a strict route and finds the closest frame to a single mGBA reference.
+- `scripts/match-frame-windows.py` compares two captured frame windows
+  pairwise, which is useful when input timing can diverge between emulators.
+- `scripts/score-reference-regions.py` scores named screen regions so global
+  route drift can be separated from layer-specific render drift.
 - `scripts/run-reference-dashboard.ps1` runs the checklist, validation,
   comparison, contact sheet, and Markdown summary steps as one command. It can
   optionally refresh the save-assisted deep gameplay suite first.
@@ -37,30 +43,31 @@ The starter set covers every save-assisted gameplay route:
 
 The first strict longplay set covers longer exact-match scenes:
 
-- `sonic-advance-longplay`: extended beach gameplay timing scene.
+- `sonic-advance-external-reference`: short stable Sonic beach scene for external comparison; `sonic-advance-longplay` remains the longer local soak.
 - `metroid-fusion-longplay`: extended boss-room/action-platformer scene.
-- `doom-longplay`: extended first-person gameplay scene.
-- `gta-longplay`: former DMA/generated-code crash anchor in active top-down gameplay.
+- `doom-external-reference`: short stable no-input id-logo scene for external comparison; `doom-longplay` remains the longer local FPS soak.
+- `gta-external-reference`: short stable no-input intro scene for external comparison; `gta-longplay` remains the longer local on-foot soak.
 - `wario-land4-longplay`: extended platforming scene.
 - `fire-emblem-longplay`: tactical map/grid scene.
-- `mario-kart-longplay`: extended affine race scene.
-- `tony-hawk2-longplay`: extended skate tutorial scene.
+- `mario-kart-external-reference`: short stable no-input intro scene for external comparison; `mario-kart-longplay` remains the longer local affine race soak.
+- `tony-hawk2-external-reference`: short stable no-input Activision logo scene for external comparison; `tony-hawk2-longplay` remains the longer local skate tutorial soak.
 - `castlevania-aria-longplay`: extended castle gameplay scene.
 - `castlevania-harmony-longplay`: extended castle gameplay scene.
 - `golden-sun-longplay`: extended outdoor RPG scene.
-- `pokemon-ruby-longplay`: extended save-assisted room scene.
+- `pokemon-ruby-external-reference`: short stable no-save intro scene for external comparison; `pokemon-ruby-longplay` remains the longer local save-assisted room soak.
 - `mario-luigi-longplay`: extended room scene.
 - `mega-man-battle-network-longplay`: extended room scene.
-- `fzero-gp-longplay`: active GP Legend race scene.
+- `fzero-gp-external-reference`: short stable no-input title scene for external comparison; `fzero-gp-longplay` remains the longer local active-race soak.
 - `fzero-maximum-longplay`: active Maximum Velocity race scene.
 - `warioware-longplay`: active microgame scene.
 
 ## Current Status
 
-As of 2026-06-06, the dashboard tooling is ready. The save-assisted set reports
-8 missing mGBA PNG captures, and the strict longplay set reports 17 missing mGBA
-PNG captures. See `docs/gba-reference-status.md` for the current missing file
-list and strict commands.
+As of 2026-06-09, the dashboard tooling is ready. The save-assisted set still
+needs 8 manual mGBA PNG captures, while the strict longplay external set has 17
+valid captures and 17/17 passing bounded pixel comparisons. See
+`docs/gba-reference-status.md` for the current capture status and strict
+commands.
 
 ## Manual Reference Capture
 
@@ -88,6 +95,25 @@ Exact frame parity can be hard when the reference emulator does not support inpu
 scripts directly. For those cases, keep the image at the same visible scene first,
 then relax `maxDifferentPixels` or `maxChannelDelta` only after reviewing the diff.
 
+For active racing/action scenes, prefer a window-to-window check before treating a
+large pixel diff as a renderer bug. Run `match-mgba-reference-windows.py` first;
+if regions disagree about the best frame, capture a matching mGBA window with
+`run-mgba-reference-captures.ps1 -FrameStart ... -FrameEnd ... -FrameStride ...`
+and compare both windows with `match-frame-windows.py`.
+
+For save-assisted mGBA captures, `run-mgba-reference-captures.ps1` loads the
+manifest save fixture as soon as the Lua script initializes and resets once
+after the load. This makes save-backed routes behave like gbaSharp's
+pre-boot `--save-file` path instead of loading the save after the game has
+already initialized its SRAM/Flash state.
+
+Long local gameplay soaks are not always good external pixel targets. If an
+active route diverges by player position, timer, or simulation state, keep the
+long route as a local exact baseline and add a shorter dedicated reference row
+at a stable same-scene frame. `sonic-advance-external-reference` is the current
+example: the 30,000-frame Sonic soak remains local coverage, while the 9,000
+frame reference is used for mGBA comparison.
+
 ## Compare
 
 For the combined dashboard path, run:
@@ -100,6 +126,12 @@ Useful strict dashboard mode once all references should be present:
 
 ```powershell
 .\scripts\run-reference-dashboard.ps1 -StrictReferences
+```
+
+Run the current strict longplay external oracle:
+
+```powershell
+.\scripts\run-strict-reference-suite.ps1 -OutputRoot artifacts\strict-reference-suite-latest
 ```
 
 To refresh gbaSharp save-assisted captures before comparing references:
@@ -142,6 +174,12 @@ Run strict longplay comparison:
 
 ```powershell
 python .\scripts\compare-reference-frames.py --manifest docs\gba-longplay-reference-frames.csv --output artifacts\longplay-reference-frame-comparison.csv --write-diffs --contact-sheet artifacts\longplay-reference-frame-comparison.png
+```
+
+Summarize strict longplay comparison quality:
+
+```powershell
+python .\scripts\summarize-reference-comparison.py --manifest docs\gba-longplay-reference-frames.csv --output artifacts\longplay-reference-summary.csv
 ```
 
 Useful strict mode once all reference images exist:

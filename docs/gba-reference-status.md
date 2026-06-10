@@ -1,17 +1,17 @@
 # GBA Reference Capture Status
 
-Last checked: 2026-06-06
+Last checked: 2026-06-09
 
-The external reference dashboard tooling is ready, but the current reference sets are blocked on capture intake. The non-strict save-assisted dashboard run at `artifacts/reference-dashboard-post-audio-check` generated a capture checklist, validation CSV, comparison CSV, and placeholder comparison contact sheet. The strict longplay reference check at `artifacts/longplay-reference-checklist-20260606` generated the matching checklist, validation CSV, comparison CSV, and placeholder comparison contact sheet.
+The external reference dashboard tooling is ready. The non-strict save-assisted dashboard run at `artifacts/reference-dashboard-post-audio-check` generated a capture checklist, validation CSV, comparison CSV, and placeholder comparison contact sheet. Strict longplay reference validation at `artifacts/longplay-reference-validation-gta-20260609.csv` now reports all 17 manifest rows as valid, with seven extra local artifacts left from older targets.
 
 ## Current Result
 
 - Save-assisted reference targets: 8
 - Strict longplay reference targets: 17
-- Present reference captures: 0
-- Missing reference captures: 25
+- Present strict longplay reference captures: 17
+- Missing save-assisted reference captures: 8
 - Invalid reference captures: 0
-- Pixel comparisons ready: 0
+- Strict longplay pixel comparisons ready: 17 current references, with 17/17 passing the current bounded comparison
 
 ## Missing Save-Assisted mGBA Captures
 
@@ -28,27 +28,27 @@ Place 240x160 PNG captures at these paths:
 | `pokemon-ruby-save-bedroom` | `reference-captures/mgba/pokemon-ruby-save-bedroom.png` |
 | `mario-kart-save-race` | `reference-captures/mgba/mario-kart-save-race.png` |
 
-## Missing Strict Longplay mGBA Captures
+## Current Strict Longplay mGBA Captures
 
-Place 240x160 PNG captures at these paths:
+The current strict longplay manifest has valid 240x160 PNG captures at these paths:
 
 | Label | Reference PNG |
 | --- | --- |
-| `sonic-advance-longplay` | `reference-captures/mgba/longplay/sonic-advance-longplay.png` |
+| `sonic-advance-external-reference` | `reference-captures/mgba/longplay/sonic-advance-external-reference.png` |
 | `metroid-fusion-longplay` | `reference-captures/mgba/longplay/metroid-fusion-longplay.png` |
-| `doom-longplay` | `reference-captures/mgba/longplay/doom-longplay.png` |
-| `gta-longplay` | `reference-captures/mgba/longplay/gta-longplay.png` |
+| `doom-external-reference` | `reference-captures/mgba/longplay/doom-external-reference.png` |
+| `gta-external-reference` | `reference-captures/mgba/longplay/gta-external-reference.png` |
 | `wario-land4-longplay` | `reference-captures/mgba/longplay/wario-land4-longplay.png` |
 | `fire-emblem-longplay` | `reference-captures/mgba/longplay/fire-emblem-longplay.png` |
-| `mario-kart-longplay` | `reference-captures/mgba/longplay/mario-kart-longplay.png` |
-| `tony-hawk2-longplay` | `reference-captures/mgba/longplay/tony-hawk2-longplay.png` |
+| `mario-kart-external-reference` | `reference-captures/mgba/longplay/mario-kart-external-reference.png` |
+| `tony-hawk2-external-reference` | `reference-captures/mgba/longplay/tony-hawk2-external-reference.png` |
 | `castlevania-aria-longplay` | `reference-captures/mgba/longplay/castlevania-aria-longplay.png` |
 | `castlevania-harmony-longplay` | `reference-captures/mgba/longplay/castlevania-harmony-longplay.png` |
 | `golden-sun-longplay` | `reference-captures/mgba/longplay/golden-sun-longplay.png` |
-| `pokemon-ruby-longplay` | `reference-captures/mgba/longplay/pokemon-ruby-longplay.png` |
+| `pokemon-ruby-external-reference` | `reference-captures/mgba/longplay/pokemon-ruby-external-reference.png` |
 | `mario-luigi-longplay` | `reference-captures/mgba/longplay/mario-luigi-longplay.png` |
 | `mega-man-battle-network-longplay` | `reference-captures/mgba/longplay/mega-man-battle-network-longplay.png` |
-| `fzero-gp-longplay` | `reference-captures/mgba/longplay/fzero-gp-longplay.png` |
+| `fzero-gp-external-reference` | `reference-captures/mgba/longplay/fzero-gp-external-reference.png` |
 | `fzero-maximum-longplay` | `reference-captures/mgba/longplay/fzero-maximum-longplay.png` |
 | `warioware-longplay` | `reference-captures/mgba/longplay/warioware-longplay.png` |
 
@@ -64,6 +64,12 @@ After captures are present, run strict validation and comparison:
 
 ```powershell
 .\scripts\run-reference-dashboard.ps1 -OutputRoot artifacts\reference-dashboard-post-audio-strict -StrictReferences -NoBuild
+```
+
+Run the current strict longplay external oracle:
+
+```powershell
+.\scripts\run-strict-reference-suite.ps1 -OutputRoot artifacts\strict-reference-suite-latest
 ```
 
 Generate and compare the strict longplay checklist:

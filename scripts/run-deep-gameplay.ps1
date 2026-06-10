@@ -2,19 +2,23 @@ param(
     [string]$Manifest = "docs\gba-deep-gameplay-routes.csv",
     [string]$RomRoot = "curated_official_gba",
     [string]$BaselineDir = "visual-baselines\deep-gameplay",
+    [Alias("OutputRoot")]
     [string]$OutputDir = "",
     [string]$Bios = "",
     [string]$Configuration = "Release",
+    [string[]]$Labels = @(),
     [int]$MaxItems = 0,
     [int]$SkipItems = 0,
     [int]$ProcessTimeoutSeconds = 900,
     [int]$RouteMaxSecondsCap = 0,
     [switch]$NoBuild,
+    [switch]$NoBios,
     [switch]$NoAlignRomEntry,
     [switch]$UpdateBaselines,
     [switch]$FailOnBaselineDiff,
     [switch]$Append,
     [switch]$Resume,
+    [switch]$ListOnly,
     [switch]$NormalPriority
 )
 
@@ -207,7 +211,11 @@ try {
         throw "Could not find built Gba.Cli.dll under src\Gba.Cli\bin\$Configuration. Run without -NoBuild once to build it."
     }
 
-    if ([string]::IsNullOrWhiteSpace($Bios)) {
+    if ($NoBios) {
+        $Bios = ""
+        Write-Host "Running without a BIOS."
+    }
+    elseif ([string]::IsNullOrWhiteSpace($Bios)) {
         $defaultBios = "gba_collection\Massive GBA - EverDrive GBA 2022-08-08\5 Tools & Service Test Carts\BIOS\[BIOS] Game Boy Advance (World).bin"
         if (Test-Path -LiteralPath $defaultBios) {
             $Bios = $defaultBios
@@ -236,6 +244,20 @@ try {
     }
 
     $items = @(Import-Csv -LiteralPath $Manifest)
+    if ($Labels.Count -gt 0) {
+        $selectedLabels = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+        foreach ($labelGroup in $Labels) {
+            foreach ($label in $labelGroup.Split(",", [StringSplitOptions]::RemoveEmptyEntries)) {
+                [void]$selectedLabels.Add($label.Trim())
+            }
+        }
+
+        $items = @($items | Where-Object { $selectedLabels.Contains([string]$_.label) })
+        if ($items.Count -eq 0) {
+            throw "No routes matched -Labels: $($selectedLabels -join ', ')"
+        }
+    }
+
     if ($SkipItems -gt 0) {
         $items = @($items | Select-Object -Skip $SkipItems)
     }
@@ -244,9 +266,21 @@ try {
         $items = @($items | Select-Object -First $MaxItems)
     }
 
+    if ($items.Count -eq 0) {
+        throw "No routes selected from $Manifest."
+    }
+
+    $selectedRoutesPath = Join-Path $OutputDir "selected-routes.csv"
+    $items | Export-Csv -LiteralPath $selectedRoutesPath -NoTypeInformation
+    if ($ListOnly) {
+        Write-Host "Selected $($items.Count) route(s)."
+        Write-Host "Selected routes: $((Resolve-Path $selectedRoutesPath).Path)"
+        return
+    }
+
     $reportPath = Join-Path $OutputDir "deep-gameplay.csv"
     if (-not (($Resume -or $Append) -and (Test-Path $reportPath))) {
-        "label,status,baselineStatus,targetScene,baselineRequired,minDistinctPcs,exitCode,index,romPath,stopFrame,observedFrame,maxSteps,maxSeconds,inputScript,saveFile,snapshotRows,distinctPcs,finalPpm,baselinePpm,snapshotCsv,actualHash,baselineHash,expectedScene,message" | Set-Content -LiteralPath $reportPath -Encoding UTF8
+        "label,status,baselineStatus,targetScene,baselineRequired,minDistinctPcs,exitCode,index,romPath,stopFrame,observedFrame,lastSnapshotFrame,lastSnapshotPc,maxSteps,maxSeconds,inputScript,saveFile,snapshotRows,distinctPcs,finalPpm,baselinePpm,snapshotCsv,actualHash,baselineHash,expectedScene,message" | Set-Content -LiteralPath $reportPath -Encoding UTF8
     }
 
     foreach ($item in $items) {
@@ -329,10 +363,17 @@ try {
         $observedFrame = Get-FrameFromOutput $message
         $snapshotRows = 0
         $distinctPcs = 0
+        $lastSnapshotFrame = ""
+        $lastSnapshotPc = ""
         if (Test-Path -LiteralPath $snapshotCsv) {
             $snapshots = @(Import-Csv -LiteralPath $snapshotCsv)
             $snapshotRows = $snapshots.Count
             $distinctPcs = @($snapshots | Select-Object -ExpandProperty pc -Unique).Count
+            if ($snapshotRows -gt 0) {
+                $lastSnapshot = $snapshots[-1]
+                $lastSnapshotFrame = $lastSnapshot.frame
+                $lastSnapshotPc = $lastSnapshot.pc
+            }
         }
 
         $status = if ($result.ExitCode -eq 124) {
@@ -343,6 +384,9 @@ try {
         }
         elseif ($result.ExitCode -eq 6) {
             "invalid-pc"
+        }
+        elseif ($result.ExitCode -eq -1) {
+            "aborted"
         }
         elseif ($result.ExitCode -ne 0) {
             "fail"
@@ -383,6 +427,8 @@ try {
             romPath = $rom
             stopFrame = $item.stopFrame
             observedFrame = $observedFrame
+            lastSnapshotFrame = $lastSnapshotFrame
+            lastSnapshotPc = $lastSnapshotPc
             maxSteps = $item.maxSteps
             maxSeconds = $effectiveMaxSeconds
             inputScript = $item.inputScript

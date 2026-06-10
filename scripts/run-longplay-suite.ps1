@@ -11,6 +11,7 @@ param(
     [int]$ContactSheetScale = 3,
     [int]$LowDiversityWarningThreshold = 8,
     [switch]$NoBuild,
+    [switch]$NoBios,
     [switch]$NoContactSheet,
     [switch]$Resume,
     [switch]$NormalPriority
@@ -49,6 +50,10 @@ try {
 
     if ($NoBuild) {
         $params.NoBuild = $true
+    }
+
+    if ($NoBios) {
+        $params.NoBios = $true
     }
 
     if ($NoContactSheet) {

@@ -1,27 +1,25 @@
-# Navigate default menus and continue confirming after track select.
-at 120 Start 5
-at 240 A 5
-at 360 A 5
-at 480 A 5
-at 660 A 5
-at 840 Right 12
-at 1020 A 5
-at 1200 A 5
-at 1380 Start 5
-at 1560 A 5
-at 1740 A 5
-at 1920 A 5
-at 2100 A 5
-at 2400 A 5
-at 2700 A 5
-at 3000 A 5
-at 3300 A 5
-at 3600 A 5
-at 3900 A 5
-at 4200 A 5
-at 4500 A 5
-at 4800 A 5
-at 5100 A 5
-at 5400 A 5
-at 5700 A 5
-at 6000 A 5
+# Slower default-menu Mario Kart route for cross-emulator alignment.
+at 300 Start 8
+at 900 A 8
+at 1500 A 8
+at 2100 A 8
+at 2700 A 8
+at 3300 A 8
+at 3900 A 8
+at 4500 A 8
+at 5100 A 8
+at 5700 A 8
+at 6300 A 8
+at 6900 A 8
+at 7500 A 8
+at 8100 A 8
+press 8700 A
+at 10400 A,Right 180
+press 10580 A
+at 12600 A,Left 180
+press 12780 A
+at 14800 A,Right 180
+press 14980 A
+at 17000 A,Left 180
+press 17180 A
+release 20000

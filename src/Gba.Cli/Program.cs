@@ -1743,6 +1743,36 @@ static int DumpFrame(GbaSystem gba, string[] args)
     var frame = 0;
     gba.Video.VBlankStarted += () => frame++;
     LoadSaveFileIfRequested(gba, options);
+    var outputPath = "frame.ppm";
+    string? debugLayerDir = null;
+
+    for (var i = 0; i < args.Length; i++)
+    {
+        switch (args[i])
+        {
+            case "--output" when i + 1 < args.Length:
+                outputPath = args[++i];
+                break;
+
+            case "--debug-layer-dir" when i + 1 < args.Length:
+                debugLayerDir = args[++i];
+                break;
+        }
+    }
+
+    if (options.AlignRomEntry)
+    {
+        gba.Keypad.SetPressedKeys(GbaKey.None);
+        if (!AlignToRomEntry(gba, options.MaxSteps, out var alignStatus, out var alignSteps))
+        {
+            Console.WriteLine($"TIMEOUT: {alignStatus} before ROM entry after {alignSteps:N0} steps at PC=0x{gba.Cpu.Pc:X8}, cycles={gba.Scheduler.Now:N0}.");
+            return 5;
+        }
+
+        frame = 0;
+        inputState = new InputEventState();
+    }
+
     gba.Keypad.SetPressedKeys(options.Keys);
     InstallWatchReads(gba, options, () => frame);
     InstallWatchWrites(gba, options, () => frame);
@@ -1755,16 +1785,6 @@ static int DumpFrame(GbaSystem gba, string[] args)
     using var psgSamples = OpenPsgSampleWriter(options, gba);
     var traceTail = CreateTraceTail(options);
     var traceLimiter = CreateTraceLimiter(options);
-    var outputPath = "frame.ppm";
-
-    for (var i = 0; i < args.Length; i++)
-    {
-        if (args[i] == "--output" && i + 1 < args.Length)
-        {
-            outputPath = args[++i];
-        }
-    }
-
     var wallClockLimit = StartWallClockLimit(options);
     var hitWallClockLimit = false;
     for (long step = 0; step < options.MaxSteps; step++)
@@ -1805,10 +1825,20 @@ static int DumpFrame(GbaSystem gba, string[] args)
     }
 
     WritePpm(outputPath, GetOutputFramebuffer(gba, options));
+    if (!string.IsNullOrWhiteSpace(debugLayerDir))
+    {
+        WriteDebugLayerPpms(gba, debugLayerDir);
+    }
+
     var timeoutPrefix = hitWallClockLimit
         ? $"TIMEOUT: wall-clock>{options.MaxSeconds!.Value.ToString(CultureInfo.InvariantCulture)}s; "
         : "";
     Console.WriteLine($"{timeoutPrefix}Wrote {VideoController.Width}x{VideoController.Height} frame to {Path.GetFullPath(outputPath)} at frame={frame:N0}, PC=0x{gba.Cpu.Pc:X8}, cycles={gba.Scheduler.Now:N0}.");
+    if (!string.IsNullOrWhiteSpace(debugLayerDir))
+    {
+        Console.WriteLine($"Wrote debug layer frames to {Path.GetFullPath(debugLayerDir)}.");
+    }
+
     if (audioSamples is not null)
     {
         Console.WriteLine($"Wrote {audioSamples.Count:N0} direct sound samples to {Path.GetFullPath(options.AudioCsv!)}.");
@@ -1832,6 +1862,19 @@ static int CaptureFrames(GbaSystem gba, string[] args)
     var frame = 0;
     gba.Video.VBlankStarted += () => frame++;
     LoadSaveFileIfRequested(gba, options);
+    if (options.AlignRomEntry)
+    {
+        gba.Keypad.SetPressedKeys(GbaKey.None);
+        if (!AlignToRomEntry(gba, options.MaxSteps, out var alignStatus, out var alignSteps))
+        {
+            Console.WriteLine($"TIMEOUT: {alignStatus} before ROM entry after {alignSteps:N0} steps at PC=0x{gba.Cpu.Pc:X8}, cycles={gba.Scheduler.Now:N0}.");
+            return 5;
+        }
+
+        frame = 0;
+        inputState = new InputEventState();
+    }
+
     gba.Keypad.SetPressedKeys(options.Keys);
     InstallWatchReads(gba, options, () => frame);
     InstallWatchWrites(gba, options, () => frame);
@@ -2468,7 +2511,7 @@ static void InstallWatchReads(GbaSystem gba, RunOptions options, Func<int> getFr
         if (IsWatchedRead(address, bytes, options) && ShouldEmitWatchLine())
         {
             var value = bytes <= 2 ? gba.Bus.PeekIo16(address & ~1u) : gba.Bus.PeekIo32(address & ~3u);
-            Console.WriteLine($"READ {address:X8}/{bytes} value=0x{value:X8} PC=0x{gba.Cpu.Pc:X8} frame={frame:D5} cycles={gba.Scheduler.Now:N0} keys={gba.Keypad.PressedKeys}");
+            Console.WriteLine($"READ {address:X8}/{bytes} value=0x{value:X8} PC=0x{gba.Cpu.Pc:X8} frame={frame:D5} cycles={gba.Scheduler.Now:N0} {TraceVideoLocation(gba)} keys={gba.Keypad.PressedKeys}");
         }
     });
 
@@ -2482,7 +2525,7 @@ static void InstallWatchReads(GbaSystem gba, RunOptions options, Func<int> getFr
 
         if (IsWatchedRead(address, bytes, options) && ShouldEmitWatchLine())
         {
-            Console.WriteLine($"MEMREAD {address:X8}/{bytes} value=0x{value:X8} PC=0x{gba.Cpu.Pc:X8} frame={frame:D5} cycles={gba.Scheduler.Now:N0} keys={gba.Keypad.PressedKeys}");
+            Console.WriteLine($"MEMREAD {address:X8}/{bytes} value=0x{value:X8} PC=0x{gba.Cpu.Pc:X8} frame={frame:D5} cycles={gba.Scheduler.Now:N0} {TraceVideoLocation(gba)} keys={gba.Keypad.PressedKeys}");
         }
     });
 }
@@ -2548,7 +2591,7 @@ static void InstallWatchWrites(GbaSystem gba, RunOptions options, Func<int> getF
                 2 => gba.Bus.Read16(address & ~1u),
                 _ => gba.Bus.Read32(address & ~3u)
             };
-            Console.WriteLine($"WRITE {address:X8}/{bytes} value=0x{value:X8} PC=0x{gba.Cpu.Pc:X8} frame={frame:D5} cycles={gba.Scheduler.Now:N0} keys={gba.Keypad.PressedKeys}");
+            Console.WriteLine($"WRITE {address:X8}/{bytes} value=0x{value:X8} PC=0x{gba.Cpu.Pc:X8} frame={frame:D5} cycles={gba.Scheduler.Now:N0} {TraceVideoLocation(gba)} keys={gba.Keypad.PressedKeys}");
         }
     });
 
@@ -2563,7 +2606,7 @@ static void InstallWatchWrites(GbaSystem gba, RunOptions options, Func<int> getF
         if (IsWatchedWrite(address, bytes, options) && ShouldEmitWatchLine())
         {
             var value = bytes <= 2 ? gba.Bus.PeekIo16(address & ~1u) : gba.Bus.PeekIo32(address & ~3u);
-            Console.WriteLine($"IOWRITE {address:X8}/{bytes} value=0x{value:X8} PC=0x{gba.Cpu.Pc:X8} frame={frame:D5} cycles={gba.Scheduler.Now:N0} keys={gba.Keypad.PressedKeys}");
+            Console.WriteLine($"IOWRITE {address:X8}/{bytes} value=0x{value:X8} PC=0x{gba.Cpu.Pc:X8} frame={frame:D5} cycles={gba.Scheduler.Now:N0} {TraceVideoLocation(gba)} keys={gba.Keypad.PressedKeys}");
         }
     });
 }
@@ -2678,9 +2721,12 @@ static void InstallDmaTrace(GbaSystem gba, RunOptions options, Func<int> framePr
             return;
         }
 
-        Console.WriteLine($"DMA{trace.Channel} {trace.Timing} frame={frame:D5} src=0x{trace.Source:X8} dst=0x{trace.Destination:X8} count={trace.Count} width={(trace.WordTransfer ? 32 : 16)} ctrl=0x{trace.Control:X4} fifoA={trace.FifoALevel} fifoB={trace.FifoBLevel}");
+        Console.WriteLine($"DMA{trace.Channel} {trace.Timing} frame={frame:D5} {TraceVideoLocation(gba)} src=0x{trace.Source:X8} dst=0x{trace.Destination:X8} count={trace.Count} width={(trace.WordTransfer ? 32 : 16)} ctrl=0x{trace.Control:X4} fifoA={trace.FifoALevel} fifoB={trace.FifoBLevel}");
     };
 }
+
+static string TraceVideoLocation(GbaSystem gba)
+    => $"line={gba.Bus.VerticalCount} videoLine={gba.Video.CurrentLine} dispstat=0x{gba.Bus.DisplayStatus:X4}";
 
 static void InstallEepromTrace(GbaSystem gba, RunOptions options, Func<int> frameProvider)
 {
@@ -4644,7 +4690,7 @@ static void PrintUsage()
     Console.Error.WriteLine("  gbaSharp capture-frames <rom.gba> [--max-steps N] [--max-seconds N] [--output-dir captures] [--sample-steps N]");
     Console.Error.WriteLine("  gbaSharp verify-frame <rom.gba> --baseline baseline.ppm [--actual actual.ppm] [--diff diff.ppm] [--write-baseline] [--max-different-pixels N] [--max-channel-delta N]");
     Console.Error.WriteLine("  Capture by frame: [--sample-frames N] [--frame-range START:END]");
-    Console.Error.WriteLine("  Debug video: [--debug-layer bg0|bg1|bg2|bg3|obj]");
+    Console.Error.WriteLine("  Debug video: [--debug-layer bg0|bg1|bg2|bg3|obj] [--debug-layer-dir DIR]");
     Console.Error.WriteLine("  Debug snapshots: [--snapshot-csv state.csv] [--snapshot-frames N] [--pc-snapshot-csv pcs.csv] [--pc-snapshot-stack-words N] (uses --trace-frames as an optional frame filter)");
     Console.Error.WriteLine("  Optional for run/test-rom/dump-frame: [--keys A,B,Start]");
     Console.Error.WriteLine("  Tracing: [--trace-swi] [--trace-irq] [--trace-dma] [--trace-eeprom --trace-eeprom-limit N]");
@@ -4700,6 +4746,137 @@ static ulong HashFramebuffer(ReadOnlySpan<uint> framebuffer)
 
 static uint[] GetOutputFramebuffer(GbaSystem gba, RunOptions options)
     => options.DebugLayer is { } layer ? gba.Video.RenderDebugLayer(layer) : gba.Video.Framebuffer.ToArray();
+
+static void WriteDebugLayerPpms(GbaSystem gba, string directory)
+{
+    WritePpm(Path.Combine(directory, "full.ppm"), gba.Video.Framebuffer);
+    WritePpm(Path.Combine(directory, "bg0.ppm"), gba.Video.RenderDebugLayer(0));
+    WritePpm(Path.Combine(directory, "bg1.ppm"), gba.Video.RenderDebugLayer(1));
+    WritePpm(Path.Combine(directory, "bg2.ppm"), gba.Video.RenderDebugLayer(2));
+    WritePpm(Path.Combine(directory, "bg3.ppm"), gba.Video.RenderDebugLayer(3));
+    WritePpm(Path.Combine(directory, "obj.ppm"), gba.Video.RenderDebugLayer(4));
+    WritePpm(Path.Combine(directory, "pre-blend.ppm"), gba.Video.RenderDebugPreBlend());
+    WritePpm(Path.Combine(directory, "second-target.ppm"), gba.Video.RenderDebugSecondTarget());
+    WritePpm(Path.Combine(directory, "top-layer-map.ppm"), gba.Video.RenderDebugTopLayerMap());
+    WritePpm(Path.Combine(directory, "second-layer-map.ppm"), gba.Video.RenderDebugSecondLayerMap());
+    for (var bg = 0; bg <= 3; bg++)
+    {
+        WriteRegularBgDebugCsv(Path.Combine(directory, $"bg{bg}-regular-samples.csv"), gba.Video.RenderDebugRegularBgSamples(bg));
+    }
+
+    WriteAffineDebugCsv(Path.Combine(directory, "bg2-affine-samples.csv"), gba.Video.RenderDebugAffineSamples(2));
+    WriteAffineDebugCsv(Path.Combine(directory, "bg3-affine-samples.csv"), gba.Video.RenderDebugAffineSamples(3));
+}
+
+static void WriteRegularBgDebugCsv(string path, IReadOnlyList<RegularBgDebugSample> samples)
+{
+    var directory = Path.GetDirectoryName(Path.GetFullPath(path));
+    if (!string.IsNullOrEmpty(directory))
+    {
+        Directory.CreateDirectory(directory);
+    }
+
+    using var writer = new StreamWriter(path, false, System.Text.Encoding.UTF8);
+    writer.WriteLine("x,y,bg,control,sourceX,sourceY,tileX,tileY,screenOffset,screenEntry,paletteIndex,hofs,vofs");
+    for (var pixel = 0; pixel < samples.Count; pixel++)
+    {
+        var sample = samples[pixel];
+        if (!sample.Valid)
+        {
+            continue;
+        }
+
+        var x = pixel % VideoController.Width;
+        var y = pixel / VideoController.Width;
+        writer.Write(x.ToString(CultureInfo.InvariantCulture));
+        writer.Write(',');
+        writer.Write(y.ToString(CultureInfo.InvariantCulture));
+        writer.Write(',');
+        writer.Write(sample.Bg.ToString(CultureInfo.InvariantCulture));
+        writer.Write(",0x");
+        writer.Write(sample.Control.ToString("X4", CultureInfo.InvariantCulture));
+        writer.Write(',');
+        writer.Write(sample.SourceX.ToString(CultureInfo.InvariantCulture));
+        writer.Write(',');
+        writer.Write(sample.SourceY.ToString(CultureInfo.InvariantCulture));
+        writer.Write(',');
+        writer.Write(sample.TileX.ToString(CultureInfo.InvariantCulture));
+        writer.Write(',');
+        writer.Write(sample.TileY.ToString(CultureInfo.InvariantCulture));
+        writer.Write(',');
+        writer.Write(sample.ScreenOffset.ToString(CultureInfo.InvariantCulture));
+        writer.Write(",0x");
+        writer.Write(sample.ScreenEntry.ToString("X4", CultureInfo.InvariantCulture));
+        writer.Write(',');
+        writer.Write(sample.PaletteIndex.ToString(CultureInfo.InvariantCulture));
+        writer.Write(',');
+        writer.Write(sample.HOffset.ToString(CultureInfo.InvariantCulture));
+        writer.Write(',');
+        writer.WriteLine(sample.VOffset.ToString(CultureInfo.InvariantCulture));
+    }
+}
+
+static void WriteAffineDebugCsv(string path, IReadOnlyList<AffineDebugSample> samples)
+{
+    var directory = Path.GetDirectoryName(Path.GetFullPath(path));
+    if (!string.IsNullOrEmpty(directory))
+    {
+        Directory.CreateDirectory(directory);
+    }
+
+    using var writer = new StreamWriter(path, false, System.Text.Encoding.UTF8);
+    writer.WriteLine("x,y,bg,control,fixedX,fixedY,sourceX,sourceY,tileX,tileY,mapOffset,tileNumber,tileOffset,paletteIndex,pa,pb,pc,pd,referenceX,referenceY");
+    for (var pixel = 0; pixel < samples.Count; pixel++)
+    {
+        var sample = samples[pixel];
+        if (!sample.Valid)
+        {
+            continue;
+        }
+
+        var x = pixel % VideoController.Width;
+        var y = pixel / VideoController.Width;
+        writer.Write(x.ToString(CultureInfo.InvariantCulture));
+        writer.Write(',');
+        writer.Write(y.ToString(CultureInfo.InvariantCulture));
+        writer.Write(',');
+        writer.Write(sample.Bg.ToString(CultureInfo.InvariantCulture));
+        writer.Write(",0x");
+        writer.Write(sample.Control.ToString("X4", CultureInfo.InvariantCulture));
+        writer.Write(',');
+        writer.Write(sample.FixedX.ToString(CultureInfo.InvariantCulture));
+        writer.Write(',');
+        writer.Write(sample.FixedY.ToString(CultureInfo.InvariantCulture));
+        writer.Write(',');
+        writer.Write(sample.SourceX.ToString(CultureInfo.InvariantCulture));
+        writer.Write(',');
+        writer.Write(sample.SourceY.ToString(CultureInfo.InvariantCulture));
+        writer.Write(',');
+        writer.Write(sample.TileX.ToString(CultureInfo.InvariantCulture));
+        writer.Write(',');
+        writer.Write(sample.TileY.ToString(CultureInfo.InvariantCulture));
+        writer.Write(',');
+        writer.Write(sample.MapOffset.ToString(CultureInfo.InvariantCulture));
+        writer.Write(',');
+        writer.Write(sample.TileNumber.ToString(CultureInfo.InvariantCulture));
+        writer.Write(',');
+        writer.Write(sample.TileOffset.ToString(CultureInfo.InvariantCulture));
+        writer.Write(',');
+        writer.Write(sample.PaletteIndex.ToString(CultureInfo.InvariantCulture));
+        writer.Write(',');
+        writer.Write(sample.Pa.ToString(CultureInfo.InvariantCulture));
+        writer.Write(',');
+        writer.Write(sample.Pb.ToString(CultureInfo.InvariantCulture));
+        writer.Write(',');
+        writer.Write(sample.Pc.ToString(CultureInfo.InvariantCulture));
+        writer.Write(',');
+        writer.Write(sample.Pd.ToString(CultureInfo.InvariantCulture));
+        writer.Write(',');
+        writer.Write(sample.ReferenceX.ToString(CultureInfo.InvariantCulture));
+        writer.Write(',');
+        writer.WriteLine(sample.ReferenceY.ToString(CultureInfo.InvariantCulture));
+    }
+}
 
 static void WritePpm(string path, ReadOnlySpan<uint> framebuffer)
 {

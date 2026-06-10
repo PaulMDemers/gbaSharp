@@ -14,6 +14,7 @@ param(
     [switch]$UpdateBaselines,
     [switch]$FailOnBaselineDiff,
     [switch]$NoBuild,
+    [switch]$NoBios,
     [switch]$NoContactSheet,
     [switch]$IncludeNonPassContactSheet,
     [switch]$Resume,
@@ -86,6 +87,10 @@ try {
 
         if ($NoBuild -or $chunk -gt $StartChunk) {
             $runnerParams.NoBuild = $true
+        }
+
+        if ($NoBios) {
+            $runnerParams.NoBios = $true
         }
 
         if ($NormalPriority) {

@@ -18,6 +18,30 @@ public sealed class VideoController
     private readonly Scheduler _scheduler;
     private readonly uint[] _framebuffer = new uint[Pixels];
     private readonly uint[] _secondFramebuffer = new uint[Pixels];
+    private readonly uint[] _debugPreBlendFramebuffer = new uint[Pixels];
+    private readonly uint[] _debugSecondTargetFramebuffer = new uint[Pixels];
+    private readonly uint[][] _debugLayerFramebuffers =
+    [
+        new uint[Pixels],
+        new uint[Pixels],
+        new uint[Pixels],
+        new uint[Pixels],
+        new uint[Pixels]
+    ];
+    private readonly byte[] _debugTopLayers = new byte[Pixels];
+    private readonly byte[] _debugSecondLayers = new byte[Pixels];
+    private readonly AffineDebugSample[][] _debugAffineSamples =
+    [
+        new AffineDebugSample[Pixels],
+        new AffineDebugSample[Pixels]
+    ];
+    private readonly RegularBgDebugSample[][] _debugRegularBgSamples =
+    [
+        new RegularBgDebugSample[Pixels],
+        new RegularBgDebugSample[Pixels],
+        new RegularBgDebugSample[Pixels],
+        new RegularBgDebugSample[Pixels]
+    ];
     private readonly bool[] _objectWindow = new bool[Pixels];
     private readonly bool[] _semiTransparentObject = new bool[Pixels];
     private readonly int[] _affineCurrentX = new int[2];
@@ -60,27 +84,44 @@ public sealed class VideoController
             throw new ArgumentOutOfRangeException(nameof(layer), "Layer must be 0-3 for BG or 4 for OBJ.");
         }
 
-        var saved = _framebuffer.ToArray();
-        var savedSecond = _secondFramebuffer.ToArray();
-        var savedObjectWindow = _objectWindow.ToArray();
-        var savedSemiTransparentObject = _semiTransparentObject.ToArray();
+        return _debugLayerFramebuffers[layer].ToArray();
+    }
 
-        for (var y = 0; y < Height; y++)
+    public uint[] RenderDebugPreBlend() => _debugPreBlendFramebuffer.ToArray();
+
+    public uint[] RenderDebugSecondTarget() => _debugSecondTargetFramebuffer.ToArray();
+
+    public uint[] RenderDebugTopLayerMap() => RenderLayerMap(_debugTopLayers);
+
+    public uint[] RenderDebugSecondLayerMap() => RenderLayerMap(_debugSecondLayers);
+
+    public AffineDebugSample[] RenderDebugAffineSamples(int bg)
+    {
+        if (bg is not (2 or 3))
         {
-            RenderDebugLayerScanline(y, layer);
+            throw new ArgumentOutOfRangeException(nameof(bg), "Affine debug samples are available only for BG2/BG3.");
         }
 
-        var result = _framebuffer.ToArray();
-        saved.CopyTo(_framebuffer, 0);
-        savedSecond.CopyTo(_secondFramebuffer, 0);
-        savedObjectWindow.CopyTo(_objectWindow, 0);
-        savedSemiTransparentObject.CopyTo(_semiTransparentObject, 0);
-        return result;
+        return _debugAffineSamples[bg - 2].ToArray();
+    }
+
+    public RegularBgDebugSample[] RenderDebugRegularBgSamples(int bg)
+    {
+        if (bg is < 0 or > 3)
+        {
+            throw new ArgumentOutOfRangeException(nameof(bg), "Regular BG debug samples are available for BG0-BG3.");
+        }
+
+        return _debugRegularBgSamples[bg].ToArray();
     }
 
     public void Reset()
     {
         _line = 0;
+        ClearDebugLayerFramebuffers();
+        ClearDebugCompositionFramebuffers();
+        ClearDebugAffineSamples();
+        ClearDebugRegularBgSamples();
         ReloadAffineReference(2);
         ReloadAffineReference(3);
         BeginScanline();
@@ -92,6 +133,10 @@ public sealed class VideoController
         const int defaultCyclesUntilFirstVideoEvent = 117;
 
         _line = lineOverride ?? defaultBiosHandoffLine;
+        ClearDebugLayerFramebuffers();
+        ClearDebugCompositionFramebuffers();
+        ClearDebugAffineSamples();
+        ClearDebugRegularBgSamples();
         ReloadAffineReference(2);
         ReloadAffineReference(3);
         BeginScanline(cyclesUntilFirstVideoEventOverride ?? defaultCyclesUntilFirstVideoEvent);
@@ -268,6 +313,8 @@ public sealed class VideoController
 
     private void RenderScanline(int y)
     {
+        ClearDebugLayerRows(y);
+
         if ((_bus.DisplayControl & (1 << 7)) != 0)
         {
             _framebuffer.AsSpan(y * Width, Width).Fill(0xFFFF_FFFFu);
@@ -429,6 +476,7 @@ public sealed class VideoController
             }
         }
 
+        CaptureDebugCompositionFrame(layers, secondLayers);
         ApplyBlendEffects(layers, secondLayers);
     }
 
@@ -490,6 +538,7 @@ public sealed class VideoController
 
         if (!debugLayer.HasValue)
         {
+            CaptureDebugCompositionScanline(y, layers, secondLayers);
             ApplyBlendEffectsScanline(y, layers, secondLayers);
         }
     }
@@ -508,17 +557,22 @@ public sealed class VideoController
         var pd = ReadSignedFixed8(parameterBase + 6);
         var originX = ReadSignedFixed20(parameterBase + 8);
         var originY = ReadSignedFixed20(parameterBase + 12);
+        var mosaic = IsBackgroundMosaicEnabled(control);
+        var mosaicH = mosaic ? GetBackgroundMosaicHorizontalSize() : 1;
+        var mosaicV = mosaic ? GetBackgroundMosaicVerticalSize() : 1;
 
         for (var y = 0; y < Height; y++)
         {
-            var currentX = originX + pb * y;
-            var currentY = originY + pd * y;
+            var mosaicY = mosaic ? y - y % mosaicV : y;
+            var rowX = originX + pb * mosaicY;
+            var rowY = originY + pd * mosaicY;
             for (var x = 0; x < Width; x++)
             {
+                var mosaicX = mosaic ? x - x % mosaicH : x;
+                var currentX = rowX + pa * mosaicX;
+                var currentY = rowY + pc * mosaicX;
                 var sourceX = currentX >> 8;
                 var sourceY = currentY >> 8;
-                currentX += pa;
-                currentY += pc;
 
                 if (wrap)
                 {
@@ -538,6 +592,26 @@ public sealed class VideoController
                 var tileOffset = charBase + tileNumber * 64 + (sourceY & 7) * 8 + (sourceX & 7);
                 var paletteIndex = ReadBgVram8(tileOffset);
                 var pixel = y * Width + x;
+                RecordAffineDebugSample(
+                    bg,
+                    pixel,
+                    control,
+                    currentX,
+                    currentY,
+                    sourceX,
+                    sourceY,
+                    tileX,
+                    tileY,
+                    mapOffset,
+                    tileNumber,
+                    tileOffset,
+                    paletteIndex,
+                    pa,
+                    pb,
+                    pc,
+                    pd,
+                    originX,
+                    originY);
                 if (paletteIndex == 0 || priority > priorities[pixel] || !IsLayerVisibleAtPixel(bg, x, y))
                 {
                     continue;
@@ -563,13 +637,20 @@ public sealed class VideoController
         var currentX = _affineCurrentX[bg - 2];
         var currentY = _affineCurrentY[bg - 2];
         var mapWidthTiles = sizePixels / 8;
+        var mosaic = IsBackgroundMosaicEnabled(control);
+        var mosaicH = mosaic ? GetBackgroundMosaicHorizontalSize() : 1;
+        var mosaicV = mosaic ? GetBackgroundMosaicVerticalSize() : 1;
+        var mosaicYDelta = mosaic ? y - y % mosaicV - y : 0;
+        var rowX = currentX + pb * mosaicYDelta;
+        var rowY = currentY + pd * mosaicYDelta;
 
         for (var x = 0; x < Width; x++)
         {
-            var sourceX = currentX >> 8;
-            var sourceY = currentY >> 8;
-            currentX += pa;
-            currentY += pc;
+            var mosaicX = mosaic ? x - x % mosaicH : x;
+            var pixelX = rowX + pa * mosaicX;
+            var pixelY = rowY + pc * mosaicX;
+            var sourceX = pixelX >> 8;
+            var sourceY = pixelY >> 8;
 
             if (wrap)
             {
@@ -587,6 +668,26 @@ public sealed class VideoController
             var tileNumber = ReadBgVram8(mapOffset);
             var tileOffset = charBase + tileNumber * 64 + (sourceY & 7) * 8 + (sourceX & 7);
             var paletteIndex = ReadBgVram8(tileOffset);
+            RecordAffineDebugSample(
+                bg,
+                y * Width + x,
+                control,
+                pixelX,
+                pixelY,
+                sourceX,
+                sourceY,
+                tileX,
+                tileY,
+                mapOffset,
+                tileNumber,
+                tileOffset,
+                paletteIndex,
+                pa,
+                pb,
+                pc,
+                pd,
+                currentX,
+                currentY);
             if (paletteIndex == 0 || priority > priorities[x] || !IsLayerVisibleAtPixel(bg, x, y))
             {
                 continue;
@@ -609,26 +710,45 @@ public sealed class VideoController
         var hofs = _bus.PeekIo16(IoRegisters.BG0HOFS + (uint)(bg * 4)) & 0x1FF;
         var vofs = _bus.PeekIo16(IoRegisters.BG0VOFS + (uint)(bg * 4)) & 0x1FF;
         var priority = (byte)(control & 0x3);
+        var mosaic = IsBackgroundMosaicEnabled(control);
+        var mosaicH = mosaic ? GetBackgroundMosaicHorizontalSize() : 1;
+        var mosaicV = mosaic ? GetBackgroundMosaicVerticalSize() : 1;
 
         for (var y = 0; y < Height; y++)
         {
-            var bgY = (y + vofs) % height;
+            var mosaicY = mosaic ? y - y % mosaicV : y;
+            var bgY = (mosaicY + vofs) % height;
             var tileY = bgY / 8;
             var inTileY = bgY & 7;
 
             for (var x = 0; x < Width; x++)
             {
-                var bgX = (x + hofs) % width;
+                var mosaicX = mosaic ? x - x % mosaicH : x;
+                var bgX = (mosaicX + hofs) % width;
                 var tileX = bgX / 8;
                 var screenOffset = screenBase + GetRegularScreenEntryOffset(tileX, tileY, widthTiles, heightTiles);
                 var entry = ReadVram16(screenOffset);
                 var paletteIndex = GetTilePaletteIndex(charBase, entry, bgX & 7, inTileY, eightBitColor);
-                if (paletteIndex == 0 || priority > priorities[y * Width + x] || !IsLayerVisibleAtPixel(bg, x, y))
+                var pixel = y * Width + x;
+                RecordRegularBgDebugSample(
+                    bg,
+                    pixel,
+                    control,
+                    bgX,
+                    bgY,
+                    tileX,
+                    tileY,
+                    screenOffset,
+                    entry,
+                    paletteIndex,
+                    hofs,
+                    vofs);
+                if (paletteIndex == 0 || priority > priorities[pixel] || !IsLayerVisibleAtPixel(bg, x, y))
                 {
                     continue;
                 }
 
-                SetLayerPixel(y * Width + x, priority, (byte)bg, ReadPaletteColor(paletteIndex), priorities, layers, secondLayers);
+                SetLayerPixel(pixel, priority, (byte)bg, ReadPaletteColor(paletteIndex), priorities, layers, secondLayers);
             }
         }
     }
@@ -646,17 +766,35 @@ public sealed class VideoController
         var hofs = _bus.PeekIo16(IoRegisters.BG0HOFS + (uint)(bg * 4)) & 0x1FF;
         var vofs = _bus.PeekIo16(IoRegisters.BG0VOFS + (uint)(bg * 4)) & 0x1FF;
         var priority = (byte)(control & 0x3);
-        var bgY = (y + vofs) % height;
+        var mosaic = IsBackgroundMosaicEnabled(control);
+        var mosaicH = mosaic ? GetBackgroundMosaicHorizontalSize() : 1;
+        var mosaicV = mosaic ? GetBackgroundMosaicVerticalSize() : 1;
+        var mosaicY = mosaic ? y - y % mosaicV : y;
+        var bgY = (mosaicY + vofs) % height;
         var tileY = bgY / 8;
         var inTileY = bgY & 7;
 
         for (var x = 0; x < Width; x++)
         {
-            var bgX = (x + hofs) % width;
+            var mosaicX = mosaic ? x - x % mosaicH : x;
+            var bgX = (mosaicX + hofs) % width;
             var tileX = bgX / 8;
             var screenOffset = screenBase + GetRegularScreenEntryOffset(tileX, tileY, widthTiles, heightTiles);
             var entry = ReadVram16(screenOffset);
             var paletteIndex = GetTilePaletteIndex(charBase, entry, bgX & 7, inTileY, eightBitColor);
+            RecordRegularBgDebugSample(
+                bg,
+                y * Width + x,
+                control,
+                bgX,
+                bgY,
+                tileX,
+                tileY,
+                screenOffset,
+                entry,
+                paletteIndex,
+                hofs,
+                vofs);
             if (paletteIndex == 0 || priority > priorities[x] || !IsLayerVisibleAtPixel(bg, x, y))
             {
                 continue;
@@ -711,6 +849,7 @@ public sealed class VideoController
             var pb = affine ? ReadObjectAffineParameter(matrixIndex, 1) : 0;
             var pc = affine ? ReadObjectAffineParameter(matrixIndex, 2) : 0;
             var pd = affine ? ReadObjectAffineParameter(matrixIndex, 3) : 0;
+            var mosaic = IsObjectMosaicEnabled(attr0);
 
             for (var sy = 0; sy < displayHeight; sy++)
             {
@@ -734,9 +873,21 @@ public sealed class VideoController
                         continue;
                     }
 
-                    var (sourceX, sourceY) = affine
-                        ? TransformObjectPixel(sx, sy, displayWidth, displayHeight, spriteWidth, spriteHeight, pa, pb, pc, pd)
-                        : (hflip ? spriteWidth - 1 - sx : sx, vflip ? spriteHeight - 1 - sy : sy);
+                    var (sourceX, sourceY) = GetObjectSourcePixel(
+                        sx,
+                        sy,
+                        displayWidth,
+                        displayHeight,
+                        spriteWidth,
+                        spriteHeight,
+                        affine,
+                        hflip,
+                        vflip,
+                        mosaic,
+                        pa,
+                        pb,
+                        pc,
+                        pd);
                     if (sourceX < 0 || sourceY < 0 || sourceX >= spriteWidth || sourceY >= spriteHeight)
                     {
                         continue;
@@ -813,6 +964,7 @@ public sealed class VideoController
             var pb = affine ? ReadObjectAffineParameter(matrixIndex, 1) : 0;
             var pc = affine ? ReadObjectAffineParameter(matrixIndex, 2) : 0;
             var pd = affine ? ReadObjectAffineParameter(matrixIndex, 3) : 0;
+            var mosaic = IsObjectMosaicEnabled(attr0);
 
             for (var sx = 0; sx < displayWidth; sx++)
             {
@@ -822,9 +974,21 @@ public sealed class VideoController
                     continue;
                 }
 
-                var (sourceX, sourceY) = affine
-                    ? TransformObjectPixel(sx, sy, displayWidth, displayHeight, spriteWidth, spriteHeight, pa, pb, pc, pd)
-                    : (hflip ? spriteWidth - 1 - sx : sx, vflip ? spriteHeight - 1 - sy : sy);
+                var (sourceX, sourceY) = GetObjectSourcePixel(
+                    sx,
+                    sy,
+                    displayWidth,
+                    displayHeight,
+                    spriteWidth,
+                    spriteHeight,
+                    affine,
+                    hflip,
+                    vflip,
+                    mosaic,
+                    pa,
+                    pb,
+                    pc,
+                    pd);
                 if (sourceX < 0 || sourceY < 0 || sourceX >= spriteWidth || sourceY >= spriteHeight)
                 {
                     continue;
@@ -870,7 +1034,9 @@ public sealed class VideoController
         {
             var offset = sourceOffset + x * 2;
             var color = (ushort)(vram[offset] | (vram[offset + 1] << 8));
-            _framebuffer[targetOffset + x] = Bgr555ToRgba8888(color);
+            var outputColor = Bgr555ToRgba8888(color);
+            _framebuffer[targetOffset + x] = outputColor;
+            RecordDebugLayerPixel(targetOffset + x, 2, outputColor);
         }
     }
 
@@ -901,7 +1067,9 @@ public sealed class VideoController
             var paletteIndex = vram[sourceOffset + x];
             var paletteOffset = paletteIndex * 2;
             var color = (ushort)(palette[paletteOffset] | (palette[paletteOffset + 1] << 8));
-            _framebuffer[targetOffset + x] = Bgr555ToRgba8888(color);
+            var outputColor = Bgr555ToRgba8888(color);
+            _framebuffer[targetOffset + x] = outputColor;
+            RecordDebugLayerPixel(targetOffset + x, 2, outputColor);
         }
     }
 
@@ -943,7 +1111,9 @@ public sealed class VideoController
         {
             var offset = sourceOffset + x * 2;
             var color = (ushort)(vram[offset] | (vram[offset + 1] << 8));
-            _framebuffer[targetOffset + x] = Bgr555ToRgba8888(color);
+            var outputColor = Bgr555ToRgba8888(color);
+            _framebuffer[targetOffset + x] = outputColor;
+            RecordDebugLayerPixel(targetOffset + x, 2, outputColor);
         }
     }
 
@@ -1018,6 +1188,186 @@ public sealed class VideoController
         return Bgr555ToRgba8888((ushort)(palette[offset] | (palette[offset + 1] << 8)));
     }
 
+    private void ClearDebugLayerRows(int y)
+    {
+        var rowOffset = y * Width;
+        for (var layer = 0; layer < _debugLayerFramebuffers.Length; layer++)
+        {
+            _debugLayerFramebuffers[layer].AsSpan(rowOffset, Width).Fill(0xFF00_0000u);
+        }
+
+        for (var bg = 0; bg < _debugAffineSamples.Length; bg++)
+        {
+            _debugAffineSamples[bg].AsSpan(rowOffset, Width).Clear();
+        }
+
+        for (var bg = 0; bg < _debugRegularBgSamples.Length; bg++)
+        {
+            _debugRegularBgSamples[bg].AsSpan(rowOffset, Width).Clear();
+        }
+    }
+
+    private void ClearDebugLayerFramebuffers()
+    {
+        for (var layer = 0; layer < _debugLayerFramebuffers.Length; layer++)
+        {
+            Array.Fill(_debugLayerFramebuffers[layer], 0xFF00_0000u);
+        }
+    }
+
+    private void CaptureDebugCompositionFrame(ReadOnlySpan<byte> layers, ReadOnlySpan<byte> secondLayers)
+    {
+        _framebuffer.CopyTo(_debugPreBlendFramebuffer, 0);
+        _secondFramebuffer.CopyTo(_debugSecondTargetFramebuffer, 0);
+        layers.CopyTo(_debugTopLayers);
+        secondLayers.CopyTo(_debugSecondLayers);
+    }
+
+    private void CaptureDebugCompositionScanline(int y, ReadOnlySpan<byte> layers, ReadOnlySpan<byte> secondLayers)
+    {
+        var rowOffset = y * Width;
+        _framebuffer.AsSpan(rowOffset, Width).CopyTo(_debugPreBlendFramebuffer.AsSpan(rowOffset, Width));
+        _secondFramebuffer.AsSpan(rowOffset, Width).CopyTo(_debugSecondTargetFramebuffer.AsSpan(rowOffset, Width));
+        layers.CopyTo(_debugTopLayers.AsSpan(rowOffset, Width));
+        secondLayers.CopyTo(_debugSecondLayers.AsSpan(rowOffset, Width));
+    }
+
+    private void ClearDebugCompositionFramebuffers()
+    {
+        Array.Fill(_debugPreBlendFramebuffer, 0xFF00_0000u);
+        Array.Fill(_debugSecondTargetFramebuffer, 0xFF00_0000u);
+        Array.Fill(_debugTopLayers, (byte)5);
+        Array.Fill(_debugSecondLayers, (byte)5);
+    }
+
+    private void ClearDebugAffineSamples()
+    {
+        for (var bg = 0; bg < _debugAffineSamples.Length; bg++)
+        {
+            Array.Clear(_debugAffineSamples[bg]);
+        }
+    }
+
+    private void ClearDebugRegularBgSamples()
+    {
+        for (var bg = 0; bg < _debugRegularBgSamples.Length; bg++)
+        {
+            Array.Clear(_debugRegularBgSamples[bg]);
+        }
+    }
+
+    private void RecordRegularBgDebugSample(
+        int bg,
+        int pixel,
+        ushort control,
+        int sourceX,
+        int sourceY,
+        int tileX,
+        int tileY,
+        int screenOffset,
+        ushort screenEntry,
+        int paletteIndex,
+        int hofs,
+        int vofs)
+    {
+        if (bg is < 0 or > 3)
+        {
+            return;
+        }
+
+        _debugRegularBgSamples[bg][pixel] = new RegularBgDebugSample(
+            true,
+            (byte)bg,
+            control,
+            sourceX,
+            sourceY,
+            tileX,
+            tileY,
+            screenOffset,
+            screenEntry,
+            paletteIndex,
+            hofs,
+            vofs);
+    }
+
+    private void RecordAffineDebugSample(
+        int bg,
+        int pixel,
+        ushort control,
+        int fixedX,
+        int fixedY,
+        int sourceX,
+        int sourceY,
+        int tileX,
+        int tileY,
+        int mapOffset,
+        int tileNumber,
+        int tileOffset,
+        int paletteIndex,
+        int pa,
+        int pb,
+        int pc,
+        int pd,
+        int referenceX,
+        int referenceY)
+    {
+        if (bg is not (2 or 3))
+        {
+            return;
+        }
+
+        _debugAffineSamples[bg - 2][pixel] = new AffineDebugSample(
+            true,
+            (byte)bg,
+            control,
+            fixedX,
+            fixedY,
+            sourceX,
+            sourceY,
+            tileX,
+            tileY,
+            mapOffset,
+            tileNumber,
+            tileOffset,
+            paletteIndex,
+            pa,
+            pb,
+            pc,
+            pd,
+            referenceX,
+            referenceY);
+    }
+
+    private static uint[] RenderLayerMap(ReadOnlySpan<byte> layers)
+    {
+        var output = new uint[Pixels];
+        for (var i = 0; i < output.Length; i++)
+        {
+            output[i] = LayerMapColor(layers[i]);
+        }
+
+        return output;
+    }
+
+    private static uint LayerMapColor(byte layer) => layer switch
+    {
+        0 => 0xFFFF_0000u,
+        1 => 0xFF00_FF00u,
+        2 => 0xFF00_00FFu,
+        3 => 0xFFFF_FF00u,
+        4 => 0xFFFF_00FFu,
+        5 => 0xFF40_4040u,
+        _ => 0xFF00_0000u
+    };
+
+    private void RecordDebugLayerPixel(int pixel, byte layer, uint color)
+    {
+        if (layer < _debugLayerFramebuffers.Length)
+        {
+            _debugLayerFramebuffers[layer][pixel] = color;
+        }
+    }
+
     private void SetLayerPixel(
         int pixel,
         byte priority,
@@ -1033,6 +1383,7 @@ public sealed class VideoController
         priorities[pixel] = priority;
         layers[pixel] = layer;
         _framebuffer[pixel] = color;
+        RecordDebugLayerPixel(pixel, layer, color);
         _semiTransparentObject[pixel] = semiTransparentObject;
     }
 
@@ -1052,6 +1403,7 @@ public sealed class VideoController
         priorities[rowPixel] = priority;
         layers[rowPixel] = layer;
         _framebuffer[pixel] = color;
+        RecordDebugLayerPixel(pixel, layer, color);
         _semiTransparentObject[pixel] = semiTransparentObject;
     }
 
@@ -1059,21 +1411,17 @@ public sealed class VideoController
     {
         var blendControl = _bus.PeekIo16(IoRegisters.BLDCNT);
         var effect = (blendControl >> 6) & 0x3;
-        if (effect == 0)
-        {
-            return;
-        }
-
         var targetMask = blendControl & 0x3F;
-        if (effect == 1)
+        var secondTargetMask = (blendControl >> 8) & 0x3F;
+        if (effect == 1 || HasSemiTransparentObject(Pixels, 0))
         {
-            var secondTargetMask = (blendControl >> 8) & 0x3F;
             var alpha = _bus.PeekIo16(IoRegisters.BLDALPHA);
             var eva = Math.Min(alpha & 0x1F, 16);
             var evb = Math.Min((alpha >> 8) & 0x1F, 16);
             for (var pixel = 0; pixel < Pixels; pixel++)
             {
-                var firstTarget = (targetMask & (1 << layers[pixel])) != 0 || _semiTransparentObject[pixel];
+                var firstTarget = (effect == 1 && (targetMask & (1 << layers[pixel])) != 0)
+                    || _semiTransparentObject[pixel];
                 if (!firstTarget || (secondTargetMask & (1 << secondLayers[pixel])) == 0)
                 {
                     continue;
@@ -1089,7 +1437,10 @@ public sealed class VideoController
                 _framebuffer[pixel] = AlphaBlend(_framebuffer[pixel], _secondFramebuffer[pixel], eva, evb);
             }
 
-            return;
+            if (effect is 0 or 1)
+            {
+                return;
+            }
         }
 
         if (effect is not (2 or 3))
@@ -1117,6 +1468,11 @@ public sealed class VideoController
                 continue;
             }
 
+            if (SemiTransparentObjectHasSecondTarget(pixel, secondLayers[pixel], secondTargetMask, x, y))
+            {
+                continue;
+            }
+
             _framebuffer[pixel] = effect == 2
                 ? IncreaseBrightness(_framebuffer[pixel], coefficient)
                 : DecreaseBrightness(_framebuffer[pixel], coefficient);
@@ -1127,22 +1483,18 @@ public sealed class VideoController
     {
         var blendControl = _bus.PeekIo16(IoRegisters.BLDCNT);
         var effect = (blendControl >> 6) & 0x3;
-        if (effect == 0)
-        {
-            return;
-        }
-
         var targetMask = blendControl & 0x3F;
+        var secondTargetMask = (blendControl >> 8) & 0x3F;
         var rowOffset = y * Width;
-        if (effect == 1)
+        if (effect == 1 || HasSemiTransparentObject(Width, rowOffset))
         {
-            var secondTargetMask = (blendControl >> 8) & 0x3F;
             var alpha = _bus.PeekIo16(IoRegisters.BLDALPHA);
             var eva = Math.Min(alpha & 0x1F, 16);
             var evb = Math.Min((alpha >> 8) & 0x1F, 16);
             for (var x = 0; x < Width; x++)
             {
-                var firstTarget = (targetMask & (1 << layers[x])) != 0 || _semiTransparentObject[rowOffset + x];
+                var firstTarget = (effect == 1 && (targetMask & (1 << layers[x])) != 0)
+                    || _semiTransparentObject[rowOffset + x];
                 if (!firstTarget || (secondTargetMask & (1 << secondLayers[x])) == 0 || !AreEffectsEnabledAtPixel(x, y))
                 {
                     continue;
@@ -1151,7 +1503,10 @@ public sealed class VideoController
                 _framebuffer[rowOffset + x] = AlphaBlend(_framebuffer[rowOffset + x], _secondFramebuffer[rowOffset + x], eva, evb);
             }
 
-            return;
+            if (effect is 0 or 1)
+            {
+                return;
+            }
         }
 
         if (effect is not (2 or 3))
@@ -1173,11 +1528,34 @@ public sealed class VideoController
             }
 
             var pixel = rowOffset + x;
+            if (SemiTransparentObjectHasSecondTarget(pixel, secondLayers[x], secondTargetMask, x, y))
+            {
+                continue;
+            }
+
             _framebuffer[pixel] = effect == 2
                 ? IncreaseBrightness(_framebuffer[pixel], coefficient)
                 : DecreaseBrightness(_framebuffer[pixel], coefficient);
         }
     }
+
+    private bool HasSemiTransparentObject(int count, int start)
+    {
+        for (var i = 0; i < count; i++)
+        {
+            if (_semiTransparentObject[start + i])
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool SemiTransparentObjectHasSecondTarget(int pixel, byte secondLayer, int secondTargetMask, int x, int y)
+        => _semiTransparentObject[pixel]
+            && (secondTargetMask & (1 << secondLayer)) != 0
+            && AreEffectsEnabledAtPixel(x, y);
 
     private static uint AlphaBlend(uint first, uint second, int eva, int evb)
     {
@@ -1290,6 +1668,7 @@ public sealed class VideoController
             var pb = affine ? ReadObjectAffineParameter(matrixIndex, 1) : 0;
             var pc = affine ? ReadObjectAffineParameter(matrixIndex, 2) : 0;
             var pd = affine ? ReadObjectAffineParameter(matrixIndex, 3) : 0;
+            var mosaic = IsObjectMosaicEnabled(attr0);
 
             for (var sy = 0; sy < displayHeight; sy++)
             {
@@ -1307,9 +1686,21 @@ public sealed class VideoController
                         continue;
                     }
 
-                    var (sourceX, sourceY) = affine
-                        ? TransformObjectPixel(sx, sy, displayWidth, displayHeight, spriteWidth, spriteHeight, pa, pb, pc, pd)
-                        : (hflip ? spriteWidth - 1 - sx : sx, vflip ? spriteHeight - 1 - sy : sy);
+                    var (sourceX, sourceY) = GetObjectSourcePixel(
+                        sx,
+                        sy,
+                        displayWidth,
+                        displayHeight,
+                        spriteWidth,
+                        spriteHeight,
+                        affine,
+                        hflip,
+                        vflip,
+                        mosaic,
+                        pa,
+                        pb,
+                        pc,
+                        pd);
                     if (sourceX < 0 || sourceY < 0 || sourceX >= spriteWidth || sourceY >= spriteHeight)
                     {
                         continue;
@@ -1377,6 +1768,7 @@ public sealed class VideoController
             var pb = affine ? ReadObjectAffineParameter(matrixIndex, 1) : 0;
             var pc = affine ? ReadObjectAffineParameter(matrixIndex, 2) : 0;
             var pd = affine ? ReadObjectAffineParameter(matrixIndex, 3) : 0;
+            var mosaic = IsObjectMosaicEnabled(attr0);
 
             for (var sx = 0; sx < displayWidth; sx++)
             {
@@ -1386,9 +1778,21 @@ public sealed class VideoController
                     continue;
                 }
 
-                var (sourceX, sourceY) = affine
-                    ? TransformObjectPixel(sx, sy, displayWidth, displayHeight, spriteWidth, spriteHeight, pa, pb, pc, pd)
-                    : (hflip ? spriteWidth - 1 - sx : sx, vflip ? spriteHeight - 1 - sy : sy);
+                var (sourceX, sourceY) = GetObjectSourcePixel(
+                    sx,
+                    sy,
+                    displayWidth,
+                    displayHeight,
+                    spriteWidth,
+                    spriteHeight,
+                    affine,
+                    hflip,
+                    vflip,
+                    mosaic,
+                    pa,
+                    pb,
+                    pc,
+                    pd);
                 if (sourceX < 0 || sourceY < 0 || sourceX >= spriteWidth || sourceY >= spriteHeight)
                 {
                     continue;
@@ -1410,6 +1814,39 @@ public sealed class VideoController
         var oam = _bus.ObjectAttributeMemory;
         return unchecked((short)(oam[offset] | (oam[offset + 1] << 8)));
     }
+
+    private (int X, int Y) GetObjectSourcePixel(
+        int x,
+        int y,
+        int displayWidth,
+        int displayHeight,
+        int spriteWidth,
+        int spriteHeight,
+        bool affine,
+        bool hflip,
+        bool vflip,
+        bool mosaic,
+        int pa,
+        int pb,
+        int pc,
+        int pd)
+    {
+        if (mosaic)
+        {
+            x -= x % GetObjectMosaicHorizontalSize();
+            y -= y % GetObjectMosaicVerticalSize();
+        }
+
+        return affine
+            ? TransformObjectPixel(x, y, displayWidth, displayHeight, spriteWidth, spriteHeight, pa, pb, pc, pd)
+            : (hflip ? spriteWidth - 1 - x : x, vflip ? spriteHeight - 1 - y : y);
+    }
+
+    private static bool IsObjectMosaicEnabled(ushort attr0) => (attr0 & (1 << 12)) != 0;
+
+    private int GetObjectMosaicHorizontalSize() => ((_bus.PeekIo16(IoRegisters.MOSAIC) >> 8) & 0xF) + 1;
+
+    private int GetObjectMosaicVerticalSize() => ((_bus.PeekIo16(IoRegisters.MOSAIC) >> 12) & 0xF) + 1;
 
     private static (int X, int Y) TransformObjectPixel(
         int x,
@@ -1475,6 +1912,12 @@ public sealed class VideoController
 
     private int ReadSignedFixed28(uint address) => ReadSignedFixed20(address);
 
+    private bool IsBackgroundMosaicEnabled(ushort control) => (control & (1 << 6)) != 0;
+
+    private int GetBackgroundMosaicHorizontalSize() => (_bus.PeekIo16(IoRegisters.MOSAIC) & 0xF) + 1;
+
+    private int GetBackgroundMosaicVerticalSize() => ((_bus.PeekIo16(IoRegisters.MOSAIC) >> 4) & 0xF) + 1;
+
     private static int PositiveModulo(int value, int modulo)
     {
         var result = value % modulo;
@@ -1499,3 +1942,38 @@ public sealed class VideoController
             _ => (8, 8)
         };
 }
+
+public readonly record struct AffineDebugSample(
+    bool Valid,
+    byte Bg,
+    ushort Control,
+    int FixedX,
+    int FixedY,
+    int SourceX,
+    int SourceY,
+    int TileX,
+    int TileY,
+    int MapOffset,
+    int TileNumber,
+    int TileOffset,
+    int PaletteIndex,
+    int Pa,
+    int Pb,
+    int Pc,
+    int Pd,
+    int ReferenceX,
+    int ReferenceY);
+
+public readonly record struct RegularBgDebugSample(
+    bool Valid,
+    byte Bg,
+    ushort Control,
+    int SourceX,
+    int SourceY,
+    int TileX,
+    int TileY,
+    int ScreenOffset,
+    ushort ScreenEntry,
+    int PaletteIndex,
+    int HOffset,
+    int VOffset);

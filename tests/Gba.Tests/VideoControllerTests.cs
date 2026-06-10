@@ -211,6 +211,57 @@ public sealed class VideoControllerTests
     }
 
     [Fact]
+    public void DebugRegularBgSamplesExposeScrollAndTileMetadata()
+    {
+        var gba = new GbaSystem();
+        gba.Bus.DisplayControl = 1 << 8; // BG0 enabled, mode 0
+        gba.Bus.Write16(IoRegisters.BG0CNT, 1 << 8); // screen block 1, char block 0
+        gba.Bus.Write16(IoRegisters.BG0HOFS, 1);
+        gba.Bus.Write16(IoRegisters.BG0VOFS, 2);
+        gba.Bus.Write16(GbaMemoryMap.PaletteStart + 2, 0x001F);
+        gba.Bus.Write16(GbaMemoryMap.VramStart + 0x800, 0x0000);
+        WriteVideoByte(gba.Bus, GbaMemoryMap.VramStart + 2 * 4, 0x10);
+
+        AdvanceToVBlank(gba);
+
+        var sample = gba.Video.RenderDebugRegularBgSamples(0)[0];
+
+        Assert.True(sample.Valid);
+        Assert.Equal(0, sample.Bg);
+        Assert.Equal(1, sample.SourceX);
+        Assert.Equal(2, sample.SourceY);
+        Assert.Equal(0, sample.TileX);
+        Assert.Equal(0, sample.TileY);
+        Assert.Equal(0x800, sample.ScreenOffset);
+        Assert.Equal(0, sample.ScreenEntry);
+        Assert.Equal(1, sample.PaletteIndex);
+        Assert.Equal(1, sample.HOffset);
+        Assert.Equal(2, sample.VOffset);
+    }
+
+    [Fact]
+    public void Mode0BackgroundMosaicRepeatsBlockOriginPixel()
+    {
+        var gba = new GbaSystem();
+        gba.Bus.DisplayControl = 1 << 8; // BG0 enabled, mode 0
+        gba.Bus.Write16(IoRegisters.BG0CNT, (ushort)((1 << 6) | (1 << 8))); // mosaic, screen block 1
+        gba.Bus.Write16(IoRegisters.MOSAIC, 0x0011); // 2x2 BG mosaic
+        gba.Bus.Write16(GbaMemoryMap.PaletteStart + 2, 0x001F);
+        gba.Bus.Write16(GbaMemoryMap.PaletteStart + 4, 0x03E0);
+        gba.Bus.Write16(GbaMemoryMap.PaletteStart + 6, 0x7C00);
+        WriteVideoByte(gba.Bus, GbaMemoryMap.VramStart, 0x21);
+        WriteVideoByte(gba.Bus, GbaMemoryMap.VramStart + 1, 0x02);
+        WriteVideoByte(gba.Bus, GbaMemoryMap.VramStart + 8, 0x03);
+
+        AdvanceToVBlank(gba);
+
+        Assert.Equal(0xFFFF_0000u, gba.Video.Framebuffer[0]);
+        Assert.Equal(0xFFFF_0000u, gba.Video.Framebuffer[1]);
+        Assert.Equal(0xFFFF_0000u, gba.Video.Framebuffer[VideoController.Width]);
+        Assert.Equal(0xFF00_FF00u, gba.Video.Framebuffer[2]);
+    }
+
+    [Fact]
     public void Mode0RendersBasicObject()
     {
         var gba = new GbaSystem();
@@ -224,6 +275,35 @@ public sealed class VideoControllerTests
         AdvanceToVBlank(gba);
 
         Assert.Equal(0xFF00_FF00u, gba.Video.Framebuffer[0]);
+    }
+
+    [Fact]
+    public void ObjectMosaicRepeatsBlockOriginPixel()
+    {
+        var gba = new GbaSystem();
+        gba.Bus.DisplayControl = (ushort)((1 << 12) | (1 << 6)); // OBJ enabled, 1D mapping
+        gba.Bus.Write16(IoRegisters.MOSAIC, 0x1100); // 2x2 OBJ mosaic
+        gba.Bus.Write16(GbaMemoryMap.PaletteStart + 0x200 + 2, 0x001F);
+        gba.Bus.Write16(GbaMemoryMap.PaletteStart + 0x200 + 4, 0x03E0);
+        gba.Bus.Write16(GbaMemoryMap.PaletteStart + 0x200 + 6, 0x7C00);
+        WriteVideoByte(gba.Bus, GbaMemoryMap.VramStart + 0x10000, 0x21);
+        WriteVideoByte(gba.Bus, GbaMemoryMap.VramStart + 0x10000 + 1, 0x02);
+        WriteVideoByte(gba.Bus, GbaMemoryMap.VramStart + 0x10000 + 8, 0x03);
+        for (var sprite = 1; sprite < 128; sprite++)
+        {
+            gba.Bus.Write16(GbaMemoryMap.OamStart + (uint)(sprite * 8), 160);
+        }
+
+        gba.Bus.Write16(GbaMemoryMap.OamStart, 1 << 12); // mosaic OBJ at y 0
+        gba.Bus.Write16(GbaMemoryMap.OamStart + 2, 0); // x 0, 8x8
+        gba.Bus.Write16(GbaMemoryMap.OamStart + 4, 0);
+
+        AdvanceToVBlank(gba);
+
+        Assert.Equal(0xFFFF_0000u, gba.Video.Framebuffer[0]);
+        Assert.Equal(0xFFFF_0000u, gba.Video.Framebuffer[1]);
+        Assert.Equal(0xFFFF_0000u, gba.Video.Framebuffer[VideoController.Width]);
+        Assert.Equal(0xFF00_FF00u, gba.Video.Framebuffer[2]);
     }
 
     [Fact]
@@ -352,6 +432,66 @@ public sealed class VideoControllerTests
     }
 
     [Fact]
+    public void DebugAffineSamplesExposeSourceAndTileMetadata()
+    {
+        var gba = new GbaSystem();
+        gba.Bus.DisplayControl = 2 | (1 << 10); // BG2 enabled, mode 2
+        gba.Bus.Write16(IoRegisters.BG2CNT, (ushort)((1 << 8) | (1 << 13))); // screen block 1, wrap
+        gba.Bus.Write16(IoRegisters.BG2PA, 0x0100);
+        gba.Bus.Write16(IoRegisters.BG2PD, 0x0100);
+        gba.Bus.Write16(GbaMemoryMap.PaletteStart + 2, 0x001F);
+        gba.Bus.Write16(GbaMemoryMap.PaletteStart + 4, 0x03E0);
+        WriteVideoByte(gba.Bus, GbaMemoryMap.VramStart, 1);
+        WriteVideoByte(gba.Bus, GbaMemoryMap.VramStart + 1, 2);
+
+        AdvanceToVBlank(gba);
+
+        var samples = gba.Video.RenderDebugAffineSamples(2);
+        var first = samples[0];
+        var second = samples[1];
+
+        Assert.True(first.Valid);
+        Assert.Equal(2, first.Bg);
+        Assert.Equal(0, first.SourceX);
+        Assert.Equal(0, first.SourceY);
+        Assert.Equal(0, first.TileX);
+        Assert.Equal(0, first.TileY);
+        Assert.Equal(0x800, first.MapOffset);
+        Assert.Equal(0, first.TileNumber);
+        Assert.Equal(0, first.TileOffset);
+        Assert.Equal(1, first.PaletteIndex);
+        Assert.Equal(0x0100, first.Pa);
+        Assert.Equal(0x0100, first.Pd);
+        Assert.True(second.Valid);
+        Assert.Equal(1, second.SourceX);
+        Assert.Equal(2, second.PaletteIndex);
+    }
+
+    [Fact]
+    public void Mode2AffineBackgroundMosaicRepeatsBlockOriginPixel()
+    {
+        var gba = new GbaSystem();
+        gba.Bus.DisplayControl = 2 | (1 << 10); // BG2 enabled, mode 2
+        gba.Bus.Write16(IoRegisters.BG2CNT, (ushort)((1 << 6) | (1 << 8) | (1 << 13))); // mosaic, screen block 1, wrap
+        gba.Bus.Write16(IoRegisters.MOSAIC, 0x0011); // 2x2 BG mosaic
+        gba.Bus.Write16(IoRegisters.BG2PA, 0x0100);
+        gba.Bus.Write16(IoRegisters.BG2PD, 0x0100);
+        gba.Bus.Write16(GbaMemoryMap.PaletteStart + 2, 0x001F);
+        gba.Bus.Write16(GbaMemoryMap.PaletteStart + 4, 0x03E0);
+        gba.Bus.Write16(GbaMemoryMap.PaletteStart + 6, 0x7C00);
+        WriteVideoByte(gba.Bus, GbaMemoryMap.VramStart, 1);
+        WriteVideoByte(gba.Bus, GbaMemoryMap.VramStart + 2, 2);
+        WriteVideoByte(gba.Bus, GbaMemoryMap.VramStart + 8, 3);
+
+        AdvanceToVBlank(gba);
+
+        Assert.Equal(0xFFFF_0000u, gba.Video.Framebuffer[0]);
+        Assert.Equal(0xFFFF_0000u, gba.Video.Framebuffer[1]);
+        Assert.Equal(0xFFFF_0000u, gba.Video.Framebuffer[VideoController.Width]);
+        Assert.Equal(0xFF00_FF00u, gba.Video.Framebuffer[2]);
+    }
+
+    [Fact]
     public void AffineBackgroundReferenceWriteDuringHBlankSetsNextScanlineOrigin()
     {
         var gba = new GbaSystem();
@@ -371,6 +511,32 @@ public sealed class VideoControllerTests
 
         Assert.Equal(0xFFFF_0000u, gba.Video.Framebuffer[0]);
         Assert.Equal(0xFF00_FF00u, gba.Video.Framebuffer[VideoController.Width]);
+    }
+
+    [Fact]
+    public void DebugLayerReturnsCapturedAffineScanlines()
+    {
+        var gba = new GbaSystem();
+        gba.Bus.DisplayControl = 2 | (1 << 10); // BG2 enabled, mode 2
+        gba.Bus.Write16(IoRegisters.BG2CNT, (ushort)((1 << 8) | (1 << 13))); // screen block 1, wrap
+        gba.Bus.Write16(IoRegisters.BG2PA, 0x0100);
+        gba.Bus.Write16(IoRegisters.BG2PD, 0x0100);
+        gba.Bus.Write16(GbaMemoryMap.PaletteStart + 2, 0x001F);
+        gba.Bus.Write16(GbaMemoryMap.PaletteStart + 4, 0x03E0);
+        WriteVideoByte(gba.Bus, GbaMemoryMap.VramStart, 1);
+        WriteVideoByte(gba.Bus, GbaMemoryMap.VramStart + 1, 2);
+
+        gba.Scheduler.Advance(VideoController.HDrawCycles);
+        gba.Bus.Write32(IoRegisters.BG2X, 1 << 8);
+        gba.Bus.Write32(IoRegisters.BG2Y, 0);
+        gba.Scheduler.Advance(VideoController.HBlankCycles + VideoController.HDrawCycles);
+
+        var before = gba.Video.Framebuffer.ToArray();
+        var bg2 = gba.Video.RenderDebugLayer(2);
+
+        Assert.Equal(0xFFFF_0000u, bg2[0]);
+        Assert.Equal(0xFF00_FF00u, bg2[VideoController.Width]);
+        Assert.Equal(before, gba.Video.Framebuffer.ToArray());
     }
 
     [Fact]
@@ -411,6 +577,31 @@ public sealed class VideoControllerTests
     }
 
     [Fact]
+    public void DebugCompositionCapturesPreBlendAndSecondTarget()
+    {
+        var gba = new GbaSystem();
+        gba.Bus.DisplayControl = (1 << 8) | (1 << 9); // BG0/BG1 enabled, mode 0
+        gba.Bus.Write16(IoRegisters.BG0CNT, 1 << 8); // priority 0, screen block 1
+        gba.Bus.Write16(IoRegisters.BG1CNT, (ushort)((1 << 0) | (2 << 8))); // priority 1, screen block 2
+        gba.Bus.Write16(GbaMemoryMap.PaletteStart + 2, 0x001F);
+        gba.Bus.Write16(GbaMemoryMap.PaletteStart + 4, 0x7C00);
+        WriteVideoByte(gba.Bus, GbaMemoryMap.VramStart, 0x01);
+        WriteVideoByte(gba.Bus, GbaMemoryMap.VramStart + 32, 0x02);
+        gba.Bus.Write16(GbaMemoryMap.VramStart + 0x800, 0);
+        gba.Bus.Write16(GbaMemoryMap.VramStart + 0x1000, 1);
+        gba.Bus.Write16(IoRegisters.BLDCNT, (ushort)((1 << 6) | 0x0001 | (0x0002 << 8)));
+        gba.Bus.Write16(IoRegisters.BLDALPHA, 8 | (8 << 8));
+
+        AdvanceToVBlank(gba);
+
+        Assert.Equal(0xFFFF_0000u, gba.Video.RenderDebugPreBlend()[0]);
+        Assert.Equal(0xFF00_00FFu, gba.Video.RenderDebugSecondTarget()[0]);
+        Assert.Equal(0xFFFF_0000u, gba.Video.RenderDebugTopLayerMap()[0]);
+        Assert.Equal(0xFF00_FF00u, gba.Video.RenderDebugSecondLayerMap()[0]);
+        Assert.Equal(0xFF7F_007Fu, gba.Video.Framebuffer[0]);
+    }
+
+    [Fact]
     public void SemiTransparentObjectForcesAlphaBlendWithSecondTarget()
     {
         var gba = new GbaSystem();
@@ -431,6 +622,61 @@ public sealed class VideoControllerTests
         gba.Bus.Write16(GbaMemoryMap.OamStart + 4, 0);
         gba.Bus.Write16(IoRegisters.BLDCNT, (ushort)((1 << 6) | (0x0001 << 8))); // alpha, BG0 second target only
         gba.Bus.Write16(IoRegisters.BLDALPHA, 8 | (8 << 8));
+
+        AdvanceToVBlank(gba);
+
+        Assert.Equal(0xFF7F_007Fu, gba.Video.Framebuffer[0]);
+    }
+
+    [Fact]
+    public void SemiTransparentObjectBlendsWhenSpecialEffectIsDisabled()
+    {
+        var gba = new GbaSystem();
+        gba.Bus.DisplayControl = (ushort)((1 << 8) | (1 << 12) | (1 << 6)); // BG0/OBJ, 1D OBJ mapping
+        gba.Bus.Write16(IoRegisters.BG0CNT, (ushort)((1 << 0) | (1 << 8))); // priority 1, screen block 1
+        gba.Bus.Write16(GbaMemoryMap.PaletteStart + 2, 0x7C00);
+        gba.Bus.Write16(GbaMemoryMap.PaletteStart + 0x200 + 2, 0x001F);
+        WriteVideoByte(gba.Bus, GbaMemoryMap.VramStart, 0x01);
+        gba.Bus.Write16(GbaMemoryMap.VramStart + 0x800, 0);
+        WriteVideoByte(gba.Bus, GbaMemoryMap.VramStart + 0x10000, 0x01);
+        for (var sprite = 1; sprite < 128; sprite++)
+        {
+            gba.Bus.Write16(GbaMemoryMap.OamStart + (uint)(sprite * 8), 160);
+        }
+
+        gba.Bus.Write16(GbaMemoryMap.OamStart, 1 << 10); // semi-transparent OBJ
+        gba.Bus.Write16(GbaMemoryMap.OamStart + 2, 0);
+        gba.Bus.Write16(GbaMemoryMap.OamStart + 4, 0);
+        gba.Bus.Write16(IoRegisters.BLDCNT, 0x0001 << 8); // BG0 second target only, no selected special effect
+        gba.Bus.Write16(IoRegisters.BLDALPHA, 8 | (8 << 8));
+
+        AdvanceToVBlank(gba);
+
+        Assert.Equal(0xFF7F_007Fu, gba.Video.Framebuffer[0]);
+    }
+
+    [Fact]
+    public void SemiTransparentObjectBlendTakesPriorityOverBrightness()
+    {
+        var gba = new GbaSystem();
+        gba.Bus.DisplayControl = (ushort)((1 << 8) | (1 << 12) | (1 << 6)); // BG0/OBJ, 1D OBJ mapping
+        gba.Bus.Write16(IoRegisters.BG0CNT, (ushort)((1 << 0) | (1 << 8))); // priority 1, screen block 1
+        gba.Bus.Write16(GbaMemoryMap.PaletteStart + 2, 0x7C00);
+        gba.Bus.Write16(GbaMemoryMap.PaletteStart + 0x200 + 2, 0x001F);
+        WriteVideoByte(gba.Bus, GbaMemoryMap.VramStart, 0x01);
+        gba.Bus.Write16(GbaMemoryMap.VramStart + 0x800, 0);
+        WriteVideoByte(gba.Bus, GbaMemoryMap.VramStart + 0x10000, 0x01);
+        for (var sprite = 1; sprite < 128; sprite++)
+        {
+            gba.Bus.Write16(GbaMemoryMap.OamStart + (uint)(sprite * 8), 160);
+        }
+
+        gba.Bus.Write16(GbaMemoryMap.OamStart, 1 << 10); // semi-transparent OBJ
+        gba.Bus.Write16(GbaMemoryMap.OamStart + 2, 0);
+        gba.Bus.Write16(GbaMemoryMap.OamStart + 4, 0);
+        gba.Bus.Write16(IoRegisters.BLDCNT, (ushort)((3 << 6) | (1 << 4) | (0x0001 << 8))); // darken OBJ, BG0 second target
+        gba.Bus.Write16(IoRegisters.BLDALPHA, 8 | (8 << 8));
+        gba.Bus.Write16(IoRegisters.BLDY, 16);
 
         AdvanceToVBlank(gba);
 
