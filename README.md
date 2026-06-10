@@ -33,6 +33,16 @@ dotnet build src\Gba.Desktop\Gba.Desktop.csproj -c Release
 dotnet test tests\Gba.Tests\Gba.Tests.csproj -c Release --no-restore
 ```
 
+Or run the default local verification gate:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run-local-verification.ps1 -NoRestore
+```
+
+Use `-IncludeStrictReference` and `-IncludeHardSoak` when the local reference
+captures, baselines, BIOS, and curated ROM collection are present and you want a
+heavier release-style pass.
+
 ## Desktop Frontend
 
 Launch the WinForms frontend:
