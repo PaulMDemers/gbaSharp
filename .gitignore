@@ -3,6 +3,8 @@ bin/
 obj/
 out/
 TestResults/
+__pycache__/
+*.py[cod]
 *.user
 *.suo
 *.nupkg
