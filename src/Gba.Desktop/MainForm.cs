@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using Gba.Core;
 using Gba.Core.Cartridges;
 using Gba.Core.Input;
@@ -11,6 +12,7 @@ namespace Gba.Desktop;
 
 public sealed class MainForm : Form
 {
+    private const int MaxRecentRoms = 8;
     private static readonly TimeSpan FrameDuration = TimeSpan.FromTicks(TimeSpan.TicksPerSecond * 1_000_000L / 59_727_500L);
     private readonly object _sync = new();
     private readonly PictureBox _display = new();
@@ -19,10 +21,18 @@ public sealed class MainForm : Form
     private readonly ToolStripButton _resetButton = new("Reset");
     private readonly ToolStripButton _audioButton = new("Audio") { CheckOnClick = true, Checked = true };
     private readonly ToolStripMenuItem _useBiosMenuItem = new("Use BIOS when available") { CheckOnClick = true, Checked = true };
+    private readonly ToolStripMenuItem _recentRomsMenuItem = new("Recent ROMs");
+    private readonly ToolStripMenuItem _writeSaveMenuItem = new("Write Save");
+    private readonly ToolStripMenuItem _screenshotMenuItem = new("Save Screenshot...");
+    private readonly ToolStripMenuItem _pauseResumeMenuItem = new("Pause");
+    private readonly ToolStripMenuItem _resetMenuItem = new("Reset");
+    private readonly ToolStripMenuItem _speedMenuItem = new("Speed");
     private readonly ToolStripStatusLabel _status = new("No ROM loaded");
     private readonly System.Windows.Forms.Timer _presentTimer = new();
     private readonly WaveOutAudioOutput _audioOutput = new();
     private readonly int[] _argbFrame = new int[VideoController.Pixels];
+    private readonly string? _startupRomPath;
+    private readonly DesktopSettings _settings;
     private Bitmap _frontBitmap = new(VideoController.Width, VideoController.Height, PixelFormat.Format32bppArgb);
     private Bitmap _backBitmap = new(VideoController.Width, VideoController.Height, PixelFormat.Format32bppArgb);
     private GbaSystem? _gba;
@@ -36,25 +46,63 @@ public sealed class MainForm : Form
     private long _emulatedFrames;
     private long _framesPresented;
     private long _lastFrameCounter;
+    private double _speedMultiplier = 1.0;
+    private bool _unlimitedSpeed;
     private readonly Stopwatch _fpsClock = Stopwatch.StartNew();
 
-    public MainForm()
+    public MainForm(string? startupRomPath = null)
     {
+        _startupRomPath = string.IsNullOrWhiteSpace(startupRomPath) ? null : startupRomPath;
+        _settings = DesktopSettings.Load();
         Text = "gbaSharp";
         ClientSize = new Size(VideoController.Width * 3, VideoController.Height * 3 + 56);
         MinimumSize = new Size(VideoController.Width * 2, VideoController.Height * 2 + 96);
         KeyPreview = true;
+        AllowDrop = true;
 
         var menu = new MenuStrip();
         var file = new ToolStripMenuItem("File");
-        file.DropDownItems.Add("Open BIOS...", null, (_, _) => OpenBios());
+        var openBiosMenuItem = new ToolStripMenuItem("Open BIOS...", null, (_, _) => OpenBios())
+        {
+            ShortcutKeys = Keys.Control | Keys.B
+        };
+        file.DropDownItems.Add(openBiosMenuItem);
         _useBiosMenuItem.CheckedChanged += (_, _) => ResetRom();
         file.DropDownItems.Add(_useBiosMenuItem);
-        file.DropDownItems.Add("Open ROM...", null, (_, _) => OpenRom());
-        file.DropDownItems.Add("Write Save", null, (_, _) => WriteSave());
+        var openRomMenuItem = new ToolStripMenuItem("Open ROM...", null, (_, _) => OpenRom())
+        {
+            ShortcutKeys = Keys.Control | Keys.O
+        };
+        file.DropDownItems.Add(openRomMenuItem);
+        file.DropDownItems.Add(_recentRomsMenuItem);
+        _writeSaveMenuItem.Click += (_, _) => WriteSave();
+        _writeSaveMenuItem.ShortcutKeys = Keys.Control | Keys.S;
+        file.DropDownItems.Add(_writeSaveMenuItem);
+        _screenshotMenuItem.Click += (_, _) => SaveScreenshot();
+        _screenshotMenuItem.ShortcutKeys = Keys.F9;
+        file.DropDownItems.Add(_screenshotMenuItem);
         file.DropDownItems.Add(new ToolStripSeparator());
-        file.DropDownItems.Add("Exit", null, (_, _) => Close());
+        var exitMenuItem = new ToolStripMenuItem("Exit", null, (_, _) => Close())
+        {
+            ShortcutKeys = Keys.Alt | Keys.F4
+        };
+        file.DropDownItems.Add(exitMenuItem);
         menu.Items.Add(file);
+
+        var emulation = new ToolStripMenuItem("Emulation");
+        _pauseResumeMenuItem.Click += (_, _) => TogglePause();
+        _pauseResumeMenuItem.ShortcutKeys = Keys.Space;
+        _resetMenuItem.Click += (_, _) => ResetRom();
+        _resetMenuItem.ShortcutKeys = Keys.F5;
+        emulation.DropDownItems.Add(_pauseResumeMenuItem);
+        emulation.DropDownItems.Add(_resetMenuItem);
+        emulation.DropDownItems.Add(new ToolStripSeparator());
+        AddSpeedMenuItem("1x", 1.0, unlimited: false, checkedByDefault: true);
+        AddSpeedMenuItem("2x", 2.0, unlimited: false);
+        AddSpeedMenuItem("3x", 3.0, unlimited: false);
+        AddSpeedMenuItem("Unlimited", 1.0, unlimited: true);
+        emulation.DropDownItems.Add(_speedMenuItem);
+        menu.Items.Add(emulation);
 
         var toolbar = new ToolStrip();
         _runButton.Click += (_, _) => StartEmulation();
@@ -87,13 +135,23 @@ public sealed class MainForm : Form
         _presentTimer.Interval = 16;
         _presentTimer.Tick += (_, _) => PresentFrame();
         _presentTimer.Start();
+        LoadPersistedSettings();
         TryLoadDefaultBios();
+        RefreshRecentRomsMenu();
         UpdateAudioButton();
         UpdateButtons();
+        DragEnter += OnDragEnter;
+        DragDrop += OnDragDrop;
+        Shown += (_, _) => OpenStartupRomIfNeeded();
     }
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
+        if (HandleShortcut(keyData))
+        {
+            return true;
+        }
+
         var key = KeyFromKeys(keyData & Keys.KeyCode);
         if (key == GbaKey.None)
         {
@@ -121,6 +179,7 @@ public sealed class MainForm : Form
     {
         PauseEmulation();
         WriteSave();
+        SavePersistedSettings();
         _display.Image = null;
         _frontBitmap.Dispose();
         _backBitmap.Dispose();
@@ -141,10 +200,16 @@ public sealed class MainForm : Form
             return;
         }
 
+        await OpenRomPathAsync(dialog.FileName);
+    }
+
+    private async Task OpenRomPathAsync(string path)
+    {
         PauseEmulation();
         try
         {
-            var cartridge = await Cartridge.LoadFileAsync(dialog.FileName);
+            var fullPath = Path.GetFullPath(path);
+            var cartridge = await Cartridge.LoadFileAsync(fullPath);
             var gba = CreateSystem();
             gba.LoadCartridge(cartridge);
             gba.Video.VBlankStarted += () => CaptureFrame(gba);
@@ -155,8 +220,8 @@ public sealed class MainForm : Form
             lock (_sync)
             {
                 _gba = gba;
-                _romPath = dialog.FileName;
-                _savePath = Path.ChangeExtension(dialog.FileName, ".sav");
+                _romPath = fullPath;
+                _savePath = Path.ChangeExtension(fullPath, ".sav");
                 _newFrame = true;
                 _emulatedFrames = 0;
                 _framesPresented = 0;
@@ -165,6 +230,7 @@ public sealed class MainForm : Form
             }
 
             LoadSave();
+            RememberRecentRom(fullPath);
             StartEmulation();
             SetStatus(FormatStatus(cartridge));
         }
@@ -192,6 +258,8 @@ public sealed class MainForm : Form
         try
         {
             LoadBios(dialog.FileName);
+            _settings.BiosPath = _biosPath;
+            SavePersistedSettings();
             if (!_useBiosMenuItem.Checked)
             {
                 _useBiosMenuItem.Checked = true;
@@ -304,6 +372,18 @@ public sealed class MainForm : Form
         }
     }
 
+    private void TogglePause()
+    {
+        if (_runCancellation is null)
+        {
+            StartEmulation();
+        }
+        else
+        {
+            PauseEmulation();
+        }
+    }
+
     private void RunLoop(CancellationToken cancellationToken)
     {
         var nextFrameTime = Stopwatch.GetTimestamp();
@@ -331,15 +411,19 @@ public sealed class MainForm : Form
             if (currentFrames != observedFrames)
             {
                 observedFrames = currentFrames;
-                nextFrameTime += frameTicks;
-                var delayTicks = nextFrameTime - Stopwatch.GetTimestamp();
-                if (delayTicks > 0)
+                if (!_unlimitedSpeed)
                 {
-                    Thread.Sleep(TimeSpan.FromSeconds((double)delayTicks / Stopwatch.Frequency));
-                }
-                else if (delayTicks < -frameTicks * 4)
-                {
-                    nextFrameTime = Stopwatch.GetTimestamp();
+                    var targetFrameTicks = Math.Max(1, (long)(frameTicks / Math.Max(0.1, _speedMultiplier)));
+                    nextFrameTime += targetFrameTicks;
+                    var delayTicks = nextFrameTime - Stopwatch.GetTimestamp();
+                    if (delayTicks > 0)
+                    {
+                        Thread.Sleep(TimeSpan.FromSeconds((double)delayTicks / Stopwatch.Frequency));
+                    }
+                    else if (delayTicks < -targetFrameTicks * 4)
+                    {
+                        nextFrameTime = Stopwatch.GetTimestamp();
+                    }
                 }
             }
 
@@ -410,6 +494,7 @@ public sealed class MainForm : Form
 
     private void WriteSave()
     {
+        var wrote = false;
         lock (_sync)
         {
             if (_gba is null || _savePath is null || _gba.Bus.SaveDataSize == 0)
@@ -418,7 +503,49 @@ public sealed class MainForm : Form
             }
 
             File.WriteAllBytes(_savePath, _gba.Bus.ExportSaveData().ToArray());
+            wrote = true;
         }
+
+        if (wrote && _savePath is not null)
+        {
+            SetStatus($"Save written: {Path.GetFileName(_savePath)}");
+        }
+    }
+
+    private void SaveScreenshot()
+    {
+        if (_gba is null)
+        {
+            return;
+        }
+
+        var suggestedName = _romPath is null
+            ? "gbaSharp-screenshot.png"
+            : $"{Path.GetFileNameWithoutExtension(_romPath)}-{DateTime.Now:yyyyMMdd-HHmmss}.png";
+        using var dialog = new SaveFileDialog
+        {
+            Filter = "PNG image (*.png)|*.png|All files (*.*)|*.*",
+            FileName = suggestedName,
+            Title = "Save Screenshot"
+        };
+
+        if (dialog.ShowDialog(this) != DialogResult.OK)
+        {
+            return;
+        }
+
+        Bitmap snapshot;
+        lock (_sync)
+        {
+            snapshot = (Bitmap)_frontBitmap.Clone();
+        }
+
+        using (snapshot)
+        {
+            snapshot.Save(dialog.FileName, ImageFormat.Png);
+        }
+
+        SetStatus($"Screenshot saved: {Path.GetFileName(dialog.FileName)}");
     }
 
     private void SetKey(GbaKey key, bool pressed)
@@ -448,6 +575,11 @@ public sealed class MainForm : Form
         _runButton.Enabled = hasRom && !running;
         _pauseButton.Enabled = running;
         _resetButton.Enabled = hasRom;
+        _writeSaveMenuItem.Enabled = hasRom;
+        _screenshotMenuItem.Enabled = hasRom;
+        _pauseResumeMenuItem.Enabled = hasRom;
+        _pauseResumeMenuItem.Text = running ? "Pause" : "Run";
+        _resetMenuItem.Enabled = hasRom;
     }
 
     private void UpdateAudioButton()
@@ -483,7 +615,7 @@ public sealed class MainForm : Form
         var frames = Interlocked.Exchange(ref _lastFrameCounter, 0);
         var fps = (frames * 1000.0) / Math.Max(1, _fpsClock.ElapsedMilliseconds);
         _fpsClock.Restart();
-        _status.Text = $"{FormatStatus(_gba.Cartridge)}  {fps:0.0} fps";
+        _status.Text = $"{FormatStatus(_gba.Cartridge)}  {fps:0.0} fps  frame {_emulatedFrames:N0}  {SpeedLabel()}";
     }
 
     private GbaSystem CreateSystem()
@@ -491,6 +623,21 @@ public sealed class MainForm : Form
 
     private void TryLoadDefaultBios()
     {
+        if (!string.IsNullOrWhiteSpace(_settings.BiosPath) && File.Exists(_settings.BiosPath))
+        {
+            try
+            {
+                LoadBios(_settings.BiosPath);
+                SetStatus($"BIOS loaded: {Path.GetFileName(_settings.BiosPath)}");
+                return;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+            {
+                _settings.BiosPath = null;
+                SavePersistedSettings();
+            }
+        }
+
         foreach (var path in DefaultBiosCandidates())
         {
             if (!File.Exists(path))
@@ -556,7 +703,7 @@ public sealed class MainForm : Form
         }
 
         _bios = bytes;
-        _biosPath = path;
+        _biosPath = Path.GetFullPath(path);
     }
 
     private string FormatStatus(Cartridge cartridge)
@@ -565,6 +712,185 @@ public sealed class MainForm : Form
             ? "No BIOS"
             : _useBiosMenuItem.Checked ? $"BIOS: {Path.GetFileName(_biosPath)}" : "BIOS disabled";
         return $"{Display(cartridge.Header.Title)} ({Display(cartridge.Header.GameCode)})  {bios}";
+    }
+
+    private void AddSpeedMenuItem(string text, double multiplier, bool unlimited, bool checkedByDefault = false)
+    {
+        var item = new ToolStripMenuItem(text)
+        {
+            CheckOnClick = true,
+            Checked = checkedByDefault,
+            Tag = new SpeedChoice(multiplier, unlimited)
+        };
+        item.Click += (_, _) => SetSpeed(item);
+        _speedMenuItem.DropDownItems.Add(item);
+    }
+
+    private void SetSpeed(ToolStripMenuItem selected)
+    {
+        foreach (ToolStripMenuItem item in _speedMenuItem.DropDownItems)
+        {
+            item.Checked = ReferenceEquals(item, selected);
+        }
+
+        var choice = (SpeedChoice)selected.Tag!;
+        _speedMultiplier = choice.Multiplier;
+        _unlimitedSpeed = choice.Unlimited;
+        _settings.SpeedMultiplier = _speedMultiplier;
+        _settings.UnlimitedSpeed = _unlimitedSpeed;
+        SavePersistedSettings();
+        _audioOutput.Clear();
+        UpdateStatusFps();
+    }
+
+    private string SpeedLabel() => _unlimitedSpeed ? "unlimited" : $"{_speedMultiplier:0.#}x";
+
+    private void LoadPersistedSettings()
+    {
+        _useBiosMenuItem.Checked = _settings.UseBios;
+        _speedMultiplier = _settings.SpeedMultiplier <= 0 ? 1.0 : _settings.SpeedMultiplier;
+        _unlimitedSpeed = _settings.UnlimitedSpeed;
+
+        foreach (ToolStripMenuItem item in _speedMenuItem.DropDownItems)
+        {
+            var choice = (SpeedChoice)item.Tag!;
+            item.Checked = choice.Unlimited == _unlimitedSpeed && Math.Abs(choice.Multiplier - _speedMultiplier) < 0.001;
+        }
+
+        if (!_speedMenuItem.DropDownItems.Cast<ToolStripMenuItem>().Any(item => item.Checked))
+        {
+            ((ToolStripMenuItem)_speedMenuItem.DropDownItems[0]).Checked = true;
+            _speedMultiplier = 1.0;
+            _unlimitedSpeed = false;
+        }
+    }
+
+    private void SavePersistedSettings()
+    {
+        _settings.UseBios = _useBiosMenuItem.Checked;
+        _settings.BiosPath = _biosPath;
+        _settings.SpeedMultiplier = _speedMultiplier;
+        _settings.UnlimitedSpeed = _unlimitedSpeed;
+        _settings.Save();
+    }
+
+    private void RememberRecentRom(string path)
+    {
+        _settings.RecentRoms.RemoveAll(item => string.Equals(item, path, StringComparison.OrdinalIgnoreCase));
+        _settings.RecentRoms.Insert(0, path);
+        if (_settings.RecentRoms.Count > MaxRecentRoms)
+        {
+            _settings.RecentRoms.RemoveRange(MaxRecentRoms, _settings.RecentRoms.Count - MaxRecentRoms);
+        }
+
+        SavePersistedSettings();
+        RefreshRecentRomsMenu();
+    }
+
+    private void RefreshRecentRomsMenu()
+    {
+        _recentRomsMenuItem.DropDownItems.Clear();
+        var existing = _settings.RecentRoms
+            .Where(File.Exists)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(MaxRecentRoms)
+            .ToList();
+        _settings.RecentRoms.Clear();
+        _settings.RecentRoms.AddRange(existing);
+
+        if (existing.Count == 0)
+        {
+            _recentRomsMenuItem.DropDownItems.Add("(none)").Enabled = false;
+        }
+        else
+        {
+            foreach (var romPath in existing)
+            {
+                _recentRomsMenuItem.DropDownItems.Add(Path.GetFileName(romPath), null, async (_, _) => await OpenRomPathAsync(romPath)).ToolTipText = romPath;
+            }
+        }
+
+        _recentRomsMenuItem.DropDownItems.Add(new ToolStripSeparator());
+        _recentRomsMenuItem.DropDownItems.Add("Clear Recent ROMs", null, (_, _) =>
+        {
+            _settings.RecentRoms.Clear();
+            SavePersistedSettings();
+            RefreshRecentRomsMenu();
+        }).Enabled = existing.Count > 0;
+    }
+
+    private async void OpenStartupRomIfNeeded()
+    {
+        if (_startupRomPath is null)
+        {
+            return;
+        }
+
+        if (!File.Exists(_startupRomPath))
+        {
+            MessageBox.Show(this, $"ROM not found: {_startupRomPath}", "Could not open startup ROM", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            return;
+        }
+
+        await OpenRomPathAsync(_startupRomPath);
+    }
+
+    private bool HandleShortcut(Keys keyData)
+    {
+        switch (keyData)
+        {
+            case Keys.Control | Keys.O:
+                OpenRom();
+                return true;
+            case Keys.Control | Keys.B:
+                OpenBios();
+                return true;
+            case Keys.Control | Keys.S:
+                WriteSave();
+                return true;
+            case Keys.Space:
+                TogglePause();
+                return true;
+            case Keys.F5:
+                ResetRom();
+                return true;
+            case Keys.F9:
+                SaveScreenshot();
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private void OnDragEnter(object? sender, DragEventArgs e)
+    {
+        if (GetDroppedRomPath(e) is null)
+        {
+            e.Effect = DragDropEffects.None;
+            return;
+        }
+
+        e.Effect = DragDropEffects.Copy;
+    }
+
+    private async void OnDragDrop(object? sender, DragEventArgs e)
+    {
+        var path = GetDroppedRomPath(e);
+        if (path is not null)
+        {
+            await OpenRomPathAsync(path);
+        }
+    }
+
+    private static string? GetDroppedRomPath(DragEventArgs e)
+    {
+        if (e.Data is null || !e.Data.GetDataPresent(DataFormats.FileDrop))
+        {
+            return null;
+        }
+
+        var files = e.Data.GetData(DataFormats.FileDrop) as string[];
+        return files?.FirstOrDefault(file => string.Equals(Path.GetExtension(file), ".gba", StringComparison.OrdinalIgnoreCase));
     }
 
     private static GbaKey KeyFromKeys(Keys key)
@@ -585,4 +911,53 @@ public sealed class MainForm : Form
 
     private static string Display(string value)
         => string.IsNullOrWhiteSpace(value) ? "(blank)" : value.Trim();
+
+    private readonly record struct SpeedChoice(double Multiplier, bool Unlimited);
+
+    private sealed class DesktopSettings
+    {
+        private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
+
+        public string? BiosPath { get; set; }
+
+        public bool UseBios { get; set; } = true;
+
+        public double SpeedMultiplier { get; set; } = 1.0;
+
+        public bool UnlimitedSpeed { get; set; }
+
+        public List<string> RecentRoms { get; set; } = [];
+
+        public static DesktopSettings Load()
+        {
+            try
+            {
+                if (!File.Exists(SettingsPath))
+                {
+                    return new DesktopSettings();
+                }
+
+                return JsonSerializer.Deserialize<DesktopSettings>(File.ReadAllText(SettingsPath), JsonOptions) ?? new DesktopSettings();
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+            {
+                return new DesktopSettings();
+            }
+        }
+
+        public void Save()
+        {
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(SettingsPath)!);
+                File.WriteAllText(SettingsPath, JsonSerializer.Serialize(this, JsonOptions));
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+            }
+        }
+
+        private static string SettingsPath
+            => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "gbaSharp", "desktop-settings.json");
+    }
 }
