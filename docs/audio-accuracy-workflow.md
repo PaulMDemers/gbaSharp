@@ -135,6 +135,32 @@ routes use `--align-rom-entry` before frame counting. For fair MAME comparison,
 prefer short power-on/no-input routes or pass `-NoAlignRomEntry` and match the
 same elapsed duration.
 
+## 2026-06-11 MAME Smoke Findings
+
+The MAME pipeline is working end to end. The local smoke run used MAME 0.288,
+the local GBA BIOS set at `.research\tools\mame\roms\gba\gba.bin`, 48 kHz WAV
+capture, and power-on/no-input title routes.
+
+Working single-route shape:
+
+```powershell
+.\scripts\run-audio-accuracy.ps1 -Rom Ruby.gba -Bios path\to\gba_bios.bin -NoAlignRomEntry -StopFrame 0 -MameSeconds 5 -SampleRate 48000
+```
+
+Working two-route suite smoke:
+
+```powershell
+.\scripts\run-audio-accuracy-suite.ps1 -Limit 2 -Bios path\to\gba_bios.bin -UseMame -SampleRate 48000
+```
+
+Current result: duration now matches closely, but early startup audio does not.
+MAME's first audible sample appears around 0.404s into the power-on capture,
+while gbaSharp's first audible sample appears around 1.17s for the same Ruby
+window. The two-route MAME suite also showed very low correlation for
+`sonic-advance-title` and `pokemon-ruby-title`, with RMSE around 2338 and
+duration delta around 18ms. Treat this as a real BIOS/startup audio timing or
+PSG/mixer gap to investigate, not as a route-tooling failure.
+
 ## Compare WAVs
 
 Use the tolerance-oriented comparator:

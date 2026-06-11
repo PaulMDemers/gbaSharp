@@ -34,6 +34,22 @@ def mono(samples: list[list[int]]) -> list[float]:
     return [(l + r) / 2.0 for l, r in zip(left, right)]
 
 
+def trim_leading_silence(samples: list[list[int]], threshold: int, padding: int) -> tuple[list[list[int]], int]:
+    if threshold <= 0:
+        return samples, 0
+
+    frames = len(samples[0])
+    first = 0
+    for index in range(frames):
+        if abs(samples[0][index]) >= threshold or abs(samples[1][index]) >= threshold:
+            first = max(0, index - padding)
+            break
+    else:
+        return samples, 0
+
+    return [channel[first:] for channel in samples], first
+
+
 def rms(values: list[int | float]) -> float:
     if not values:
         return 0.0
@@ -46,6 +62,13 @@ def peak(values: list[int]) -> int:
 
 def clipping(values: list[int]) -> int:
     return sum(1 for value in values if value in (-32768, 32767))
+
+
+def first_non_silent(samples: list[list[int]], threshold: int) -> int:
+    for index, (left, right) in enumerate(zip(samples[0], samples[1])):
+        if abs(left) >= threshold or abs(right) >= threshold:
+            return index
+    return -1
 
 
 def channel_balance(samples: list[list[int]]) -> float:
@@ -140,11 +163,17 @@ def compare(reference: list[list[int]], actual: list[list[int]], shift: int) -> 
 
 def summarize_wav(prefix: str, path: Path, sample_rate: int, samples: list[list[int]]) -> dict[str, float | int | str]:
     frames = len(samples[0])
+    first64 = first_non_silent(samples, 64)
+    first512 = first_non_silent(samples, 512)
     return {
         f"{prefix}Path": str(path),
         f"{prefix}SampleRate": sample_rate,
         f"{prefix}Frames": frames,
         f"{prefix}DurationSeconds": frames / sample_rate if sample_rate else 0.0,
+        f"{prefix}FirstNonSilent64Samples": first64,
+        f"{prefix}FirstNonSilent64Seconds": first64 / sample_rate if first64 >= 0 and sample_rate else -1,
+        f"{prefix}FirstNonSilent512Samples": first512,
+        f"{prefix}FirstNonSilent512Seconds": first512 / sample_rate if first512 >= 0 and sample_rate else -1,
         f"{prefix}LeftRms": rms(samples[0]),
         f"{prefix}RightRms": rms(samples[1]),
         f"{prefix}LeftPeak": peak(samples[0]),
@@ -183,6 +212,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-md", default="", help="Optional Markdown metrics output")
     parser.add_argument("--max-shift-ms", type=float, default=250.0, help="Maximum alignment search shift in milliseconds")
     parser.add_argument("--stride", type=int, default=16, help="Downsample stride used for alignment search")
+    parser.add_argument("--trim-leading-silence", type=int, default=0, help="Trim leading frames below this absolute sample threshold before alignment")
+    parser.add_argument("--trim-padding-ms", type=float, default=50.0, help="Padding to keep before the first non-silent sample when trimming")
     return parser.parse_args()
 
 
@@ -197,12 +228,17 @@ def main() -> int:
     if args.stride <= 0:
         raise SystemExit("--stride must be greater than zero")
 
+    trim_padding = int(reference_rate * args.trim_padding_ms / 1000.0)
+    reference_samples, reference_trim = trim_leading_silence(reference_samples, args.trim_leading_silence, trim_padding)
+    actual_samples, actual_trim = trim_leading_silence(actual_samples, args.trim_leading_silence, trim_padding)
     max_shift = int(reference_rate * args.max_shift_ms / 1000.0)
     shift, alignment_correlation = best_shift(mono(reference_samples), mono(actual_samples), max_shift, args.stride)
     metrics: dict[str, float | int | str] = {}
     metrics.update(summarize_wav("reference", reference_path, reference_rate, reference_samples))
     metrics.update(summarize_wav("actual", actual_path, actual_rate, actual_samples))
     metrics["durationDeltaSeconds"] = float(metrics["actualDurationSeconds"]) - float(metrics["referenceDurationSeconds"])
+    metrics["referenceTrimSamples"] = reference_trim
+    metrics["actualTrimSamples"] = actual_trim
     metrics["alignmentShiftSamples"] = shift
     metrics["alignmentShiftMs"] = shift * 1000.0 / reference_rate
     metrics["alignmentCorrelation"] = alignment_correlation

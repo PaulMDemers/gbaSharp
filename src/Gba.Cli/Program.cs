@@ -1004,7 +1004,7 @@ static async Task<int> RunCompatibility(string[] args, byte[]? bios)
     keyEvents.Sort((left, right) => left.Step.CompareTo(right.Step));
     frameKeyEvents.Sort((left, right) => left.Frame.CompareTo(right.Frame));
     framePokeEvents.Sort((left, right) => left.Frame.CompareTo(right.Frame));
-    var options = new RunOptions(maxSteps, null, false, keys, keyEvents, frameKeyEvents, frameHashEvents, memoryTriggerEvents, framePokeEvents, [], [], [], [], 0, false, false, false, false, 0, false, false, 0, traceInput, [], [], [], null, 0, 0, null, false, null, 1, [], 0, 6, stopFrame, null, null, null, 1, alignRomEntry, null, null, null, 44_100, 0.5);
+    var options = new RunOptions(maxSteps, null, false, keys, keyEvents, frameKeyEvents, frameHashEvents, memoryTriggerEvents, framePokeEvents, [], [], [], [], 0, false, false, false, false, 0, false, false, 0, traceInput, [], [], [], null, 0, 0, null, false, null, 1, [], 0, 6, stopFrame, null, null, null, 1, alignRomEntry, null, null, null, 44_100, 0.5, false);
     var phases = BuildCompatibilityPhases(suiteName, phaseName, options, frameStepBudget);
     var rootFullPath = Path.GetFullPath(root);
     var indexedRoms = Directory.EnumerateFiles(rootFullPath, "*.gba", SearchOption.AllDirectories)
@@ -2185,6 +2185,7 @@ static RunOptions ParseRunOptions(string[] args)
     string? audioWav = null;
     var audioSampleRate = 44_100;
     var audioGain = 0.5;
+    var audioPadFromStart = false;
     var snapshotFrames = 1;
     var traceTail = 0;
     var traceHitLimit = 0;
@@ -2399,6 +2400,10 @@ static RunOptions ParseRunOptions(string[] args)
                 i++;
                 break;
 
+            case "--audio-pad-from-start":
+                audioPadFromStart = true;
+                break;
+
             case "--snapshot-frames" when i + 1 < args.Length && int.TryParse(args[i + 1], out var parsedSnapshotFrames) && parsedSnapshotFrames > 0:
                 snapshotFrames = parsedSnapshotFrames;
                 i++;
@@ -2424,7 +2429,7 @@ static RunOptions ParseRunOptions(string[] args)
     keyEvents.Sort((left, right) => left.Step.CompareTo(right.Step));
     frameKeyEvents.Sort((left, right) => left.Frame.CompareTo(right.Frame));
     framePokeEvents.Sort((left, right) => left.Frame.CompareTo(right.Frame));
-    return new RunOptions(maxSteps, maxSeconds, trace, keys, keyEvents, frameKeyEvents, frameHashEvents, memoryTriggerEvents, framePokeEvents, watchReads, watchReadRanges, watchWrites, watchWriteRanges, watchLimit, stopOnInvalidPc, printState, traceSwi, traceIrq, traceIrqLimit, traceDma, traceEeprom, traceEepromLimit, traceInput, dumps, instructionDumps, traceRanges, traceFrameRange, traceTail, traceHitLimit, saveFile, saveReadOnly, stopPc, stopPcHit, snapshotPcs, snapshotPcLimit, pcSnapshotStackWords, stopFrame, debugLayer, snapshotCsv, pcSnapshotCsv, snapshotFrames, alignRomEntry, audioCsv, psgCsv, audioWav, audioSampleRate, audioGain);
+    return new RunOptions(maxSteps, maxSeconds, trace, keys, keyEvents, frameKeyEvents, frameHashEvents, memoryTriggerEvents, framePokeEvents, watchReads, watchReadRanges, watchWrites, watchWriteRanges, watchLimit, stopOnInvalidPc, printState, traceSwi, traceIrq, traceIrqLimit, traceDma, traceEeprom, traceEepromLimit, traceInput, dumps, instructionDumps, traceRanges, traceFrameRange, traceTail, traceHitLimit, saveFile, saveReadOnly, stopPc, stopPcHit, snapshotPcs, snapshotPcLimit, pcSnapshotStackWords, stopFrame, debugLayer, snapshotCsv, pcSnapshotCsv, snapshotFrames, alignRomEntry, audioCsv, psgCsv, audioWav, audioSampleRate, audioGain, audioPadFromStart);
 }
 
 static void AddMenuSelectionEvents(List<KeyEvent> keyEvents, int selectedIndex)
@@ -3668,7 +3673,7 @@ static AudioWavWriter? OpenAudioWavWriter(RunOptions options, GbaSystem gba)
         Directory.CreateDirectory(directory);
     }
 
-    return new AudioWavWriter(fullPath, options.AudioSampleRate, options.AudioGain, gba);
+    return new AudioWavWriter(fullPath, options.AudioSampleRate, options.AudioGain, options.AudioPadFromStart, gba);
 }
 
 static void WritePsgSamplesIfNeeded(GbaSystem gba, PsgSampleWriter? samples, long step, int frame)
@@ -4748,7 +4753,7 @@ static void PrintUsage()
     Console.Error.WriteLine("  Dynamic input: [--tap-on-hash HASH:KEYS[:DURATION[:MIN_FRAME]]] [--tap-on-memory ADDRESS:BYTES:VALUE:KEYS[:DURATION[:MIN_FRAME]]]");
     Console.Error.WriteLine("  Menu helper: [--menu-select INDEX] selects a zero-based menu row with Down taps then Start");
     Console.Error.WriteLine("  Save data: [--save-file game.sav] loads an existing save and writes it back on exit unless --save-read-only is set");
-    Console.Error.WriteLine("  Audio capture: [--audio-wav audio.wav] [--audio-sample-rate 44100] [--audio-gain 0.5]");
+    Console.Error.WriteLine("  Audio capture: [--audio-wav audio.wav] [--audio-sample-rate 44100] [--audio-gain 0.5] [--audio-pad-from-start]");
     Console.Error.WriteLine("  Debug reads/writes: [--watch-read 04000130] [--watch-read-range 03000000:03007FFF] [--watch-write 03007E44] [--watch-write-range 03000000:03007FFF] [--watch-limit 100] [--dump-memory 03000000:100] [--disassemble-memory 03000000:100[:arm|thumb]]");
     Console.Error.WriteLine("  Debug execution: [--stop-pc 08000100] [--stop-pc-hit 2] [--snapshot-pc 08000100] [--snapshot-pc-limit 4] [--pc-snapshot-csv pcs.csv] [--stop-on-invalid-pc] [--print-state] [--trace-swi] [--trace-irq] [--trace-irq-limit 100] [--trace-dma] [--trace-input] [--trace-range 08000000:08000100] [--trace-frames 120:140] [--trace-tail 200] [--trace-hit-limit 4]");
 }
@@ -5132,7 +5137,8 @@ internal sealed record RunOptions(
     string? PsgCsv,
     string? AudioWav,
     int AudioSampleRate,
-    double AudioGain);
+    double AudioGain,
+    bool AudioPadFromStart);
 
 internal sealed class InstructionTraceTail
 {
@@ -5600,7 +5606,7 @@ internal sealed class AudioWavWriter : IDisposable
     private bool _finished;
     private bool _disposed;
 
-    public AudioWavWriter(string path, int sampleRate, double gain, GbaSystem gba)
+    public AudioWavWriter(string path, int sampleRate, double gain, bool padFromStart, GbaSystem gba)
     {
         ArgumentNullException.ThrowIfNull(gba);
         if (sampleRate <= 0)
@@ -5617,6 +5623,11 @@ internal sealed class AudioWavWriter : IDisposable
         _stream = File.Create(path);
         _writer = new BinaryWriter(_stream, System.Text.Encoding.ASCII, leaveOpen: false);
         _resampler = new MixedPcmResampler(sampleRate, outputGain: gain);
+        if (padFromStart)
+        {
+            _resampler.Process(new PsgPcmSample(0, 0, 0), WriteFrame);
+        }
+
         WriteHeader(dataBytes: 0);
         gba.Audio.SampleProduced += sample => _resampler.Process(sample, WriteFrame);
         gba.Audio.PsgSampleProduced += sample => _resampler.Process(sample, WriteFrame);

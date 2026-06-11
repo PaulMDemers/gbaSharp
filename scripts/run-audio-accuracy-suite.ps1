@@ -141,8 +141,13 @@ try {
                 $args += @("-MameRomPath", $MameRomPath)
             }
 
-            if ($MameSeconds -gt 0) {
-                $args += @("-MameSeconds", $MameSeconds)
+            $routeMameSeconds = $MameSeconds
+            if ($routeMameSeconds -le 0 -and $row.stopFrame) {
+                $routeMameSeconds = [double]$row.stopFrame / 59.7275
+            }
+
+            if ($routeMameSeconds -gt 0) {
+                $args += @("-MameSeconds", $routeMameSeconds.ToString([Globalization.CultureInfo]::InvariantCulture))
             }
 
             foreach ($extra in $ExtraMameArgs) {
@@ -185,6 +190,8 @@ try {
             overallCorrelation = if ($comparison) { $comparison.overallCorrelation } else { "" }
             overallRmse = if ($comparison) { $comparison.overallRmse } else { "" }
             durationDeltaSeconds = if ($comparison) { $comparison.durationDeltaSeconds } else { "" }
+            referenceFirstNonSilent64Seconds = if ($comparison) { $comparison.referenceFirstNonSilent64Seconds } else { "" }
+            actualFirstNonSilent64Seconds = if ($comparison) { $comparison.actualFirstNonSilent64Seconds } else { "" }
             error = $errorMessage
         })
     }

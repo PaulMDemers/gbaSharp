@@ -13,6 +13,7 @@ param(
     [switch]$NoAlignRomEntry,
     [int]$SampleRate = 44100,
     [double]$Gain = 0.5,
+    [switch]$AudioPadFromStart,
     [string]$ReferenceWav = "",
     [string]$MgbaReferenceWav = "",
     [string]$MgbaPath = "",
@@ -117,6 +118,16 @@ try {
     }
 
     New-Item -ItemType Directory -Force -Path $OutputRoot | Out-Null
+    $derivedStopFrame = $false
+    if ($StopFrame -eq 0 -and $MameSeconds -gt 0) {
+        $StopFrame = [Math]::Max(1, [int][Math]::Round($MameSeconds * 59.7275))
+        $derivedStopFrame = $true
+    }
+
+    if ($derivedStopFrame -and $MaxSteps -eq 50000000) {
+        $MaxSteps = [Math]::Max($MaxSteps, [long]$StopFrame * 350000L)
+    }
+
     $baseName = [IO.Path]::GetFileNameWithoutExtension($romFullPath)
     $gbaSharpWav = Join-Path $OutputRoot "$baseName-gbasharp.wav"
     $gbaSharpFrame = Join-Path $OutputRoot "$baseName-gbasharp-frame.ppm"
@@ -160,6 +171,11 @@ try {
         $runArgs += @("--bios", $biosFullPath)
     }
 
+    $shouldUseMame = [string]::IsNullOrWhiteSpace($MgbaReferenceWav) -and [string]::IsNullOrWhiteSpace($ReferenceWav)
+    if ($shouldUseMame -and [string]::IsNullOrWhiteSpace($MamePath)) {
+        $MamePath = Find-LocalMame
+    }
+
     $runArgs += @(
         "dump-frame", $romFullPath,
         "--stop-frame", $StopFrame.ToString(),
@@ -173,6 +189,10 @@ try {
 
     if (-not $NoAlignRomEntry) {
         $runArgs += "--align-rom-entry"
+    }
+
+    if ($AudioPadFromStart -or (-not [string]::IsNullOrWhiteSpace($MamePath))) {
+        $runArgs += "--audio-pad-from-start"
     }
 
     if ($inputScriptFullPath) {
@@ -200,12 +220,6 @@ try {
     elseif (-not [string]::IsNullOrWhiteSpace($ReferenceWav)) {
         $referenceFullPath = Resolve-RequiredPath -Path $ReferenceWav -Description "Reference WAV"
     }
-    else {
-        if ([string]::IsNullOrWhiteSpace($MamePath)) {
-            $MamePath = Find-LocalMame
-        }
-    }
-
     if (-not $referenceFullPath -and -not [string]::IsNullOrWhiteSpace($MamePath)) {
         $mameFullPath = Resolve-RequiredPath -Path $MamePath -Description "MAME executable"
         $referenceFullPath = Join-Path $OutputRoot "$baseName-mame.wav"
