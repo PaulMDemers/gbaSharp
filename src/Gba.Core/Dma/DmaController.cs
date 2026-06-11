@@ -159,6 +159,14 @@ public sealed class DmaController
 
                 if (IsEnabled(control))
                 {
+                    if (!IsEnabled(previous))
+                    {
+                        _channels[channel].Source = _bus.PeekIo32(SourceRegisters[channel]);
+                        var destination = _bus.PeekIo32(DestinationRegisters[channel]);
+                        _channels[channel].Destination = destination;
+                        _channels[channel].InitialDestination = destination;
+                    }
+
                     _channels[channel].Count = _bus.PeekIo16(CountRegisters[channel]);
 
                     if (_transferDepth == 0

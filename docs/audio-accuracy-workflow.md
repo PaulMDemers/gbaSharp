@@ -184,6 +184,14 @@ frame 22, close to MAME's first audible window, but gbaSharp's DMA cursor has
 already advanced past those addresses by then. The next core investigation is
 therefore FIFO DMA/timer/BIOS timing interaction, not WAV capture alignment.
 
+Root cause fixed: DMA internal source/destination/count now reload when the
+enable bit changes from 0 to 1. The BIOS toggles DMA1/DMA2 enable during boot
+without rewriting the source registers, so failing to reload the internal DMA
+source made FIFO playback stream past the intended buffers. After the fix, Ruby
+power-on first nonzero FIFO audio moved from about 1.174s to about 0.383s, and
+the 5s MAME comparison improved from near-zero correlation to about 0.843 with
+about 21ms alignment shift and about 1ms duration delta.
+
 ## Compare WAVs
 
 Use the tolerance-oriented comparator:
