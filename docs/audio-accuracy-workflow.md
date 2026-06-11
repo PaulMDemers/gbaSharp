@@ -24,6 +24,24 @@ The WAV path records mixed direct-sound FIFO output plus PSG output on the same
 emulated cycle timeline. The CSV paths remain useful when reducing whether a
 problem is in FIFO timing, PSG generation, or final mixing.
 
+For the common workflow, use the wrapper script:
+
+```powershell
+.\scripts\run-audio-accuracy.ps1 -Rom game.gba -Bios path\to\gba_bios.bin -StopFrame 1800
+```
+
+With an existing reference WAV:
+
+```powershell
+.\scripts\run-audio-accuracy.ps1 -Rom game.gba -Bios path\to\gba_bios.bin -ReferenceWav artifacts\audio\game-reference.wav
+```
+
+With a local MAME executable:
+
+```powershell
+.\scripts\run-audio-accuracy.ps1 -Rom game.gba -Bios path\to\gba_bios.bin -MamePath C:\mame\mame.exe -MameSeconds 30
+```
+
 ## Capture Reference Audio
 
 mGBA should be the primary practical reference for GBA audio. MAME is useful as
@@ -38,6 +56,10 @@ mame gba -cart path\to\game.gba -wavwrite artifacts\audio\game-mame.wav
 
 Exact MAME invocation may vary depending on the local MAME version, BIOS setup,
 and software-list configuration.
+
+Useful MAME options for automation include `-seconds_to_run`/`-str`, which stops
+after a fixed amount of emulated time, and `-wavwrite`, which writes final mixed
+audio.
 
 ## Compare WAVs
 
