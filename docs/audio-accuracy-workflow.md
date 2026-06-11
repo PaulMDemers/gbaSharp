@@ -72,6 +72,8 @@ Useful suite options:
 - `-Limit 3`
 - `-ListOnly`
 - `-MgbaReferenceRoot reference-captures\mgba\audio`
+- `-CompareTrimLeadingSilence 1024`
+- `-CompareRemoveDc`
 - `-NoBuild`
 
 Manifest columns follow the existing audio smoke route shape:
@@ -161,6 +163,19 @@ window. The two-route MAME suite also showed very low correlation for
 duration delta around 18ms. Treat this as a real BIOS/startup audio timing or
 PSG/mixer gap to investigate, not as a route-tooling failure.
 
+A follow-up trace showed Timer 0 and direct-sound FIFO clocking by frame 5, but
+the FIFO data remains zero until frame 70 in Ruby. No PSG samples are emitted
+through frame 90, and the only channel-register writes in that window are BIOS
+sound reset/setup writes. That means MAME's early 0.404s audible region is
+likely power-on DAC/SOUNDBIAS/transient behavior, while gbaSharp's first 1.17s
+region is the first nonzero FIFO program audio. Use raw power-on comparisons
+when investigating startup analog/DAC behavior, and use trimmed comparisons for
+title/gameplay audio triage:
+
+```powershell
+.\scripts\run-audio-accuracy.ps1 -Rom Ruby.gba -Bios path\to\gba_bios.bin -NoAlignRomEntry -StopFrame 0 -MameSeconds 5 -SampleRate 48000 -CompareTrimLeadingSilence 1024 -CompareMaxShiftMs 1500 -CompareStride 64
+```
+
 ## Compare WAVs
 
 Use the tolerance-oriented comparator:
@@ -176,6 +191,14 @@ The comparator reports:
 - left/right RMS, peak, clipping, and balance,
 - channel correlation,
 - MAE/RMSE/max absolute error after alignment.
+
+Useful comparator controls:
+
+- `--trim-leading-silence 1024` ignores startup silence or low-level transients
+  before alignment.
+- `--trim-padding-ms 50` keeps context before the first retained sample.
+- `--remove-dc` removes per-channel means before metric calculation.
+- `--stride 64 --max-shift-ms 1500` performs wider alignment searches quickly.
 
 Treat these as triage signals rather than a single pass/fail value. Good audio
 can still differ at the sample level because emulator mixers, filters, and

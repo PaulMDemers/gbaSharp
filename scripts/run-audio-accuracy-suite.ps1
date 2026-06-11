@@ -12,6 +12,11 @@ param(
     [string]$MameRomPath = ".research\tools\mame\roms",
     [double]$MameSeconds = 0,
     [string[]]$ExtraMameArgs = @(),
+    [double]$CompareMaxShiftMs = 250,
+    [int]$CompareStride = 16,
+    [int]$CompareTrimLeadingSilence = 0,
+    [double]$CompareTrimPaddingMs = 50,
+    [switch]$CompareRemoveDc,
     [switch]$ListOnly,
     [switch]$NoBuild
 )
@@ -102,8 +107,16 @@ try {
             "-MaxSeconds", $row.maxSeconds,
             "-SampleRate", $SampleRate,
             "-Gain", $Gain,
+            "-CompareMaxShiftMs", $CompareMaxShiftMs,
+            "-CompareStride", $CompareStride,
+            "-CompareTrimLeadingSilence", $CompareTrimLeadingSilence,
+            "-CompareTrimPaddingMs", $CompareTrimPaddingMs,
             "-NoBuild"
         )
+
+        if ($CompareRemoveDc) {
+            $args += "-CompareRemoveDc"
+        }
 
         if (-not $align) {
             $args += "-NoAlignRomEntry"
@@ -192,6 +205,9 @@ try {
             durationDeltaSeconds = if ($comparison) { $comparison.durationDeltaSeconds } else { "" }
             referenceFirstNonSilent64Seconds = if ($comparison) { $comparison.referenceFirstNonSilent64Seconds } else { "" }
             actualFirstNonSilent64Seconds = if ($comparison) { $comparison.actualFirstNonSilent64Seconds } else { "" }
+            referenceTrimSamples = if ($comparison) { $comparison.referenceTrimSamples } else { "" }
+            actualTrimSamples = if ($comparison) { $comparison.actualTrimSamples } else { "" }
+            alignmentShiftMs = if ($comparison) { $comparison.alignmentShiftMs } else { "" }
             error = $errorMessage
         })
     }

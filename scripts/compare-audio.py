@@ -100,25 +100,69 @@ def correlation(left: list[float], right: list[float]) -> float:
     return 0.0 if denominator == 0 else numerator / denominator
 
 
-def best_shift(reference: list[float], actual: list[float], max_shift: int, stride: int) -> tuple[int, float]:
+def remove_mean(values: list[int | float]) -> list[float]:
+    if not values:
+        return []
+    mean = sum(float(value) for value in values) / len(values)
+    return [float(value) - mean for value in values]
+
+
+def correlation_for_shift(reference: list[float], actual: list[float], shift: int, max_samples: int) -> float:
+    if shift >= 0:
+        ref_start = shift
+        act_start = 0
+    else:
+        ref_start = 0
+        act_start = -shift
+
+    count = min(len(reference) - ref_start, len(actual) - act_start)
+    if count < 100:
+        return -2.0
+
+    if max_samples > 0 and count > max_samples:
+        count = max_samples
+
+    left_sum = 0.0
+    right_sum = 0.0
+    for offset in range(count):
+        left_sum += reference[ref_start + offset]
+        right_sum += actual[act_start + offset]
+
+    left_mean = left_sum / count
+    right_mean = right_sum / count
+    numerator = 0.0
+    left_energy = 0.0
+    right_energy = 0.0
+    for offset in range(count):
+        da = reference[ref_start + offset] - left_mean
+        db = actual[act_start + offset] - right_mean
+        numerator += da * db
+        left_energy += da * da
+        right_energy += db * db
+
+    denominator = math.sqrt(left_energy * right_energy)
+    return 0.0 if denominator == 0 else numerator / denominator
+
+
+def best_shift(reference: list[float], actual: list[float], max_shift: int, stride: int, max_alignment_samples: int) -> tuple[int, float]:
     ref = reference[::stride]
     act = actual[::stride]
     max_shift_down = max_shift // stride
     best = (0, -2.0)
     for shift in range(-max_shift_down, max_shift_down + 1):
-        if shift >= 0:
-            ref_window = ref[shift:]
-            act_window = act[: len(ref_window)]
-        else:
-            act_window = act[-shift:]
-            ref_window = ref[: len(act_window)]
-        count = min(len(ref_window), len(act_window))
-        if count < 100:
-            continue
-        score = correlation(ref_window[:count], act_window[:count])
+        score = correlation_for_shift(ref, act, shift, max_alignment_samples)
         if score > best[1]:
             best = (shift * stride, score)
-    return best
+
+    refine_radius = max(stride * 2, 1)
+    refined = best
+    start = max(-max_shift, best[0] - refine_radius)
+    end = min(max_shift, best[0] + refine_radius)
+    for shift in range(start, end + 1):
+        score = correlation_for_shift(reference, actual, shift, max_alignment_samples)
+        if score > refined[1]:
+            refined = (shift, score)
+    return refined
 
 
 def aligned_channel(reference: list[int], actual: list[int], shift: int) -> tuple[list[int], list[int]]:
@@ -132,7 +176,7 @@ def aligned_channel(reference: list[int], actual: list[int], shift: int) -> tupl
     return ref[:count], act[:count]
 
 
-def compare(reference: list[list[int]], actual: list[list[int]], shift: int) -> dict[str, float | int]:
+def compare(reference: list[list[int]], actual: list[list[int]], shift: int, remove_dc: bool) -> dict[str, float | int]:
     metrics: dict[str, float | int] = {"shiftSamples": shift}
     all_abs_errors = []
     all_sq_errors = []
@@ -140,12 +184,14 @@ def compare(reference: list[list[int]], actual: list[list[int]], shift: int) -> 
     for channel_name, channel in (("left", 0), ("right", 1)):
         ref, act = aligned_channel(reference[channel], actual[channel], shift)
         count = min(len(ref), len(act))
-        errors = [a - b for a, b in zip(ref, act)]
+        ref_for_metrics = remove_mean(ref) if remove_dc else [float(value) for value in ref]
+        act_for_metrics = remove_mean(act) if remove_dc else [float(value) for value in act]
+        errors = [a - b for a, b in zip(ref_for_metrics, act_for_metrics)]
         abs_errors = [abs(error) for error in errors]
         sq_errors = [error * error for error in errors]
         all_abs_errors.extend(abs_errors)
         all_sq_errors.extend(sq_errors)
-        corr = correlation([float(value) for value in ref], [float(value) for value in act])
+        corr = correlation(ref_for_metrics, act_for_metrics)
         channel_correlations.append(corr)
         metrics[f"{channel_name}SamplesCompared"] = count
         metrics[f"{channel_name}Correlation"] = corr
@@ -212,8 +258,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-md", default="", help="Optional Markdown metrics output")
     parser.add_argument("--max-shift-ms", type=float, default=250.0, help="Maximum alignment search shift in milliseconds")
     parser.add_argument("--stride", type=int, default=16, help="Downsample stride used for alignment search")
+    parser.add_argument("--max-alignment-samples", type=int, default=12000, help="Maximum samples compared per candidate shift during alignment")
     parser.add_argument("--trim-leading-silence", type=int, default=0, help="Trim leading frames below this absolute sample threshold before alignment")
     parser.add_argument("--trim-padding-ms", type=float, default=50.0, help="Padding to keep before the first non-silent sample when trimming")
+    parser.add_argument("--remove-dc", action="store_true", help="Remove per-channel means before correlation/error metrics")
     return parser.parse_args()
 
 
@@ -227,12 +275,20 @@ def main() -> int:
         raise SystemExit(f"Sample rate mismatch: reference={reference_rate}, actual={actual_rate}")
     if args.stride <= 0:
         raise SystemExit("--stride must be greater than zero")
+    if args.max_alignment_samples < 0:
+        raise SystemExit("--max-alignment-samples must be zero or greater")
 
     trim_padding = int(reference_rate * args.trim_padding_ms / 1000.0)
     reference_samples, reference_trim = trim_leading_silence(reference_samples, args.trim_leading_silence, trim_padding)
     actual_samples, actual_trim = trim_leading_silence(actual_samples, args.trim_leading_silence, trim_padding)
     max_shift = int(reference_rate * args.max_shift_ms / 1000.0)
-    shift, alignment_correlation = best_shift(mono(reference_samples), mono(actual_samples), max_shift, args.stride)
+    reference_mono = mono(reference_samples)
+    actual_mono = mono(actual_samples)
+    if args.remove_dc:
+        reference_mono = remove_mean(reference_mono)
+        actual_mono = remove_mean(actual_mono)
+
+    shift, alignment_correlation = best_shift(reference_mono, actual_mono, max_shift, args.stride, args.max_alignment_samples)
     metrics: dict[str, float | int | str] = {}
     metrics.update(summarize_wav("reference", reference_path, reference_rate, reference_samples))
     metrics.update(summarize_wav("actual", actual_path, actual_rate, actual_samples))
@@ -242,7 +298,8 @@ def main() -> int:
     metrics["alignmentShiftSamples"] = shift
     metrics["alignmentShiftMs"] = shift * 1000.0 / reference_rate
     metrics["alignmentCorrelation"] = alignment_correlation
-    metrics.update(compare(reference_samples, actual_samples, shift))
+    metrics["dcRemoved"] = bool(args.remove_dc)
+    metrics.update(compare(reference_samples, actual_samples, shift, args.remove_dc))
 
     if args.output_csv:
         write_csv(Path(args.output_csv).resolve(), metrics)

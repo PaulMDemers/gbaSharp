@@ -22,6 +22,11 @@ param(
     [string]$MameRomPath = ".research\tools\mame\roms",
     [double]$MameSeconds = 0,
     [string[]]$ExtraMameArgs = @(),
+    [double]$CompareMaxShiftMs = 250,
+    [int]$CompareStride = 16,
+    [int]$CompareTrimLeadingSilence = 0,
+    [double]$CompareTrimPaddingMs = 50,
+    [switch]$CompareRemoveDc,
     [switch]$NoBuild
 )
 
@@ -240,13 +245,23 @@ try {
     }
 
     if ($referenceFullPath) {
-        Invoke-Checked -Description "Compare audio" -FilePath "python" -Arguments @(
+        $compareArgs = @(
             "scripts\compare-audio.py",
             $referenceFullPath,
             $gbaSharpWav,
             "--output-csv", $comparisonCsv,
-            "--output-md", $comparisonMd
+            "--output-md", $comparisonMd,
+            "--max-shift-ms", $CompareMaxShiftMs.ToString([Globalization.CultureInfo]::InvariantCulture),
+            "--stride", $CompareStride.ToString(),
+            "--trim-leading-silence", $CompareTrimLeadingSilence.ToString(),
+            "--trim-padding-ms", $CompareTrimPaddingMs.ToString([Globalization.CultureInfo]::InvariantCulture)
         )
+
+        if ($CompareRemoveDc) {
+            $compareArgs += "--remove-dc"
+        }
+
+        Invoke-Checked -Description "Compare audio" -FilePath "python" -Arguments $compareArgs
         Write-Host "Audio comparison: $((Resolve-Path -LiteralPath $comparisonMd).Path)"
     }
     else {
