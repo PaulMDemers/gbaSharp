@@ -9,6 +9,9 @@ param(
     [int]$SampleRate = 44100,
     [double]$Gain = 0.5,
     [string]$ReferenceWav = "",
+    [string]$MgbaReferenceWav = "",
+    [string]$MgbaPath = "",
+    [switch]$OpenMgba,
     [string]$MamePath = "",
     [double]$MameSeconds = 0,
     [string[]]$ExtraMameArgs = @(),
@@ -45,6 +48,26 @@ function Resolve-RequiredPath {
     return (Resolve-Path -LiteralPath $Path).Path
 }
 
+function Find-LocalMgba {
+    $candidates = @(
+        ".research\tools\mgba\extracted\mGBA-0.10.5-win64\mGBA.exe",
+        ".research\tools\mgba\extracted\mGBA-0.10.5-win64\mgba-sdl.exe"
+    )
+
+    foreach ($candidate in $candidates) {
+        if (Test-Path -LiteralPath $candidate) {
+            return (Resolve-Path -LiteralPath $candidate).Path
+        }
+    }
+
+    $command = Get-Command mGBA, mgba-sdl -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($command) {
+        return $command.Source
+    }
+
+    return ""
+}
+
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 Push-Location $repoRoot
 try {
@@ -68,6 +91,29 @@ try {
 
     if (-not $NoBuild) {
         Invoke-Checked -Description "Build CLI" -FilePath "dotnet" -Arguments @("build", "src\Gba.Cli\Gba.Cli.csproj", "-c", "Release")
+    }
+
+    if ($OpenMgba) {
+        $resolvedMgbaPath = $MgbaPath
+        if ([string]::IsNullOrWhiteSpace($resolvedMgbaPath)) {
+            $resolvedMgbaPath = Find-LocalMgba
+        }
+
+        if ([string]::IsNullOrWhiteSpace($resolvedMgbaPath)) {
+            throw "mGBA executable not found. Pass -MgbaPath or install mGBA on PATH."
+        }
+
+        $resolvedMgbaPath = Resolve-RequiredPath -Path $resolvedMgbaPath -Description "mGBA executable"
+        $mgbaArgs = @()
+        if ($biosFullPath) {
+            $mgbaArgs += @("-b", $biosFullPath)
+        }
+
+        $mgbaArgs += $romFullPath
+        Write-Host ""
+        Write-Host "== Open mGBA =="
+        Write-Host "Record a WAV/PCM reference from mGBA, then rerun this script with -MgbaReferenceWav path\to\reference.wav."
+        Start-Process -FilePath $resolvedMgbaPath -ArgumentList $mgbaArgs
     }
 
     $runArgs = @("run", "--project", "src\Gba.Cli", "-c", "Release")
@@ -95,7 +141,10 @@ try {
     Invoke-Checked -Description "Capture gbaSharp audio" -FilePath "dotnet" -Arguments $runArgs
 
     $referenceFullPath = ""
-    if (-not [string]::IsNullOrWhiteSpace($ReferenceWav)) {
+    if (-not [string]::IsNullOrWhiteSpace($MgbaReferenceWav)) {
+        $referenceFullPath = Resolve-RequiredPath -Path $MgbaReferenceWav -Description "mGBA reference WAV"
+    }
+    elseif (-not [string]::IsNullOrWhiteSpace($ReferenceWav)) {
         $referenceFullPath = Resolve-RequiredPath -Path $ReferenceWav -Description "Reference WAV"
     }
     elseif (-not [string]::IsNullOrWhiteSpace($MamePath)) {

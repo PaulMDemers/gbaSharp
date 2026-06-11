@@ -36,17 +36,31 @@ With an existing reference WAV:
 .\scripts\run-audio-accuracy.ps1 -Rom game.gba -Bios path\to\gba_bios.bin -ReferenceWav artifacts\audio\game-reference.wav
 ```
 
-With a local MAME executable:
+With an mGBA reference WAV:
 
 ```powershell
-.\scripts\run-audio-accuracy.ps1 -Rom game.gba -Bios path\to\gba_bios.bin -MamePath C:\mame\mame.exe -MameSeconds 30
+.\scripts\run-audio-accuracy.ps1 -Rom game.gba -Bios path\to\gba_bios.bin -MgbaReferenceWav artifacts\audio\game-mgba.wav
 ```
 
-## Capture Reference Audio
+To open the local mGBA build for manual reference capture:
 
-mGBA should be the primary practical reference for GBA audio. MAME is useful as
-an independent secondary reference; MAME has a GBA driver and can write final
-mixed audio with `-wavwrite`.
+```powershell
+.\scripts\run-audio-accuracy.ps1 -Rom game.gba -Bios path\to\gba_bios.bin -OpenMgba
+```
+
+## Capture mGBA Reference Audio
+
+mGBA should be the primary practical reference for GBA audio. The local mGBA
+command-line frontend exposes ROM, BIOS, config, and debugging options, but it
+does not expose a direct `--wavwrite`-style audio capture flag. The mGBA Lua
+scripting API can run frames, set keys, save screenshots/states, and inspect
+memory/registers, but it does not expose mixed audio samples.
+
+For now, capture mGBA reference audio from mGBA's recording UI or another
+lossless system capture path, save it as a 16-bit PCM WAV, then pass it as
+`-MgbaReferenceWav`.
+
+## Optional Secondary Reference
 
 Example MAME shape:
 
@@ -54,8 +68,9 @@ Example MAME shape:
 mame gba -cart path\to\game.gba -wavwrite artifacts\audio\game-mame.wav
 ```
 
-Exact MAME invocation may vary depending on the local MAME version, BIOS setup,
-and software-list configuration.
+MAME is useful as an independent secondary reference, but it is not the primary
+path for this project right now. Exact MAME invocation may vary depending on the
+local MAME version, BIOS setup, and software-list configuration.
 
 Useful MAME options for automation include `-seconds_to_run`/`-str`, which stops
 after a fixed amount of emulated time, and `-wavwrite`, which writes final mixed
