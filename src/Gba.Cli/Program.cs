@@ -2758,9 +2758,34 @@ static void InstallDmaTrace(GbaSystem gba, RunOptions options, Func<int> framePr
             return;
         }
 
-        Console.WriteLine($"DMA{trace.Channel} {trace.Timing} frame={frame:D5} {TraceVideoLocation(gba)} src=0x{trace.Source:X8} dst=0x{trace.Destination:X8} count={trace.Count} width={(trace.WordTransfer ? 32 : 16)} ctrl=0x{trace.Control:X4} fifoA={trace.FifoALevel} fifoB={trace.FifoBLevel}");
+        Console.WriteLine($"DMA{trace.Channel} {trace.Timing} frame={frame:D5} {TraceVideoLocation(gba)} src=0x{trace.Source:X8} dst=0x{trace.Destination:X8} count={trace.Count} width={(trace.WordTransfer ? 32 : 16)} ctrl=0x{trace.Control:X4} fifoA={trace.FifoALevel} fifoB={trace.FifoBLevel}{TraceDmaSourcePreview(gba, trace.Source, trace.Count, trace.WordTransfer)}");
     };
 }
+
+static string TraceDmaSourcePreview(GbaSystem gba, uint source, int count, bool wordTransfer)
+{
+    if (!CanPreviewDmaSource(source))
+    {
+        return "";
+    }
+
+    var unitSize = wordTransfer ? 4u : 2u;
+    var values = new List<string>();
+    for (var index = 0; index < Math.Min(count, 4); index++)
+    {
+        var address = source + (uint)index * unitSize;
+        values.Add(wordTransfer
+            ? $"0x{gba.Bus.Read32(address):X8}"
+            : $"0x{gba.Bus.Read16(address):X4}");
+    }
+
+    return values.Count == 0 ? "" : $" srcPreview={string.Join('/', values)}";
+}
+
+static bool CanPreviewDmaSource(uint source)
+    => source is >= GbaMemoryMap.EwramStart and < GbaMemoryMap.EwramStart + GbaMemoryMap.EwramSize
+        || source is >= GbaMemoryMap.IwramStart and < GbaMemoryMap.IwramStart + GbaMemoryMap.IwramSize
+        || source is >= GbaMemoryMap.GamePakRomStart and <= GbaMemoryMap.GamePakRomEnd;
 
 static string TraceVideoLocation(GbaSystem gba)
     => $"line={gba.Bus.VerticalCount} videoLine={gba.Video.CurrentLine} dispstat=0x{gba.Bus.DisplayStatus:X4}";

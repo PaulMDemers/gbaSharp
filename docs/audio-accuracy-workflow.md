@@ -176,6 +176,14 @@ title/gameplay audio triage:
 .\scripts\run-audio-accuracy.ps1 -Rom Ruby.gba -Bios path\to\gba_bios.bin -NoAlignRomEntry -StopFrame 0 -MameSeconds 5 -SampleRate 48000 -CompareTrimLeadingSilence 1024 -CompareMaxShiftMs 1500 -CompareStride 64
 ```
 
+DMA source previews make the startup issue sharper: Ruby's BIOS boot configures
+FIFO DMA early, and the DMA read cursor streams through zero-filled IWRAM until
+it eventually reaches stack/pointer-looking data around frame 70. Separate write
+traces show nonzero byte writes into the same IWRAM sound-buffer region around
+frame 22, close to MAME's first audible window, but gbaSharp's DMA cursor has
+already advanced past those addresses by then. The next core investigation is
+therefore FIFO DMA/timer/BIOS timing interaction, not WAV capture alignment.
+
 ## Compare WAVs
 
 Use the tolerance-oriented comparator:
