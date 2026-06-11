@@ -61,6 +61,8 @@ retail-smoke-captures/
 .research/
 _refs/
 _compat_sample_*/
+cfg/
+nvram/
 ruby-*/
 sonic-*/
 atv-*/

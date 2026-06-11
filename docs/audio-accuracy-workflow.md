@@ -104,6 +104,11 @@ lossless system capture path, save it as a 16-bit PCM WAV, then pass it as
 
 ## Optional Secondary Reference
 
+MAME is installed locally under `.research\tools\mame\mame0288`. The GBA BIOS is
+expected at `.research\tools\mame\roms\gba\gba.bin`, which mirrors MAME's `gba`
+BIOS set lookup. The wrapper auto-discovers this install and passes
+`-rompath .research\tools\mame\roms`.
+
 Example MAME shape:
 
 ```powershell
@@ -117,6 +122,18 @@ local MAME version, BIOS setup, and software-list configuration.
 Useful MAME options for automation include `-seconds_to_run`/`-str`, which stops
 after a fixed amount of emulated time, and `-wavwrite`, which writes final mixed
 audio.
+
+MAME currently writes 48 kHz WAV output by default, so use `-SampleRate 48000`
+for gbaSharp captures when comparing directly:
+
+```powershell
+.\scripts\run-audio-accuracy.ps1 -Rom Ruby.gba -Bios path\to\gba_bios.bin -MameSeconds 5 -SampleRate 48000
+```
+
+Be careful with route alignment: MAME starts from power-on, while many gbaSharp
+routes use `--align-rom-entry` before frame counting. For fair MAME comparison,
+prefer short power-on/no-input routes or pass `-NoAlignRomEntry` and match the
+same elapsed duration.
 
 ## Compare WAVs
 

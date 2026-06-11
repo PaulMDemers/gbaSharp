@@ -55,6 +55,13 @@ Run the mGBA-first audio route suite:
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run-audio-accuracy-suite.ps1 -Manifest docs\gba-audio-smoke-routes.csv
 ```
 
+Run a MAME-backed audio comparison when the local MAME tool is installed under
+`.research\tools\mame`:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run-audio-accuracy.ps1 -Rom Ruby.gba -Bios path\to\gba_bios.bin -MameSeconds 5 -SampleRate 48000
+```
+
 ## Desktop Frontend
 
 Launch the WinForms frontend:

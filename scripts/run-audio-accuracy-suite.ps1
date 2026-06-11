@@ -7,6 +7,11 @@ param(
     [int]$Limit = 0,
     [int]$SampleRate = 44100,
     [double]$Gain = 0.5,
+    [switch]$UseMame,
+    [string]$MamePath = "",
+    [string]$MameRomPath = ".research\tools\mame\roms",
+    [double]$MameSeconds = 0,
+    [string[]]$ExtraMameArgs = @(),
     [switch]$ListOnly,
     [switch]$NoBuild
 )
@@ -127,6 +132,23 @@ try {
         if ($hasReference) {
             $args += @("-MgbaReferenceWav", $referenceWav)
         }
+        elseif ($UseMame) {
+            if (-not [string]::IsNullOrWhiteSpace($MamePath)) {
+                $args += @("-MamePath", $MamePath)
+            }
+
+            if (-not [string]::IsNullOrWhiteSpace($MameRomPath)) {
+                $args += @("-MameRomPath", $MameRomPath)
+            }
+
+            if ($MameSeconds -gt 0) {
+                $args += @("-MameSeconds", $MameSeconds)
+            }
+
+            foreach ($extra in $ExtraMameArgs) {
+                $args += @("-ExtraMameArgs", $extra)
+            }
+        }
 
         $status = "pass"
         $errorMessage = ""
@@ -156,6 +178,7 @@ try {
             label = $label
             status = $status
             hasMgbaReference = $hasReference
+            usedMameReference = (-not $hasReference -and $UseMame)
             gbaSharpWav = if ($gbaSharpWav) { $gbaSharpWav.FullName } else { "" }
             mgbaReferenceWav = if ($hasReference) { (Resolve-Path -LiteralPath $referenceWav).Path } else { "" }
             comparisonMd = if ($comparisonMd) { $comparisonMd.FullName } else { "" }

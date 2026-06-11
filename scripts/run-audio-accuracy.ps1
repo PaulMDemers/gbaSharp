@@ -18,6 +18,7 @@ param(
     [string]$MgbaPath = "",
     [switch]$OpenMgba,
     [string]$MamePath = "",
+    [string]$MameRomPath = ".research\tools\mame\roms",
     [double]$MameSeconds = 0,
     [string[]]$ExtraMameArgs = @(),
     [switch]$NoBuild
@@ -66,6 +67,26 @@ function Find-LocalMgba {
     }
 
     $command = Get-Command mGBA, mgba-sdl -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($command) {
+        return $command.Source
+    }
+
+    return ""
+}
+
+function Find-LocalMame {
+    $candidates = @(
+        ".research\tools\mame\mame0288\mame.exe",
+        ".research\tools\mame\mame.exe"
+    )
+
+    foreach ($candidate in $candidates) {
+        if (Test-Path -LiteralPath $candidate) {
+            return (Resolve-Path -LiteralPath $candidate).Path
+        }
+    }
+
+    $command = Get-Command mame, mame64 -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($command) {
         return $command.Source
     }
@@ -179,10 +200,20 @@ try {
     elseif (-not [string]::IsNullOrWhiteSpace($ReferenceWav)) {
         $referenceFullPath = Resolve-RequiredPath -Path $ReferenceWav -Description "Reference WAV"
     }
-    elseif (-not [string]::IsNullOrWhiteSpace($MamePath)) {
+    else {
+        if ([string]::IsNullOrWhiteSpace($MamePath)) {
+            $MamePath = Find-LocalMame
+        }
+    }
+
+    if (-not $referenceFullPath -and -not [string]::IsNullOrWhiteSpace($MamePath)) {
         $mameFullPath = Resolve-RequiredPath -Path $MamePath -Description "MAME executable"
         $referenceFullPath = Join-Path $OutputRoot "$baseName-mame.wav"
         $mameArgs = @("gba", "-cart", $romFullPath, "-wavwrite", $referenceFullPath)
+        if (-not [string]::IsNullOrWhiteSpace($MameRomPath)) {
+            $mameArgs += @("-rompath", $MameRomPath)
+        }
+
         if ($MameSeconds -gt 0) {
             $mameArgs += @("-seconds_to_run", $MameSeconds.ToString([Globalization.CultureInfo]::InvariantCulture))
         }
