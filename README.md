@@ -116,6 +116,7 @@ local soaks.
 
 - [Implementation plan](docs/implementation-plan.md)
 - [Compatibility sweeps](docs/compatibility-sweeps.md)
+- [Audio accuracy workflow](docs/audio-accuracy-workflow.md)
 - [Reference capture workflow](docs/reference-capture-workflow.md)
 - [Current reference status](docs/gba-reference-status.md)
 - [Longplay status](docs/gba-longplay-status.md)
