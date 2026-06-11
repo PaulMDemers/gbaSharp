@@ -49,6 +49,12 @@ Create a desktop publish folder and zip under `artifacts`:
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\package-desktop.ps1
 ```
 
+Run the mGBA-first audio route suite:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run-audio-accuracy-suite.ps1 -Manifest docs\gba-audio-smoke-routes.csv
+```
+
 ## Desktop Frontend
 
 Launch the WinForms frontend:

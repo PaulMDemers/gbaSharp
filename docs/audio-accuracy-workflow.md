@@ -48,6 +48,48 @@ To open the local mGBA build for manual reference capture:
 .\scripts\run-audio-accuracy.ps1 -Rom game.gba -Bios path\to\gba_bios.bin -OpenMgba
 ```
 
+## Batch Audio Routes
+
+Run a manifest-driven suite:
+
+```powershell
+.\scripts\run-audio-accuracy-suite.ps1 -Manifest docs\gba-audio-smoke-routes.csv -Bios path\to\gba_bios.bin
+```
+
+By default, the suite looks for mGBA reference WAVs at:
+
+```text
+reference-captures\mgba\audio\<label>.wav
+```
+
+If a reference WAV exists for a row, the suite captures gbaSharp audio and runs
+`compare-audio.py`. If no reference WAV exists, it still captures gbaSharp audio
+and records `hasMgbaReference=false` in `audio-accuracy-suite.csv`.
+
+Useful suite options:
+
+- `-Labels pokemon-ruby-title,sonic-advance-title`
+- `-Limit 3`
+- `-ListOnly`
+- `-MgbaReferenceRoot reference-captures\mgba\audio`
+- `-NoBuild`
+
+Manifest columns follow the existing audio smoke route shape:
+
+| Column | Purpose |
+| --- | --- |
+| `label` | Stable route id; also used for `<label>.wav` mGBA references. |
+| `romPath` | ROM path to run. |
+| `inputScript` | Optional gbaSharp frame-input script. |
+| `saveFile` | Optional save file to preload. |
+| `saveReadOnly` | Keep the save from being overwritten. |
+| `stopFrame` | Frame to stop and capture audio through. |
+| `maxSteps` | CPU step cap. |
+| `maxSeconds` | Wall-clock cap. |
+| `keys` | Optional held keys. |
+| `alignRomEntry` | Whether to align after BIOS handoff before route timing. |
+| `notes` | Human-readable route purpose. |
+
 ## Capture mGBA Reference Audio
 
 mGBA should be the primary practical reference for GBA audio. The local mGBA

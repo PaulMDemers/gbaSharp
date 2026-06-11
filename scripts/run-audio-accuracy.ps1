@@ -6,6 +6,11 @@ param(
     [int]$StopFrame = 180,
     [long]$MaxSteps = 50000000,
     [double]$MaxSeconds = 60,
+    [string]$InputScript = "",
+    [string]$SaveFile = "",
+    [switch]$SaveReadOnly,
+    [string]$Keys = "",
+    [switch]$NoAlignRomEntry,
     [int]$SampleRate = 44100,
     [double]$Gain = 0.5,
     [string]$ReferenceWav = "",
@@ -76,6 +81,14 @@ try {
     if (-not [string]::IsNullOrWhiteSpace($Bios)) {
         $biosFullPath = Resolve-RequiredPath -Path $Bios -Description "BIOS"
     }
+    $inputScriptFullPath = ""
+    if (-not [string]::IsNullOrWhiteSpace($InputScript)) {
+        $inputScriptFullPath = Resolve-RequiredPath -Path $InputScript -Description "Input script"
+    }
+    $saveFileFullPath = ""
+    if (-not [string]::IsNullOrWhiteSpace($SaveFile)) {
+        $saveFileFullPath = Resolve-RequiredPath -Path $SaveFile -Description "Save file"
+    }
 
     if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
         $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
@@ -128,7 +141,6 @@ try {
 
     $runArgs += @(
         "dump-frame", $romFullPath,
-        "--align-rom-entry",
         "--stop-frame", $StopFrame.ToString(),
         "--max-steps", $MaxSteps.ToString(),
         "--max-seconds", $MaxSeconds.ToString([Globalization.CultureInfo]::InvariantCulture),
@@ -137,6 +149,26 @@ try {
         "--audio-sample-rate", $SampleRate.ToString(),
         "--audio-gain", $Gain.ToString([Globalization.CultureInfo]::InvariantCulture)
     )
+
+    if (-not $NoAlignRomEntry) {
+        $runArgs += "--align-rom-entry"
+    }
+
+    if ($inputScriptFullPath) {
+        $runArgs += @("--input-script", $inputScriptFullPath)
+    }
+
+    if ($saveFileFullPath) {
+        $runArgs += @("--save-file", $saveFileFullPath)
+    }
+
+    if ($SaveReadOnly) {
+        $runArgs += "--save-read-only"
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($Keys)) {
+        $runArgs += @("--keys", $Keys)
+    }
 
     Invoke-Checked -Description "Capture gbaSharp audio" -FilePath "dotnet" -Arguments $runArgs
 
