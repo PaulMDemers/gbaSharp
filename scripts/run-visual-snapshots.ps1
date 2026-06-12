@@ -7,6 +7,7 @@ param(
     [int]$MaxItems = 0,
     [int]$SkipItems = 0,
     [int]$ProcessTimeoutSeconds = 900,
+    [int]$PhaseWindowFrames = 0,
     [switch]$UpdateBaselines,
     [switch]$WriteSaveFiles,
     [switch]$Resume
@@ -78,6 +79,82 @@ function Get-SafeName {
     return $safe.Trim('-')
 }
 
+function Get-ResultMessage {
+    param($Result)
+
+    return (($Result.Stdout + " " + $Result.Stderr) -replace '\s+', ' ').Trim()
+}
+
+function Get-FrameMetrics {
+    param([string]$Message)
+
+    if ($Message -match 'differentPixels=(\d+)\s+maxDelta=(\d+)\s+totalDelta=(\d+)') {
+        return [pscustomobject]@{
+            DifferentPixels = [int]$Matches[1]
+            MaxDelta = [int]$Matches[2]
+            TotalDelta = [long]$Matches[3]
+        }
+    }
+
+    return [pscustomobject]@{
+        DifferentPixels = 0
+        MaxDelta = 0
+        TotalDelta = 0L
+    }
+}
+
+function New-VerifyFrameArguments {
+    param(
+        $Item,
+        [string]$Rom,
+        [int]$StopFrame,
+        [string]$Baseline,
+        [string]$Actual,
+        [string]$Diff
+    )
+
+    $args = @(
+        "run", "--project", "src\Gba.Cli", "--configuration", $Configuration, "--no-build", "--",
+        "verify-frame", $Rom,
+        "--stop-frame", "$StopFrame",
+        "--max-steps", "$($Item.maxSteps)",
+        "--baseline", $Baseline,
+        "--actual", $Actual,
+        "--diff", $Diff,
+        "--max-different-pixels", "$($Item.maxDifferentPixels)",
+        "--max-channel-delta", "$($Item.maxChannelDelta)"
+    )
+
+    if ($Item.PSObject.Properties.Name -contains "maxSeconds" -and -not [string]::IsNullOrWhiteSpace($Item.maxSeconds)) {
+        $args += @("--max-seconds", "$($Item.maxSeconds)")
+    }
+
+    if ($PhaseWindowFrames -gt 0 -and -not $UpdateBaselines) {
+        $args += @("--phase-window-frames", "$PhaseWindowFrames")
+    }
+
+    if ($UpdateBaselines) {
+        $args += "--write-baseline"
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($Item.inputScript)) {
+        $args += @("--input-script", $Item.inputScript)
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($Item.saveFile)) {
+        $args += @("--save-file", $Item.saveFile)
+        if (-not $WriteSaveFiles) {
+            $args += "--save-read-only"
+        }
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($Item.debugLayer)) {
+        $args += @("--debug-layer", $Item.debugLayer)
+    }
+
+    return $args
+}
+
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 Push-Location $repoRoot
 try {
@@ -113,7 +190,7 @@ try {
 
     $reportPath = Join-Path $OutputDir "visual-snapshots.csv"
     if (-not ($Resume -and (Test-Path $reportPath))) {
-        "label,phase,index,status,exitCode,stopFrame,maxSteps,maxSeconds,inputScript,saveFile,expectedScene,baseline,actual,diff,message" | Set-Content -LiteralPath $reportPath -Encoding UTF8
+        "label,phase,index,status,exitCode,requestedStopFrame,matchedStopFrame,frameOffset,maxSteps,maxSeconds,inputScript,saveFile,expectedScene,differentPixels,maxChannelDeltaObserved,totalChannelDelta,baseline,actual,diff,message" | Set-Content -LiteralPath $reportPath -Encoding UTF8
     }
 
     foreach ($item in $items) {
@@ -137,57 +214,39 @@ try {
             continue
         }
 
-        $args = @(
-            "run", "--project", "src\Gba.Cli", "--configuration", $Configuration, "--no-build", "--",
-            "verify-frame", $rom,
-            "--stop-frame", "$($item.stopFrame)",
-            "--max-steps", "$($item.maxSteps)",
-            "--baseline", $baseline,
-            "--actual", $actual,
-            "--diff", $diff,
-            "--max-different-pixels", "$($item.maxDifferentPixels)",
-            "--max-channel-delta", "$($item.maxChannelDelta)"
-        )
-
-        if ($item.PSObject.Properties.Name -contains "maxSeconds" -and -not [string]::IsNullOrWhiteSpace($item.maxSeconds)) {
-            $args += @("--max-seconds", "$($item.maxSeconds)")
-        }
-
-        if ($UpdateBaselines) {
-            $args += "--write-baseline"
-        }
-
-        if (-not [string]::IsNullOrWhiteSpace($item.inputScript)) {
-            $args += @("--input-script", $item.inputScript)
-        }
-
-        if (-not [string]::IsNullOrWhiteSpace($item.saveFile)) {
-            $args += @("--save-file", $item.saveFile)
-            if (-not $WriteSaveFiles) {
-                $args += "--save-read-only"
-            }
-        }
-
-        if (-not [string]::IsNullOrWhiteSpace($item.debugLayer)) {
-            $args += @("--debug-layer", $item.debugLayer)
-        }
-
+        $requestedStopFrame = [int]$item.stopFrame
+        $args = New-VerifyFrameArguments -Item $item -Rom $rom -StopFrame $requestedStopFrame -Baseline $baseline -Actual $actual -Diff $diff
         Write-Host "Verifying $label (#$index)"
         $result = Invoke-DotnetChecked -Arguments $args -TimeoutSeconds $ProcessTimeoutSeconds -Description "Visual snapshot $label"
+        $message = Get-ResultMessage $result
+        $metrics = Get-FrameMetrics $message
         $status = if ($result.ExitCode -eq 0) { "pass" } elseif ($result.ExitCode -eq 4) { "diff" } else { "fail" }
-        $message = (($result.Stdout + " " + $result.Stderr) -replace '\s+', ' ').Trim()
+        $matchedStopFrame = $requestedStopFrame
+        if ($message -match 'matchedFrame=(-?\d+)\s+frameOffset=(-?\d+)') {
+            $matchedStopFrame = [int]$Matches[1]
+        }
+
+        if ($result.ExitCode -eq 0 -and $message -match 'verify-frame PHASE-PASS') {
+            $status = "phase-pass"
+        }
+
         [pscustomobject]@{
             label = $label
             phase = $item.phase
             index = $index
             status = $status
             exitCode = $result.ExitCode
-            stopFrame = $item.stopFrame
+            requestedStopFrame = $requestedStopFrame
+            matchedStopFrame = $matchedStopFrame
+            frameOffset = $matchedStopFrame - $requestedStopFrame
             maxSteps = $item.maxSteps
             maxSeconds = if ($item.PSObject.Properties.Name -contains "maxSeconds") { $item.maxSeconds } else { "" }
             inputScript = $item.inputScript
             saveFile = $item.saveFile
             expectedScene = $item.expectedScene
+            differentPixels = $metrics.DifferentPixels
+            maxChannelDeltaObserved = $metrics.MaxDelta
+            totalChannelDelta = $metrics.TotalDelta
             baseline = $baseline
             actual = $actual
             diff = $diff
@@ -195,7 +254,7 @@ try {
         } | Export-Csv -LiteralPath $reportPath -NoTypeInformation -Append
 
         if ($result.ExitCode -eq 0) {
-            Write-Host "  PASS $label"
+            Write-Host "  $($status.ToUpperInvariant()) $label"
         }
         elseif ($result.ExitCode -eq 4) {
             Write-Host "  DIFF $label"

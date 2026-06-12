@@ -2018,6 +2018,7 @@ static int VerifyFrame(GbaSystem gba, string[] args)
     string? diffPath = null;
     var maxDifferentPixels = 0;
     var maxChannelDelta = 0;
+    var phaseWindowFrames = 0;
     var writeBaseline = false;
 
     for (var i = 0; i < args.Length; i++)
@@ -2046,6 +2047,11 @@ static int VerifyFrame(GbaSystem gba, string[] args)
                 i++;
                 break;
 
+            case "--phase-window-frames" or "--phase-window" when i + 1 < args.Length && int.TryParse(args[i + 1], out var parsedPhaseWindow) && parsedPhaseWindow >= 0:
+                phaseWindowFrames = parsedPhaseWindow;
+                i++;
+                break;
+
             case "--write-baseline":
                 writeBaseline = true;
                 break;
@@ -2057,6 +2063,22 @@ static int VerifyFrame(GbaSystem gba, string[] args)
         throw new ArgumentException("verify-frame requires --baseline baseline.ppm.");
     }
 
+    uint[]? baseline = null;
+    if (!writeBaseline)
+    {
+        if (!File.Exists(baselinePath))
+        {
+            throw new ArgumentException($"Baseline does not exist: {baselinePath}. Use --write-baseline to create it.");
+        }
+
+        baseline = ReadPpm(baselinePath);
+    }
+
+    var phaseWindowEnabled = !writeBaseline && phaseWindowFrames > 0 && options.StopFrame.HasValue;
+    var windowStartFrame = phaseWindowEnabled ? Math.Max(0, options.StopFrame!.Value - phaseWindowFrames) : 0;
+    var windowEndFrame = phaseWindowEnabled ? options.StopFrame!.Value + phaseWindowFrames : 0;
+    var lastWindowFrame = -1;
+    FrameCandidateComparison? bestPhaseCandidate = null;
     var wallClockLimit = StartWallClockLimit(options);
     var hitWallClockLimit = false;
     for (long step = 0; step < options.MaxSteps; step++)
@@ -2080,13 +2102,36 @@ static int VerifyFrame(GbaSystem gba, string[] args)
         ApplyFrameHashEvents(gba, options, inputState, step, frame);
         ApplyMemoryTriggerEvents(gba, options, inputState, step, frame);
         WriteSnapshotIfNeeded(gba, options, snapshots, frame);
-        if (ShouldStopAtFrame(options, frame))
+        if (phaseWindowEnabled && frame != lastWindowFrame && frame >= windowStartFrame && frame <= windowEndFrame)
+        {
+            var candidate = GetOutputFramebuffer(gba, options);
+            var candidateComparison = CompareFramebuffers(baseline!, candidate, maxChannelDelta);
+            var candidateMatch = new FrameCandidateComparison(frame, candidate, candidateComparison, HashFramebuffer(candidate));
+            if (bestPhaseCandidate is not { } currentBest || CompareFrameCandidate(candidateMatch, currentBest, options.StopFrame!.Value) < 0)
+            {
+                bestPhaseCandidate = candidateMatch;
+            }
+
+            lastWindowFrame = frame;
+        }
+
+        if (phaseWindowEnabled)
+        {
+            if (frame >= windowEndFrame)
+            {
+                break;
+            }
+        }
+        else if (ShouldStopAtFrame(options, frame))
         {
             break;
         }
     }
 
     var actual = GetOutputFramebuffer(gba, options);
+    var requestedFrame = options.StopFrame ?? frame;
+    var matchedFrame = frame;
+    var actualHash = HashFramebuffer(actual);
     WritePpm(actualPath, actual);
 
     if (hitWallClockLimit)
@@ -2105,30 +2150,36 @@ static int VerifyFrame(GbaSystem gba, string[] args)
         return 0;
     }
 
-    if (!File.Exists(baselinePath))
+    var comparison = CompareFramebuffers(baseline!, actual, maxChannelDelta);
+    if (bestPhaseCandidate is { } best)
     {
-        throw new ArgumentException($"Baseline does not exist: {baselinePath}. Use --write-baseline to create it.");
+        actual = best.Framebuffer;
+        comparison = best.Comparison;
+        matchedFrame = best.Frame;
+        actualHash = best.Hash;
+        WritePpm(actualPath, actual);
     }
 
-    var baseline = ReadPpm(baselinePath);
-    var comparison = CompareFramebuffers(baseline, actual, maxChannelDelta);
     if (!string.IsNullOrWhiteSpace(diffPath))
     {
-        WritePpm(diffPath, BuildDiffFramebuffer(baseline, actual, maxChannelDelta));
+        WritePpm(diffPath, BuildDiffFramebuffer(baseline!, actual, maxChannelDelta));
     }
 
     var passed = comparison.DifferentPixels <= maxDifferentPixels;
     Console.WriteLine(
-        "verify-frame {0}: frame={1} actual=0x{2:X16} baseline=0x{3:X16} differentPixels={4} maxDelta={5} totalDelta={6} allowedPixels={7} allowedChannelDelta={8} actualPath={9} baselinePath={10}{11}",
-        passed ? "PASS" : "FAIL",
-        frame,
-        HashFramebuffer(actual),
-        HashFramebuffer(baseline),
+        "verify-frame {0}: frame={1} matchedFrame={2} frameOffset={3} actual=0x{4:X16} baseline=0x{5:X16} differentPixels={6} maxDelta={7} totalDelta={8} allowedPixels={9} allowedChannelDelta={10} phaseWindow={11} actualPath={12} baselinePath={13}{14}",
+        passed ? matchedFrame == requestedFrame ? "PASS" : "PHASE-PASS" : "FAIL",
+        requestedFrame,
+        matchedFrame,
+        matchedFrame - requestedFrame,
+        actualHash,
+        HashFramebuffer(baseline!),
         comparison.DifferentPixels,
         comparison.MaxChannelDelta,
         comparison.TotalChannelDelta,
         maxDifferentPixels,
         maxChannelDelta,
+        phaseWindowEnabled ? phaseWindowFrames : 0,
         Path.GetFullPath(actualPath),
         Path.GetFullPath(baselinePath),
         string.IsNullOrWhiteSpace(diffPath) ? "" : $" diffPath={Path.GetFullPath(diffPath)}");
@@ -4767,7 +4818,7 @@ static void PrintUsage()
     Console.Error.WriteLine("  gbaSharp dump-frame <rom.gba> [--max-steps N] [--max-seconds N] [--stop-frame N] [--trace] [--output frame.ppm] [--audio-csv direct.csv] [--psg-csv psg.csv] [--audio-wav audio.wav]");
     Console.Error.WriteLine("  gbaSharp compare-bios <rom.gba> --bios gba_bios.bin [--stop-frame N] [--compare-output diff.csv] [--compare-start-frame N] [--compare-frame-interval N] [--compare-first-diff-only] [--compare-game-state-only] [--compare-align-rom-entry]");
     Console.Error.WriteLine("  gbaSharp capture-frames <rom.gba> [--max-steps N] [--max-seconds N] [--output-dir captures] [--sample-steps N]");
-    Console.Error.WriteLine("  gbaSharp verify-frame <rom.gba> --baseline baseline.ppm [--actual actual.ppm] [--diff diff.ppm] [--write-baseline] [--max-different-pixels N] [--max-channel-delta N]");
+    Console.Error.WriteLine("  gbaSharp verify-frame <rom.gba> --baseline baseline.ppm [--actual actual.ppm] [--diff diff.ppm] [--write-baseline] [--max-different-pixels N] [--max-channel-delta N] [--phase-window-frames N]");
     Console.Error.WriteLine("  Capture by frame: [--sample-frames N] [--frame-range START:END]");
     Console.Error.WriteLine("  Debug video: [--debug-layer bg0|bg1|bg2|bg3|obj] [--debug-layer-dir DIR]");
     Console.Error.WriteLine("  Debug snapshots: [--snapshot-csv state.csv] [--snapshot-frames N] [--pc-snapshot-csv pcs.csv] [--pc-snapshot-stack-words N] (uses --trace-frames as an optional frame filter)");
@@ -5089,6 +5140,29 @@ static FrameComparison CompareFramebuffers(ReadOnlySpan<uint> baseline, ReadOnly
     }
 
     return new FrameComparison(differentPixels, maxChannelDelta, totalChannelDelta);
+}
+
+static int CompareFrameCandidate(FrameCandidateComparison left, FrameCandidateComparison right, int targetFrame)
+{
+    var differentPixels = left.Comparison.DifferentPixels.CompareTo(right.Comparison.DifferentPixels);
+    if (differentPixels != 0)
+    {
+        return differentPixels;
+    }
+
+    var totalDelta = left.Comparison.TotalChannelDelta.CompareTo(right.Comparison.TotalChannelDelta);
+    if (totalDelta != 0)
+    {
+        return totalDelta;
+    }
+
+    var maxDelta = left.Comparison.MaxChannelDelta.CompareTo(right.Comparison.MaxChannelDelta);
+    if (maxDelta != 0)
+    {
+        return maxDelta;
+    }
+
+    return Math.Abs(left.Frame - targetFrame).CompareTo(Math.Abs(right.Frame - targetFrame));
 }
 
 static uint[] BuildDiffFramebuffer(ReadOnlySpan<uint> baseline, ReadOnlySpan<uint> actual, int channelTolerance)
@@ -5748,3 +5822,5 @@ internal readonly record struct FrameRange(int Start, int End)
 }
 
 internal readonly record struct FrameComparison(int DifferentPixels, int MaxChannelDelta, long TotalChannelDelta);
+
+internal readonly record struct FrameCandidateComparison(int Frame, uint[] Framebuffer, FrameComparison Comparison, ulong Hash);

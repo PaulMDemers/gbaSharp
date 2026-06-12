@@ -134,7 +134,15 @@ The batch runner uses `docs\gba-visual-snapshots.csv` and resolves ROM indexes a
 .\scripts\run-visual-snapshots.ps1 -OutputDir visual-snapshots-baselines -UpdateBaselines
 ```
 
-Each run writes `visual-snapshots.csv`, actual PPMs, and diff PPMs.
+Each run writes `visual-snapshots.csv`, actual PPMs, and diff PPMs. The report includes the requested frame, matched frame, frame offset, and comparison metrics.
+
+For animated title screens, keep exact matching as the default and opt into a bounded phase search when verifying timing-sensitive changes:
+
+```powershell
+.\scripts\run-visual-snapshots.ps1 -OutputDir visual-snapshots-run -PhaseWindowFrames 30
+```
+
+`-PhaseWindowFrames` forwards to `verify-frame --phase-window-frames`. The CLI still runs the ROM once, compares frames inside the requested window, and writes the best matched frame to the normal actual/diff paths. A nearby exact match reports `phase-pass`; otherwise the row remains `diff` but records the closest frame and metrics.
 
 Manifest rows can include `phase`, `inputScript`, `saveFile`, and `expectedScene`. `inputScript` uses the same frame input script syntax as the CLI, so a visual row can drive title/menu input before capturing a later frame.
 
