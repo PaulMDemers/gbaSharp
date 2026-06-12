@@ -18,13 +18,15 @@ extra local captures, and frame comparison reported 17/17 `pass`.
 - Missing save-assisted reference captures: 8
 - Invalid reference captures: 0
 - Strict longplay pixel comparisons ready: 17 current references, with 17/17 passing the current bounded comparison
-- Title visual smoke: the first five `docs/gba-visual-snapshots.csv` title rows pass exactly after refreshing the local ignored Ruby and Metroid title baselines from frame 600.
+- Visual smoke: the first ten `docs/gba-visual-snapshots.csv` title and scripted rows pass exactly after refreshing local ignored baselines from the current manifest.
 
 The 2026-06-12 Metroid Fusion title triage used `artifacts/metroid-title-reference-20260612`.
 The mGBA/gbaSharp window comparison found exact full-frame matches in the same
 starfield sequence, so the earlier Metroid title diff was a stale local baseline
-rather than a renderer regression. The final exact title smoke report is
-`artifacts/visual-title-post-title-refresh-20260612/visual-snapshots.csv`.
+rather than a renderer regression. The Metroid scripted row was retimed from a
+black transition at frame 1800 to the visible space-intro frame 2070. The final
+exact first-ten smoke report is
+`artifacts/visual-first10-exact-post-scripted-refresh-20260612/visual-snapshots.csv`.
 
 Highest current bounded deltas from the latest strict run:
 
