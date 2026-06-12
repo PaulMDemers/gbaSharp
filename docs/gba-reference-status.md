@@ -1,6 +1,6 @@
 # GBA Reference Capture Status
 
-Last checked: 2026-06-10
+Last checked: 2026-06-12
 
 The external reference dashboard tooling is ready. The non-strict save-assisted dashboard run at `artifacts/reference-dashboard-post-audio-check` generated a capture checklist, validation CSV, comparison CSV, and placeholder comparison contact sheet. Strict longplay reference validation at `artifacts/longplay-reference-validation-gta-20260609.csv` now reports all 17 manifest rows as valid, with seven extra local artifacts left from older targets.
 
@@ -18,6 +18,13 @@ extra local captures, and frame comparison reported 17/17 `pass`.
 - Missing save-assisted reference captures: 8
 - Invalid reference captures: 0
 - Strict longplay pixel comparisons ready: 17 current references, with 17/17 passing the current bounded comparison
+- Title visual smoke: the first five `docs/gba-visual-snapshots.csv` title rows pass exactly after refreshing the local ignored Ruby and Metroid title baselines from frame 600.
+
+The 2026-06-12 Metroid Fusion title triage used `artifacts/metroid-title-reference-20260612`.
+The mGBA/gbaSharp window comparison found exact full-frame matches in the same
+starfield sequence, so the earlier Metroid title diff was a stale local baseline
+rather than a renderer regression. The final exact title smoke report is
+`artifacts/visual-title-post-title-refresh-20260612/visual-snapshots.csv`.
 
 Highest current bounded deltas from the latest strict run:
 
