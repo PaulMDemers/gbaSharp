@@ -18,7 +18,7 @@ extra local captures, and frame comparison reported 17/17 `pass`.
 - Missing save-assisted reference captures: 8
 - Invalid reference captures: 0
 - Strict longplay pixel comparisons ready: 17 current references, with 17/17 passing the current bounded comparison
-- Visual smoke: the first ten `docs/gba-visual-snapshots.csv` title and scripted rows pass exactly after refreshing local ignored baselines from the current manifest.
+- Visual smoke: the first ten `docs/gba-visual-snapshots.csv` title and scripted rows pass exactly after refreshing local ignored baselines from the current manifest. The five short save-assisted rows also pass exactly.
 
 The 2026-06-12 Metroid Fusion title triage used `artifacts/metroid-title-reference-20260612`.
 The mGBA/gbaSharp window comparison found exact full-frame matches in the same
@@ -27,6 +27,10 @@ rather than a renderer regression. The Metroid scripted row was retimed from a
 black transition at frame 1800 to the visible space-intro frame 2070. The final
 exact first-ten smoke report is
 `artifacts/visual-first10-exact-post-scripted-refresh-20260612/visual-snapshots.csv`.
+Ruby's longer Littleroot save route passes at frame 46000 after raising the local
+ignored row wall-clock cap from 720s to 900s; the earlier 720s run timed out at
+frame 45769 rather than failing emulation. The passing report is
+`artifacts/visual-ruby-littleroot-900s-20260612/visual-snapshots.csv`.
 
 Highest current bounded deltas from the latest strict run:
 
