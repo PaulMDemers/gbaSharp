@@ -218,6 +218,12 @@ All 11 reached their requested frames. Signal triage found:
   gain. Rerunning that row with `-WavGain 0.45` removed clipping while keeping a
   91% peak (`artifacts/audio-smoke-zelda-gain045-20260613`).
 
+The follow-up full smoke run
+`artifacts/audio-smoke-full-expectation-gain045-20260613` uses the manifest
+`expectedSignalStatus` column and `-WavGain 0.45`. It reports 11/11 route
+passes, 0 signal expectation mismatches, and 0 clipped samples. The signal
+classes are 10 `ok` routes plus the expected `silent` Sonic title route.
+
 ## Compare WAVs
 
 Use the tolerance-oriented comparator:
