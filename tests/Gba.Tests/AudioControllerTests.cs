@@ -169,6 +169,22 @@ public sealed class AudioControllerTests
     }
 
     [Fact]
+    public void SilentPsgCaptureCanIncludeZeroSamples()
+    {
+        var gba = new GbaSystem();
+        gba.Audio.CapturePsgSamples = true;
+        gba.Audio.CaptureSilentPsgSamples = true;
+        gba.Bus.Write16(IoRegisters.SOUNDCNT_X, 1 << 7);
+
+        gba.Audio.Advance(512, 512);
+
+        var sample = Assert.Single(gba.Audio.DrainPsgSamples());
+        Assert.Equal(512, sample.Cycle);
+        Assert.Equal(0, sample.Left);
+        Assert.Equal(0, sample.Right);
+    }
+
+    [Fact]
     public void PsgMasterDisableEmitsSilenceToSubscribers()
     {
         var gba = new GbaSystem();

@@ -19,10 +19,15 @@ Useful options:
 - `--audio-gain 0.5`
 - `--audio-csv direct.csv`
 - `--psg-csv psg.csv`
+- `--psg-csv-include-silence`
 
 The WAV path records mixed direct-sound FIFO output plus PSG output on the same
 emulated cycle timeline. The CSV paths remain useful when reducing whether a
 problem is in FIFO timing, PSG generation, or final mixing.
+`--psg-csv-include-silence` makes PSG CSV captures include zero samples too,
+which is useful when reconstructing mixed audio from CSV without accidentally
+holding a stale PSG value after a channel goes quiet. Leave it off for compact
+nonzero-only PSG traces.
 
 For the common workflow, use the wrapper script:
 
@@ -318,6 +323,14 @@ channel has gone silent. The calibrated Ruby 10s comparison improved in
 correlation rose from about 0.797 to about 0.844, RMSE dropped from about 827
 to about 724, and global alignment moved to 0ms. The remaining weak region is
 still late Ruby title music around 8.5s onward.
+
+A follow-up split capture at
+`artifacts/ruby-audio-split-psgfull-20260613` uses
+`--psg-csv-include-silence` and reconstructs the mixed WAV from direct plus
+full PSG CSV. The reconstructed mix matches the runtime WAV result closely
+against MAME: whole-file correlation remains about 0.844 with about 0.02ms
+alignment shift. That confirms the export/capture path is no longer the weak
+link. The remaining Ruby title gap is in direct-sound generation or timing.
 
 ## Suggested Test Set
 

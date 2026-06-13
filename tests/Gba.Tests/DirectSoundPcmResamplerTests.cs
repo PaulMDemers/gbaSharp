@@ -41,6 +41,21 @@ public sealed class DirectSoundPcmResamplerTests
     }
 
     [Fact]
+    public void SameCycleFifoUpdatesPreserveFractionalTiming()
+    {
+        var resampler = new DirectSoundPcmResampler(sampleRate: 3, clockHz: 8, scale: 1);
+        var frames = new List<(short Left, short Right)>();
+
+        resampler.Process(new DirectSoundPcmSample(0, 0, 0, 0, 1, 0), (left, right) => frames.Add((left, right)));
+        resampler.Process(new DirectSoundPcmSample(0, 0, 1, 0, 2, 0), (left, right) => frames.Add((left, right)));
+        resampler.Process(new DirectSoundPcmSample(1, 0, 1, 0, 10, 0), (left, right) => frames.Add((left, right)));
+        resampler.Process(new DirectSoundPcmSample(0, 0, 2, 0, 3, 0), (left, right) => frames.Add((left, right)));
+        resampler.Process(new DirectSoundPcmSample(0, 0, 3, 0, 4, 0), (left, right) => frames.Add((left, right)));
+
+        Assert.Equal([(13, 0)], frames);
+    }
+
+    [Fact]
     public void AccumulatesFractionalFramesAcrossSamples()
     {
         var resampler = new DirectSoundPcmResampler(sampleRate: 3, clockHz: 8, scale: 1);
@@ -65,6 +80,19 @@ public sealed class DirectSoundPcmResamplerTests
         resampler.Process(new DirectSoundPcmSample(0, 0, 2, 0, 9, 0), (left, right) => frames.Add((left, right)));
 
         Assert.Empty(frames);
+    }
+
+    [Fact]
+    public void OlderEventsDoNotOverwriteHeldState()
+    {
+        var resampler = new DirectSoundPcmResampler(sampleRate: 4, clockHz: 8, scale: 1);
+        var frames = new List<(short Left, short Right)>();
+
+        resampler.Process(new DirectSoundPcmSample(0, 0, 4, 0, 5, 0), (left, right) => frames.Add((left, right)));
+        resampler.Process(new DirectSoundPcmSample(0, 0, 2, 0, 9, 0), (left, right) => frames.Add((left, right)));
+        resampler.Process(new DirectSoundPcmSample(0, 0, 6, 0, 1, 0), (left, right) => frames.Add((left, right)));
+
+        Assert.Equal([(5, 0)], frames);
     }
 
     [Fact]

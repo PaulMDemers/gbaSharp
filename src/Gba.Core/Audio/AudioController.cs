@@ -37,6 +37,8 @@ public sealed class AudioController
 
     public bool CapturePsgSamples { get; set; }
 
+    public bool CaptureSilentPsgSamples { get; set; }
+
     public event Action<DirectSoundPcmSample>? SampleProduced;
 
     public event Action<PsgPcmSample>? PsgSampleProduced;
@@ -281,7 +283,7 @@ public sealed class AudioController
         MixNoise(_noise, soundControl, 11, 15, leftVolume, rightVolume, ref left, ref right);
         var sample = new PsgPcmSample(cycle, ClampPsg(left), ClampPsg(right));
         PsgSampleProduced?.Invoke(sample);
-        if (CapturePsgSamples && (sample.Left != 0 || sample.Right != 0))
+        if (CapturePsgSamples && (CaptureSilentPsgSamples || sample.Left != 0 || sample.Right != 0))
         {
             _pendingPsgSamples.Add(sample);
         }

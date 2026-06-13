@@ -50,10 +50,21 @@ public sealed class DirectSoundPcmResampler
     {
         ArgumentNullException.ThrowIfNull(emitFrame);
 
-        if (sample.Cycle <= _lastCycle || _lastCycle < 0)
+        if (_lastCycle < 0)
         {
             _lastCycle = sample.Cycle;
             _fractionalFrames = 0;
+            UpdateFifo(sample);
+            return;
+        }
+
+        if (sample.Cycle < _lastCycle)
+        {
+            return;
+        }
+
+        if (sample.Cycle == _lastCycle)
+        {
             UpdateFifo(sample);
             return;
         }
