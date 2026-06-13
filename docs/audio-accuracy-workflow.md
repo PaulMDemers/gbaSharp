@@ -76,10 +76,13 @@ Useful suite options:
 - `-CompareRemoveDc`
 - `-NoBuild`
 
-The audio smoke runner writes both route status and `signalStatus`. Route
-status reports whether the emulator reached the requested frame; signal status
-classifies the generated WAV as `ok`, `silent`, or `clipped`. Use `-WavGain`
-when checking whether clipping is only export headroom.
+The audio smoke runner writes route status, `signalStatus`, and
+`signalMatch`. Route status reports whether the emulator reached the requested
+frame. Signal status classifies the generated WAV as `ok`, `silent`,
+`clipped`, or `missing`. Manifest rows may set `expectedSignalStatus` to
+`ok`, `silent`, `clipped`, `missing`, or `any`; blank and `any` rows are
+reported as `not-checked`. Use `-WavGain` when checking whether clipping is
+only export headroom.
 
 Manifest columns follow the existing audio smoke route shape:
 
@@ -95,6 +98,7 @@ Manifest columns follow the existing audio smoke route shape:
 | `maxSeconds` | Wall-clock cap. |
 | `keys` | Optional held keys. |
 | `alignRomEntry` | Whether to align after BIOS handoff before route timing. |
+| `expectedSignalStatus` | Optional expected WAV signal class for smoke triage. |
 | `notes` | Human-readable route purpose. |
 
 ## Capture mGBA Reference Audio
@@ -204,9 +208,12 @@ All 11 reached their requested frames. Signal triage found:
 
 - `sonic-advance-title` is silent in the no-BIOS 300-frame title route, and a
   no-BIOS 600-frame probe is still silent.
-- The same Sonic 600-frame probe with the real BIOS produces nonzero audio
-  (`artifacts/audio-smoke-sonic-title-600-bios-20260613`), so this is a
-  no-BIOS boot/HLE startup difference rather than a mixer export failure.
+- A Sonic 600-frame power-on probe with the real BIOS produces nonzero audio
+  (`artifacts/audio-smoke-sonic-title-600-bios-20260613`) before ROM-entry
+  alignment. Re-running the real-BIOS capture with `--align-rom-entry` is also
+  silent through 600 game frames (`artifacts/sonic-bios-align-600-direct.csv`),
+  so the no-BIOS Sonic title-route silence is expected for this route rather
+  than an audio mixer or no-BIOS startup failure.
 - `zelda-minish-save-bedroom` clipped 6 PCM samples at the default smoke export
   gain. Rerunning that row with `-WavGain 0.45` removed clipping while keeping a
   91% peak (`artifacts/audio-smoke-zelda-gain045-20260613`).

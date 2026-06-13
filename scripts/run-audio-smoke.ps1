@@ -270,6 +270,35 @@ function Get-AudioSignalStatus {
     return "ok"
 }
 
+function Get-ExpectedSignalStatus {
+    param([object]$Item)
+
+    $value = (Get-StringOrDefault -Item $Item -Property "expectedSignalStatus" -Default "").Trim().ToLowerInvariant()
+    switch ($value) {
+        "" { return "" }
+        "any" { return "any" }
+        "ok" { return "ok" }
+        "silent" { return "silent" }
+        "clipped" { return "clipped" }
+        "missing" { return "missing" }
+        default { throw "Unsupported expectedSignalStatus '$value'. Use ok, silent, clipped, missing, any, or leave blank." }
+    }
+}
+
+function Get-SignalMatchStatus {
+    param([string]$Actual, [string]$Expected)
+
+    if ([string]::IsNullOrWhiteSpace($Expected) -or $Expected -eq "any") {
+        return "not-checked"
+    }
+
+    if ($Actual -eq $Expected) {
+        return "match"
+    }
+
+    return "mismatch"
+}
+
 function Write-MarkdownReport {
     param(
         [object[]]$Rows,
@@ -279,6 +308,7 @@ function Write-MarkdownReport {
 
     $passed = @($Rows | Where-Object { $_.status -eq "pass" }).Count
     $failed = @($Rows | Where-Object { $_.status -ne "pass" }).Count
+    $signalMismatches = @($Rows | Where-Object { $_.signalMatch -eq "mismatch" }).Count
     $signalGroups = @($Rows | Group-Object signalStatus | Sort-Object Name)
     $signalSummary = if ($signalGroups.Count -gt 0) {
         ($signalGroups | ForEach-Object { "$($_.Name): $($_.Count)" }) -join ", "
@@ -295,9 +325,10 @@ function Write-MarkdownReport {
         "- Pass: $passed",
         "- Non-pass: $failed",
         "- Signal status: $signalSummary",
+        "- Signal expectation mismatches: $signalMismatches",
         "",
-        "| Label | Status | Signal | Frame | Direct Samples | PSG Samples | WAV Seconds | Peak % | RMS % | Clipped | Mixed WAV |",
-        "| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |"
+        "| Label | Status | Signal | Expected | Match | Frame | Direct Samples | PSG Samples | WAV Seconds | Peak % | RMS % | Clipped | Mixed WAV |",
+        "| --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |"
     )
 
     foreach ($row in $Rows) {
@@ -307,7 +338,9 @@ function Write-MarkdownReport {
         $wavRms = if ($row.PSObject.Properties.Name -contains "wavRmsPercent") { "{0:N3}" -f [double]$row.wavRmsPercent } else { "0.000" }
         $wavClipped = if ($row.PSObject.Properties.Name -contains "wavClippedSamples") { [long]$row.wavClippedSamples } else { 0 }
         $signal = if ($row.PSObject.Properties.Name -contains "signalStatus") { $row.signalStatus } else { "" }
-        $lines += "| $($row.label) | $($row.status) | $signal | $($row.observedFrame) | $($row.directSamples) | $($row.psgSamples) | $wavSeconds | $wavPeak | $wavRms | $wavClipped | $wav |"
+        $expectedSignal = if ($row.PSObject.Properties.Name -contains "expectedSignalStatus") { $row.expectedSignalStatus } else { "" }
+        $signalMatch = if ($row.PSObject.Properties.Name -contains "signalMatch") { $row.signalMatch } else { "" }
+        $lines += "| $($row.label) | $($row.status) | $signal | $expectedSignal | $signalMatch | $($row.observedFrame) | $($row.directSamples) | $($row.psgSamples) | $wavSeconds | $wavPeak | $wavRms | $wavClipped | $wav |"
     }
 
     $lines | Set-Content -LiteralPath $Path -Encoding UTF8
@@ -368,11 +401,14 @@ try {
     foreach ($item in $items) {
         $label = Get-SafeName (Get-StringOrDefault -Item $item -Property "label" -Default "audio-smoke")
         $romPath = Get-StringOrDefault -Item $item -Property "romPath" -Default ""
+        $expectedSignalStatus = Get-ExpectedSignalStatus -Item $item
         if ([string]::IsNullOrWhiteSpace($romPath)) {
             $results.Add([pscustomobject]@{
                 label = $label
                 status = "missing-rom"
                 signalStatus = "missing"
+                expectedSignalStatus = $expectedSignalStatus
+                signalMatch = Get-SignalMatchStatus -Actual "missing" -Expected $expectedSignalStatus
                 exitCode = -1
                 observedFrame = 0
                 cycles = 0
@@ -401,6 +437,8 @@ try {
                 label = $label
                 status = "missing-rom"
                 signalStatus = "missing"
+                expectedSignalStatus = $expectedSignalStatus
+                signalMatch = Get-SignalMatchStatus -Actual "missing" -Expected $expectedSignalStatus
                 exitCode = -1
                 observedFrame = 0
                 cycles = 0
@@ -521,6 +559,7 @@ try {
         $wavSeconds = Get-WavSecondsFromOutput $wavResult.Stdout
         $wavMetrics = Get-WavPcmMetrics $mixedWav
         $signalStatus = Get-AudioSignalStatus $wavMetrics
+        $signalMatch = Get-SignalMatchStatus -Actual $signalStatus -Expected $expectedSignalStatus
 
         $status = if ($result.ExitCode -eq 124) {
             "process-timeout"
@@ -539,6 +578,8 @@ try {
             label = $label
             status = $status
             signalStatus = $signalStatus
+            expectedSignalStatus = $expectedSignalStatus
+            signalMatch = $signalMatch
             exitCode = $result.ExitCode
             observedFrame = $observedFrame
             cycles = $cycles

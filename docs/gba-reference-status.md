@@ -18,7 +18,7 @@ reported 17/17 `pass`.
 - Invalid reference captures: 0
 - Strict longplay pixel comparisons ready: 17 current references, with 17/17 passing the current bounded comparison
 - Visual smoke: all 17 local `docs/gba-visual-snapshots.csv` rows pass with the current ignored baselines and manifest settings. This covers title screens, scripted menu paths, five short save-assisted checks, and the two long Ruby save gameplay routes.
-- Audio smoke: 11/11 routes reached target frames in `artifacts/audio-smoke-broad-20260613`; signal triage flags no-BIOS Sonic title silence and default-gain Zelda clipping as follow-up tuning targets.
+- Audio smoke: 11/11 routes reached target frames in `artifacts/audio-smoke-broad-20260613`; signal triage now treats Sonic title-route silence as expected after ROM-entry-aligned BIOS comparison, while default-gain Zelda clipping remains an export-headroom tuning target.
 
 The 2026-06-12 Metroid Fusion title triage used `artifacts/metroid-title-reference-20260612`.
 The mGBA/gbaSharp window comparison found exact full-frame matches in the same
