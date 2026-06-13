@@ -151,6 +151,24 @@ public sealed class AudioControllerTests
     }
 
     [Fact]
+    public void ZeroPsgSamplesReachSubscribersButNotPendingCapture()
+    {
+        var gba = new GbaSystem();
+        gba.Audio.CapturePsgSamples = true;
+        PsgPcmSample? produced = null;
+        gba.Audio.PsgSampleProduced += sample => produced = sample;
+        gba.Bus.Write16(IoRegisters.SOUNDCNT_X, 1 << 7);
+
+        gba.Audio.Advance(512, 512);
+
+        Assert.NotNull(produced);
+        Assert.Equal(512, produced.Value.Cycle);
+        Assert.Equal(0, produced.Value.Left);
+        Assert.Equal(0, produced.Value.Right);
+        Assert.Empty(gba.Audio.DrainPsgSamples());
+    }
+
+    [Fact]
     public void SoundControlStatusIgnoresChannelStatusWrites()
     {
         var gba = new GbaSystem();

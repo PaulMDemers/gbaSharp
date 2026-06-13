@@ -271,14 +271,9 @@ public sealed class AudioController
         MixSquare(_square2, soundControl, 9, 13, leftVolume, rightVolume, ref left, ref right);
         MixWave(_wave, soundControl, 10, 14, leftVolume, rightVolume, ref left, ref right);
         MixNoise(_noise, soundControl, 11, 15, leftVolume, rightVolume, ref left, ref right);
-        if (left == 0 && right == 0)
-        {
-            return;
-        }
-
         var sample = new PsgPcmSample(cycle, ClampPsg(left), ClampPsg(right));
         PsgSampleProduced?.Invoke(sample);
-        if (CapturePsgSamples)
+        if (CapturePsgSamples && (sample.Left != 0 || sample.Right != 0))
         {
             _pendingPsgSamples.Add(sample);
         }
