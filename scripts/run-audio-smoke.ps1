@@ -9,6 +9,7 @@ param(
     [long]$DefaultMaxSteps = 500000000,
     [int]$DefaultMaxSeconds = 180,
     [int]$ProcessTimeoutSeconds = 240,
+    [double]$WavGain = 0.5,
     [switch]$NoBuild,
     [switch]$NoAlignRomEntry,
     [switch]$Resume,
@@ -255,6 +256,20 @@ function Get-WavPcmMetrics {
     }
 }
 
+function Get-AudioSignalStatus {
+    param($Metrics)
+
+    if ($Metrics.ClippedSamples -gt 0) {
+        return "clipped"
+    }
+
+    if ($Metrics.PeakPercent -le 0) {
+        return "silent"
+    }
+
+    return "ok"
+}
+
 function Write-MarkdownReport {
     param(
         [object[]]$Rows,
@@ -264,6 +279,14 @@ function Write-MarkdownReport {
 
     $passed = @($Rows | Where-Object { $_.status -eq "pass" }).Count
     $failed = @($Rows | Where-Object { $_.status -ne "pass" }).Count
+    $signalGroups = @($Rows | Group-Object signalStatus | Sort-Object Name)
+    $signalSummary = if ($signalGroups.Count -gt 0) {
+        ($signalGroups | ForEach-Object { "$($_.Name): $($_.Count)" }) -join ", "
+    }
+    else {
+        "none"
+    }
+
     $lines = @(
         "# GBA Audio Smoke Report",
         "",
@@ -271,9 +294,10 @@ function Write-MarkdownReport {
         "- Rows: $($Rows.Count)",
         "- Pass: $passed",
         "- Non-pass: $failed",
+        "- Signal status: $signalSummary",
         "",
-        "| Label | Status | Frame | Direct Samples | PSG Samples | WAV Seconds | Peak % | RMS % | Clipped | Mixed WAV |",
-        "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |"
+        "| Label | Status | Signal | Frame | Direct Samples | PSG Samples | WAV Seconds | Peak % | RMS % | Clipped | Mixed WAV |",
+        "| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |"
     )
 
     foreach ($row in $Rows) {
@@ -282,7 +306,8 @@ function Write-MarkdownReport {
         $wavPeak = if ($row.PSObject.Properties.Name -contains "wavPeakPercent") { "{0:N3}" -f [double]$row.wavPeakPercent } else { "0.000" }
         $wavRms = if ($row.PSObject.Properties.Name -contains "wavRmsPercent") { "{0:N3}" -f [double]$row.wavRmsPercent } else { "0.000" }
         $wavClipped = if ($row.PSObject.Properties.Name -contains "wavClippedSamples") { [long]$row.wavClippedSamples } else { 0 }
-        $lines += "| $($row.label) | $($row.status) | $($row.observedFrame) | $($row.directSamples) | $($row.psgSamples) | $wavSeconds | $wavPeak | $wavRms | $wavClipped | $wav |"
+        $signal = if ($row.PSObject.Properties.Name -contains "signalStatus") { $row.signalStatus } else { "" }
+        $lines += "| $($row.label) | $($row.status) | $signal | $($row.observedFrame) | $($row.directSamples) | $($row.psgSamples) | $wavSeconds | $wavPeak | $wavRms | $wavClipped | $wav |"
     }
 
     $lines | Set-Content -LiteralPath $Path -Encoding UTF8
@@ -347,6 +372,7 @@ try {
             $results.Add([pscustomobject]@{
                 label = $label
                 status = "missing-rom"
+                signalStatus = "missing"
                 exitCode = -1
                 observedFrame = 0
                 cycles = 0
@@ -374,6 +400,7 @@ try {
             $results.Add([pscustomobject]@{
                 label = $label
                 status = "missing-rom"
+                signalStatus = "missing"
                 exitCode = -1
                 observedFrame = 0
                 cycles = 0
@@ -477,10 +504,10 @@ try {
         }
 
         if (Test-Path -LiteralPath $directCsv) {
-            $wavResult = Invoke-CheckedProcess -FileName "python" -Arguments @("scripts\audio-csv-to-wav.py", $directCsv, $mixedWav, "--mix", $psgCsv) -TimeoutSeconds 120 -Description "Export mixed audio $label"
+            $wavResult = Invoke-CheckedProcess -FileName "python" -Arguments @("scripts\audio-csv-to-wav.py", $directCsv, $mixedWav, "--mix", $psgCsv, "--gain", $WavGain.ToString([Globalization.CultureInfo]::InvariantCulture)) -TimeoutSeconds 120 -Description "Export mixed audio $label"
         }
         elseif (Test-Path -LiteralPath $psgCsv) {
-            $wavResult = Invoke-CheckedProcess -FileName "python" -Arguments @("scripts\audio-csv-to-wav.py", $psgCsv, $mixedWav) -TimeoutSeconds 120 -Description "Export PSG audio $label"
+            $wavResult = Invoke-CheckedProcess -FileName "python" -Arguments @("scripts\audio-csv-to-wav.py", $psgCsv, $mixedWav, "--gain", $WavGain.ToString([Globalization.CultureInfo]::InvariantCulture)) -TimeoutSeconds 120 -Description "Export PSG audio $label"
         }
         else {
             $wavResult = [pscustomobject]@{ ExitCode = -1; Stdout = ""; Stderr = "No audio CSV files written" }
@@ -493,6 +520,7 @@ try {
         $wavFrames = Get-WavFramesFromOutput $wavResult.Stdout
         $wavSeconds = Get-WavSecondsFromOutput $wavResult.Stdout
         $wavMetrics = Get-WavPcmMetrics $mixedWav
+        $signalStatus = Get-AudioSignalStatus $wavMetrics
 
         $status = if ($result.ExitCode -eq 124) {
             "process-timeout"
@@ -510,6 +538,7 @@ try {
         $results.Add([pscustomobject]@{
             label = $label
             status = $status
+            signalStatus = $signalStatus
             exitCode = $result.ExitCode
             observedFrame = $observedFrame
             cycles = $cycles

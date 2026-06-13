@@ -76,6 +76,11 @@ Useful suite options:
 - `-CompareRemoveDc`
 - `-NoBuild`
 
+The audio smoke runner writes both route status and `signalStatus`. Route
+status reports whether the emulator reached the requested frame; signal status
+classifies the generated WAV as `ok`, `silent`, or `clipped`. Use `-WavGain`
+when checking whether clipping is only export headroom.
+
 Manifest columns follow the existing audio smoke route shape:
 
 | Column | Purpose |
@@ -191,6 +196,20 @@ source made FIFO playback stream past the intended buffers. After the fix, Ruby
 power-on first nonzero FIFO audio moved from about 1.174s to about 0.383s, and
 the 5s MAME comparison improved from near-zero correlation to about 0.843 with
 about 21ms alignment shift and about 1ms duration delta.
+
+## 2026-06-13 Audio Smoke Findings
+
+`artifacts/audio-smoke-broad-20260613` covers 11 title/save/gameplay routes.
+All 11 reached their requested frames. Signal triage found:
+
+- `sonic-advance-title` is silent in the no-BIOS 300-frame title route, and a
+  no-BIOS 600-frame probe is still silent.
+- The same Sonic 600-frame probe with the real BIOS produces nonzero audio
+  (`artifacts/audio-smoke-sonic-title-600-bios-20260613`), so this is a
+  no-BIOS boot/HLE startup difference rather than a mixer export failure.
+- `zelda-minish-save-bedroom` clipped 6 PCM samples at the default smoke export
+  gain. Rerunning that row with `-WavGain 0.45` removed clipping while keeping a
+  91% peak (`artifacts/audio-smoke-zelda-gain045-20260613`).
 
 ## Compare WAVs
 

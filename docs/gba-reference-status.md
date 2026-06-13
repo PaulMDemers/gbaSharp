@@ -1,6 +1,6 @@
 # GBA Reference Capture Status
 
-Last checked: 2026-06-12
+Last checked: 2026-06-13
 
 The external reference dashboard tooling is ready. The non-strict save-assisted dashboard run at `artifacts/reference-dashboard-post-audio-check` generated a capture checklist, validation CSV, comparison CSV, and placeholder comparison contact sheet. Strict longplay reference validation at `artifacts/longplay-reference-validation-gta-20260609.csv` now reports all 17 manifest rows as valid, with seven extra local artifacts left from older targets.
 
@@ -18,6 +18,7 @@ reported 17/17 `pass`.
 - Invalid reference captures: 0
 - Strict longplay pixel comparisons ready: 17 current references, with 17/17 passing the current bounded comparison
 - Visual smoke: all 17 local `docs/gba-visual-snapshots.csv` rows pass with the current ignored baselines and manifest settings. This covers title screens, scripted menu paths, five short save-assisted checks, and the two long Ruby save gameplay routes.
+- Audio smoke: 11/11 routes reached target frames in `artifacts/audio-smoke-broad-20260613`; signal triage flags no-BIOS Sonic title silence and default-gain Zelda clipping as follow-up tuning targets.
 
 The 2026-06-12 Metroid Fusion title triage used `artifacts/metroid-title-reference-20260612`.
 The mGBA/gbaSharp window comparison found exact full-frame matches in the same
