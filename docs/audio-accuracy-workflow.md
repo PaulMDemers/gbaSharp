@@ -74,6 +74,8 @@ Useful suite options:
 - `-MgbaReferenceRoot reference-captures\mgba\audio`
 - `-CompareTrimLeadingSilence 1024`
 - `-CompareRemoveDc`
+- `-CompareWindows`
+- `-CompareWindowLocalShiftMs 500`
 - `-NoBuild`
 - `-FailOnSignalMismatch`
 
@@ -237,6 +239,7 @@ The comparator reports:
 
 - duration drift,
 - best alignment shift,
+- optional rolling-window correlation, RMSE, RMS, peak, and local shift,
 - left/right RMS, peak, clipping, and balance,
 - channel correlation,
 - MAE/RMSE/max absolute error after alignment.
@@ -246,6 +249,10 @@ Useful comparator controls:
 - `--trim-leading-silence 1024` ignores startup silence or low-level transients
   before alignment.
 - `--trim-padding-ms 50` keeps context before the first retained sample.
+- `--window-csv windows.csv` writes rolling metrics for locating the first weak
+  region.
+- `--window-local-shift-ms 500` adds per-window local alignment scores, which
+  helps distinguish waveform mismatch from local timing drift.
 - `--remove-dc` removes per-channel means before metric calculation.
 - `--stride 64 --max-shift-ms 1500` performs wider alignment searches quickly.
 
@@ -254,6 +261,26 @@ can still differ at the sample level because emulator mixers, filters, and
 startup alignment differ. For automated gates, start with broad thresholds such
 as low duration drift, high correlation after alignment, no clipping, and stable
 RMS/channel balance.
+
+## 2026-06-13 MAME Follow-Up
+
+The 5s Ruby and Sonic power-on MAME checks are dominated by the common
+BIOS/logo audio and now compare closely against gbaSharp at 48 kHz with
+leading-silence trimming:
+
+- Ruby 5s: `artifacts/audio-accuracy-ruby-mame-trimmed-20260613`, correlation
+  about 0.989, alignment shift about 0.02ms.
+- Sonic 5s: `artifacts/audio-accuracy-sonic-mame-trimmed-20260613`,
+  correlation about 0.989, alignment shift about 0.02ms.
+
+The longer Ruby 10s route at
+`artifacts/audio-accuracy-ruby-mame-10s-trimmed-20260613` includes cartridge
+title audio and drops to about 0.796 whole-file correlation. Rolling windows
+show the BIOS audio remains close, a silent gap follows, then Ruby title audio
+starts diverging around 6.5s. A 500ms local window search can recover the first
+title-audio window with about a 50ms local shift, but later title windows remain
+weak. Treat this as the next audio-accuracy target: cartridge music timing or
+sequencing, not the common BIOS startup path.
 
 ## Suggested Test Set
 

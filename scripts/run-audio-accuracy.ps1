@@ -26,6 +26,11 @@ param(
     [int]$CompareStride = 16,
     [int]$CompareTrimLeadingSilence = 0,
     [double]$CompareTrimPaddingMs = 50,
+    [switch]$CompareWindows,
+    [double]$CompareWindowMs = 1000,
+    [double]$CompareWindowHopMs = 500,
+    [double]$CompareWindowLocalShiftMs = 0,
+    [int]$CompareWindowLocalStride = 16,
     [switch]$CompareRemoveDc,
     [switch]$NoBuild
 )
@@ -138,6 +143,7 @@ try {
     $gbaSharpFrame = Join-Path $OutputRoot "$baseName-gbasharp-frame.ppm"
     $comparisonCsv = Join-Path $OutputRoot "$baseName-audio-comparison.csv"
     $comparisonMd = Join-Path $OutputRoot "$baseName-audio-comparison.md"
+    $comparisonWindowCsv = Join-Path $OutputRoot "$baseName-audio-windows.csv"
 
     if (-not $NoBuild) {
         Invoke-Checked -Description "Build CLI" -FilePath "dotnet" -Arguments @("build", "src\Gba.Cli\Gba.Cli.csproj", "-c", "Release")
@@ -261,8 +267,21 @@ try {
             $compareArgs += "--remove-dc"
         }
 
+        if ($CompareWindows) {
+            $compareArgs += @(
+                "--window-csv", $comparisonWindowCsv,
+                "--window-ms", $CompareWindowMs.ToString([Globalization.CultureInfo]::InvariantCulture),
+                "--window-hop-ms", $CompareWindowHopMs.ToString([Globalization.CultureInfo]::InvariantCulture),
+                "--window-local-shift-ms", $CompareWindowLocalShiftMs.ToString([Globalization.CultureInfo]::InvariantCulture),
+                "--window-local-stride", $CompareWindowLocalStride.ToString()
+            )
+        }
+
         Invoke-Checked -Description "Compare audio" -FilePath "python" -Arguments $compareArgs
         Write-Host "Audio comparison: $((Resolve-Path -LiteralPath $comparisonMd).Path)"
+        if ($CompareWindows) {
+            Write-Host "Audio windows: $((Resolve-Path -LiteralPath $comparisonWindowCsv).Path)"
+        }
     }
     else {
         Write-Host ""

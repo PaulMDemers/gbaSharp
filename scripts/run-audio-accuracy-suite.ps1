@@ -16,6 +16,11 @@ param(
     [int]$CompareStride = 16,
     [int]$CompareTrimLeadingSilence = 0,
     [double]$CompareTrimPaddingMs = 50,
+    [switch]$CompareWindows,
+    [double]$CompareWindowMs = 1000,
+    [double]$CompareWindowHopMs = 500,
+    [double]$CompareWindowLocalShiftMs = 0,
+    [int]$CompareWindowLocalStride = 16,
     [switch]$CompareRemoveDc,
     [switch]$ListOnly,
     [switch]$NoBuild
@@ -118,6 +123,16 @@ try {
             $args += "-CompareRemoveDc"
         }
 
+        if ($CompareWindows) {
+            $args += @(
+                "-CompareWindows",
+                "-CompareWindowMs", $CompareWindowMs,
+                "-CompareWindowHopMs", $CompareWindowHopMs,
+                "-CompareWindowLocalShiftMs", $CompareWindowLocalShiftMs,
+                "-CompareWindowLocalStride", $CompareWindowLocalStride
+            )
+        }
+
         if (-not $align) {
             $args += "-NoAlignRomEntry"
         }
@@ -186,6 +201,7 @@ try {
 
         $comparisonCsv = Get-ChildItem -LiteralPath $routeOutput -Filter "*-audio-comparison.csv" -File -ErrorAction SilentlyContinue | Select-Object -First 1
         $comparisonMd = Get-ChildItem -LiteralPath $routeOutput -Filter "*-audio-comparison.md" -File -ErrorAction SilentlyContinue | Select-Object -First 1
+        $comparisonWindows = Get-ChildItem -LiteralPath $routeOutput -Filter "*-audio-windows.csv" -File -ErrorAction SilentlyContinue | Select-Object -First 1
         $gbaSharpWav = Get-ChildItem -LiteralPath $routeOutput -Filter "*-gbasharp.wav" -File -ErrorAction SilentlyContinue | Select-Object -First 1
         $comparison = $null
         if ($comparisonCsv) {
@@ -200,6 +216,7 @@ try {
             gbaSharpWav = if ($gbaSharpWav) { $gbaSharpWav.FullName } else { "" }
             mgbaReferenceWav = if ($hasReference) { (Resolve-Path -LiteralPath $referenceWav).Path } else { "" }
             comparisonMd = if ($comparisonMd) { $comparisonMd.FullName } else { "" }
+            comparisonWindows = if ($comparisonWindows) { $comparisonWindows.FullName } else { "" }
             overallCorrelation = if ($comparison) { $comparison.overallCorrelation } else { "" }
             overallRmse = if ($comparison) { $comparison.overallRmse } else { "" }
             durationDeltaSeconds = if ($comparison) { $comparison.durationDeltaSeconds } else { "" }
