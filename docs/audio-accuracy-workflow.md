@@ -137,6 +137,16 @@ Useful MAME options for automation include `-seconds_to_run`/`-str`, which stops
 after a fixed amount of emulated time, and `-wavwrite`, which writes final mixed
 audio.
 
+For visual alignment checks against the same fixed-time MAME route, use:
+
+```powershell
+.\scripts\capture-mame-frame.ps1 -Rom Ruby.gba -OutputPng artifacts\mame\ruby-10s.png -Seconds 10
+```
+
+The wrapper records a temporary MAME AVI, extracts a PNG frame with
+`scripts\extract-mame-avi-frame.py`, and deletes the AVI unless `-KeepAvi` is
+passed.
+
 MAME currently writes 48 kHz WAV output by default, so use `-SampleRate 48000`
 for gbaSharp captures when comparing directly:
 
@@ -293,6 +303,12 @@ A calibrated Ruby 10s run at
 peak level to roughly match MAME (`12960` vs `12912`) but leaves whole-file
 correlation at about 0.797. That confirms the remaining Ruby gap is not just
 master output gain.
+
+Visual alignment at the same 10s route is good:
+`artifacts/mame-visual-probe-20260613/ruby-10s-last.png` versus
+`artifacts/mame-visual-probe-20260613/ruby-gbasharp-10s.png` differs in only
+121/38,400 pixels. The audio issue is therefore not caused by comparing
+different intro scenes.
 
 ## Suggested Test Set
 
