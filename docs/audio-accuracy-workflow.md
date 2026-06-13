@@ -75,6 +75,7 @@ Useful suite options:
 - `-CompareTrimLeadingSilence 1024`
 - `-CompareRemoveDc`
 - `-NoBuild`
+- `-FailOnSignalMismatch`
 
 The audio smoke runner writes route status, `signalStatus`, and
 `signalMatch`. Route status reports whether the emulator reached the requested

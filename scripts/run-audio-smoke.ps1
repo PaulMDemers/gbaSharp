@@ -13,6 +13,7 @@ param(
     [switch]$NoBuild,
     [switch]$NoAlignRomEntry,
     [switch]$Resume,
+    [switch]$FailOnSignalMismatch,
     [switch]$NormalPriority
 )
 
@@ -607,6 +608,13 @@ try {
     Write-MarkdownReport -Rows @($results.ToArray()) -Path $reportMd -ManifestPath $Manifest
     Write-Host "Wrote audio smoke report to $reportCsv"
     Write-Host "Wrote audio smoke summary to $reportMd"
+
+    if ($FailOnSignalMismatch) {
+        $signalMismatches = @($results | Where-Object { $_.signalMatch -eq "mismatch" })
+        if ($signalMismatches.Count -gt 0) {
+            throw "Audio smoke found $($signalMismatches.Count) signal expectation mismatch(es)."
+        }
+    }
 }
 finally {
     Pop-Location
