@@ -332,6 +332,17 @@ against MAME: whole-file correlation remains about 0.844 with about 0.02ms
 alignment shift. That confirms the export/capture path is no longer the weak
 link. The remaining Ruby title gap is in direct-sound generation or timing.
 
+Rolling local-shift analysis keeps that target narrow. With 500ms windows,
+the direct-sound title section from roughly 7.25s through 8.75s has weak
+zero-shift correlation, but local shifts around 50-67ms recover correlations
+around 0.7-0.95. Ruby holds Timer 0 at reload `0xFB1A` for this section, and
+the only mid-title direct-sound control change is `SOUNDCNT_H=0x3302` at frame
+451, switching the direct channels to centered half-volume output. PSG register
+writes do not begin until about frame 581, where the late-window mismatch
+becomes a separate PSG accuracy problem. Treat the direct-sound title gap as
+a timing/sequence alignment problem first, then handle the frame-581 PSG entry
+as the next focused mixer/channel check.
+
 ## Suggested Test Set
 
 Use a mix of synthetic tests and commercial anchors:
