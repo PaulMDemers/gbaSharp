@@ -240,6 +240,7 @@ The comparator reports:
 - duration drift,
 - best alignment shift,
 - optional rolling-window correlation, RMSE, RMS, peak, and local shift,
+- least-squares actual-to-reference gain plus gain-adjusted RMSE,
 - left/right RMS, peak, clipping, and balance,
 - channel correlation,
 - MAE/RMSE/max absolute error after alignment.
@@ -255,6 +256,11 @@ Useful comparator controls:
   helps distinguish waveform mismatch from local timing drift.
 - `--remove-dc` removes per-channel means before metric calculation.
 - `--stride 64 --max-shift-ms 1500` performs wider alignment searches quickly.
+
+Use the gain-adjusted metrics to avoid chasing simple export-level differences.
+For example, MAME's common BIOS/logo audio wants about a 1.47x boost over a
+gbaSharp `-Gain 0.45` capture, while the waveform correlation remains the more
+important shape/timing signal.
 
 Treat these as triage signals rather than a single pass/fail value. Good audio
 can still differ at the sample level because emulator mixers, filters, and
@@ -281,6 +287,12 @@ starts diverging around 6.5s. A 500ms local window search can recover the first
 title-audio window with about a 50ms local shift, but later title windows remain
 weak. Treat this as the next audio-accuracy target: cartridge music timing or
 sequencing, not the common BIOS startup path.
+
+A calibrated Ruby 10s run at
+`artifacts/audio-accuracy-ruby-mame-10s-gain0675-20260613` raises gbaSharp's
+peak level to roughly match MAME (`12960` vs `12912`) but leaves whole-file
+correlation at about 0.797. That confirms the remaining Ruby gap is not just
+master output gain.
 
 ## Suggested Test Set
 

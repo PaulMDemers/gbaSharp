@@ -107,6 +107,32 @@ def remove_mean(values: list[int | float]) -> list[float]:
     return [float(value) - mean for value in values]
 
 
+def optimal_gain(reference: list[int | float], actual: list[int | float]) -> float:
+    numerator = 0.0
+    denominator = 0.0
+    for ref_sample, actual_sample in zip(reference, actual):
+        ref_value = float(ref_sample)
+        actual_value = float(actual_sample)
+        numerator += ref_value * actual_value
+        denominator += actual_value * actual_value
+    return 0.0 if denominator == 0 else numerator / denominator
+
+
+def error_metrics(reference: list[int | float], actual: list[int | float], gain: float = 1.0) -> tuple[float, float, float]:
+    count = min(len(reference), len(actual))
+    if count == 0:
+        return 0.0, 0.0, 0.0
+
+    abs_errors = []
+    sq_errors = []
+    for ref_sample, actual_sample in zip(reference[:count], actual[:count]):
+        error = float(ref_sample) - (float(actual_sample) * gain)
+        abs_errors.append(abs(error))
+        sq_errors.append(error * error)
+
+    return sum(abs_errors) / count, math.sqrt(sum(sq_errors) / count), max(abs_errors, default=0.0)
+
+
 def correlation_for_shift(reference: list[float], actual: list[float], shift: int, max_samples: int) -> float:
     if shift >= 0:
         ref_start = shift
@@ -180,30 +206,49 @@ def compare(reference: list[list[int]], actual: list[list[int]], shift: int, rem
     metrics: dict[str, float | int] = {"shiftSamples": shift}
     all_abs_errors = []
     all_sq_errors = []
+    all_gain_abs_errors = []
+    all_gain_sq_errors = []
     channel_correlations = []
+    channel_gains = []
     for channel_name, channel in (("left", 0), ("right", 1)):
         ref, act = aligned_channel(reference[channel], actual[channel], shift)
         count = min(len(ref), len(act))
         ref_for_metrics = remove_mean(ref) if remove_dc else [float(value) for value in ref]
         act_for_metrics = remove_mean(act) if remove_dc else [float(value) for value in act]
+        gain = optimal_gain(ref_for_metrics, act_for_metrics)
+        channel_gains.append(gain)
         errors = [a - b for a, b in zip(ref_for_metrics, act_for_metrics)]
+        gain_errors = [a - (b * gain) for a, b in zip(ref_for_metrics, act_for_metrics)]
         abs_errors = [abs(error) for error in errors]
         sq_errors = [error * error for error in errors]
+        gain_abs_errors = [abs(error) for error in gain_errors]
+        gain_sq_errors = [error * error for error in gain_errors]
         all_abs_errors.extend(abs_errors)
         all_sq_errors.extend(sq_errors)
+        all_gain_abs_errors.extend(gain_abs_errors)
+        all_gain_sq_errors.extend(gain_sq_errors)
         corr = correlation(ref_for_metrics, act_for_metrics)
         channel_correlations.append(corr)
         metrics[f"{channel_name}SamplesCompared"] = count
         metrics[f"{channel_name}Correlation"] = corr
+        metrics[f"{channel_name}ActualToReferenceGain"] = gain
         metrics[f"{channel_name}Mae"] = sum(abs_errors) / count if count else 0.0
         metrics[f"{channel_name}Rmse"] = math.sqrt(sum(sq_errors) / count) if count else 0.0
         metrics[f"{channel_name}MaxAbsError"] = max(abs_errors, default=0)
+        metrics[f"{channel_name}GainAdjustedMae"] = sum(gain_abs_errors) / count if count else 0.0
+        metrics[f"{channel_name}GainAdjustedRmse"] = math.sqrt(sum(gain_sq_errors) / count) if count else 0.0
+        metrics[f"{channel_name}GainAdjustedMaxAbsError"] = max(gain_abs_errors, default=0)
 
     compared = len(all_abs_errors)
+    gain_compared = len(all_gain_abs_errors)
     metrics["overallCorrelation"] = sum(channel_correlations) / len(channel_correlations)
+    metrics["averageActualToReferenceGain"] = sum(channel_gains) / len(channel_gains)
     metrics["overallMae"] = sum(all_abs_errors) / compared if compared else 0.0
     metrics["overallRmse"] = math.sqrt(sum(all_sq_errors) / compared) if compared else 0.0
     metrics["overallMaxAbsError"] = max(all_abs_errors, default=0)
+    metrics["overallGainAdjustedMae"] = sum(all_gain_abs_errors) / gain_compared if gain_compared else 0.0
+    metrics["overallGainAdjustedRmse"] = math.sqrt(sum(all_gain_sq_errors) / gain_compared) if gain_compared else 0.0
+    metrics["overallGainAdjustedMaxAbsError"] = max(all_gain_abs_errors, default=0)
     return metrics
 
 
@@ -250,6 +295,8 @@ def windowed_metrics(
 
         local_shift = 0
         local_correlation = 0.0
+        gain = optimal_gain(ref_values, act_values)
+        gain_mae, gain_rmse, gain_max_error = error_metrics(ref_values, act_values, gain)
         if local_shift_samples > 0:
             local_ref = [(left + right) / 2.0 for left, right in zip(aligned[0][0][start:end], aligned[1][0][start:end])]
             local_act = [(left + right) / 2.0 for left, right in zip(aligned[0][1][start:end], aligned[1][1][start:end])]
@@ -276,8 +323,12 @@ def windowed_metrics(
                 "localShiftSamples": local_shift,
                 "localShiftMs": local_shift * 1000.0 / sample_rate if sample_rate else 0.0,
                 "localAlignmentCorrelation": local_correlation,
+                "actualToReferenceGain": gain,
                 "overallMae": sum(abs_errors) / compared if compared else 0.0,
                 "overallRmse": math.sqrt(sum(sq_errors) / compared) if compared else 0.0,
+                "gainAdjustedMae": gain_mae,
+                "gainAdjustedRmse": gain_rmse,
+                "gainAdjustedMaxAbsError": gain_max_error,
                 "referenceRms": rms(ref_values),
                 "actualRms": rms(act_values),
                 "referencePeak": peak(ref_values),
@@ -334,8 +385,12 @@ def write_rows_csv(path: Path, rows: list[dict[str, float | int]]) -> None:
         "localShiftSamples",
         "localShiftMs",
         "localAlignmentCorrelation",
+        "actualToReferenceGain",
         "overallMae",
         "overallRmse",
+        "gainAdjustedMae",
+        "gainAdjustedRmse",
+        "gainAdjustedMaxAbsError",
         "referenceRms",
         "actualRms",
         "referencePeak",
