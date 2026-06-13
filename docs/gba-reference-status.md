@@ -5,10 +5,9 @@ Last checked: 2026-06-12
 The external reference dashboard tooling is ready. The non-strict save-assisted dashboard run at `artifacts/reference-dashboard-post-audio-check` generated a capture checklist, validation CSV, comparison CSV, and placeholder comparison contact sheet. Strict longplay reference validation at `artifacts/longplay-reference-validation-gta-20260609.csv` now reports all 17 manifest rows as valid, with seven extra local artifacts left from older targets.
 
 The latest strict longplay external oracle run is
-`artifacts/strict-reference-suite-20260610-035200`. It was launched through
-`scripts/run-local-verification.ps1 -NoRestore -IncludeStrictReference`; the
-quick build/test gate passed, capture validation reported 17 `ok` rows plus 7
-extra local captures, and frame comparison reported 17/17 `pass`.
+`artifacts/strict-reference-suite-visual-green-20260612`. Capture validation
+reported 17 `ok` rows plus 7 extra local captures, and frame comparison
+reported 17/17 `pass`.
 
 ## Current Result
 
