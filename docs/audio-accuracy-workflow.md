@@ -314,7 +314,7 @@ The first emulator-side improvement from this pass is emitting zero PSG samples
 to event subscribers while keeping the compact PSG CSV capture nonzero-only.
 This prevents the mixed WAV resampler from holding stale PSG output after a
 channel has gone silent. The calibrated Ruby 10s comparison improved in
-`artifacts/audio-accuracy-ruby-mame-10s-psgzero-20260613`: whole-file
+`artifacts/audio-accuracy-ruby-mame-10s-psgzero-reset-20260613`: whole-file
 correlation rose from about 0.797 to about 0.844, RMSE dropped from about 827
 to about 724, and global alignment moved to 0ms. The remaining weak region is
 still late Ruby title music around 8.5s onward.

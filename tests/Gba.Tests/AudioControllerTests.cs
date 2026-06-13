@@ -169,6 +169,30 @@ public sealed class AudioControllerTests
     }
 
     [Fact]
+    public void PsgMasterDisableEmitsSilenceToSubscribers()
+    {
+        var gba = new GbaSystem();
+        var produced = new List<PsgPcmSample>();
+        gba.Audio.PsgSampleProduced += produced.Add;
+        gba.Bus.Write16(IoRegisters.SOUNDCNT_X, 1 << 7);
+        gba.Bus.Write16(IoRegisters.SOUNDCNT_L, (7 << 4) | 7 | (1 << 12) | (1 << 8));
+        gba.Bus.Write16(IoRegisters.SOUND1CNT_H, (2 << 6) | (8 << 12));
+        gba.Bus.Write16(IoRegisters.SOUND1CNT_X, 0x8000);
+
+        gba.Audio.Advance(512, 512);
+        Assert.Contains(produced, sample => sample.Left != 0 || sample.Right != 0);
+
+        produced.Clear();
+        gba.Bus.Write16(IoRegisters.SOUNDCNT_X, 0);
+        gba.Audio.Advance(512, 1024);
+
+        var sample = Assert.Single(produced);
+        Assert.Equal(512, sample.Cycle);
+        Assert.Equal(0, sample.Left);
+        Assert.Equal(0, sample.Right);
+    }
+
+    [Fact]
     public void SoundControlStatusIgnoresChannelStatusWrites()
     {
         var gba = new GbaSystem();

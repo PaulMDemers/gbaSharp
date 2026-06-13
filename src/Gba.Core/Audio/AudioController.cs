@@ -19,6 +19,7 @@ public sealed class AudioController
     private long _psgCyclesUntilNext = PsgCyclesPerSample;
     private int _psgSamplesUntilFrameSequencer = PsgSamplesPerFrameSequencerTick;
     private int _frameSequencerStep;
+    private bool _emitPsgSilenceAtNextAdvance;
 
     public AudioController(MemoryBus bus, DmaController dma)
     {
@@ -51,6 +52,12 @@ public sealed class AudioController
         if (cycles <= 0)
         {
             return;
+        }
+
+        if (_emitPsgSilenceAtNextAdvance)
+        {
+            _emitPsgSilenceAtNextAdvance = false;
+            PsgSampleProduced?.Invoke(new PsgPcmSample(currentCycle - cycles, 0, 0));
         }
 
         var remaining = cycles;
@@ -221,6 +228,7 @@ public sealed class AudioController
         _psgCyclesUntilNext = PsgCyclesPerSample;
         _psgSamplesUntilFrameSequencer = PsgSamplesPerFrameSequencerTick;
         _frameSequencerStep = 0;
+        _emitPsgSilenceAtNextAdvance = true;
     }
 
     private void ClockFrameSequencerIfNeeded()
