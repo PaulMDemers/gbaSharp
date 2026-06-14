@@ -20,6 +20,7 @@ Useful options:
 - `--audio-csv direct.csv`
 - `--psg-csv psg.csv`
 - `--psg-csv-include-silence`
+- `--audio-timing-csv timing.csv`
 
 The WAV path records mixed direct-sound FIFO output plus PSG output on the same
 emulated cycle timeline. The CSV paths remain useful when reducing whether a
@@ -28,6 +29,14 @@ problem is in FIFO timing, PSG generation, or final mixing.
 which is useful when reconstructing mixed audio from CSV without accidentally
 holding a stale PSG value after a channel goes quiet. Leave it off for compact
 nonzero-only PSG traces.
+`--audio-timing-csv` writes a combined timing trace for direct-sound samples,
+FIFO DMA refills, and audio/timer IO writes. Combine it with `--trace-frames`
+to keep focused probes small:
+
+```powershell
+dotnet run --project src\Gba.Cli -c Release -- dump-frame Ruby.gba --bios path\to\gba_bios.bin --stop-frame 597 --trace-frames 430:597 --audio-timing-csv artifacts\audio\ruby-timing.csv
+python scripts\summarize-audio-timing.py artifacts\audio\ruby-timing.csv --range 430:451 --range 451:581 --range 581:598 --output-md artifacts\audio\ruby-timing.md
+```
 
 For the common workflow, use the wrapper script:
 
@@ -342,6 +351,15 @@ writes do not begin until about frame 581, where the late-window mismatch
 becomes a separate PSG accuracy problem. Treat the direct-sound title gap as
 a timing/sequence alignment problem first, then handle the frame-581 PSG entry
 as the next focused mixer/channel check.
+
+The follow-up timing probe
+`artifacts/ruby-audio-timing-probe-20260613/ruby-audio-timing-summary.md`
+confirms the FIFO/timer side is stable through the weak Ruby title region:
+both direct FIFOs clock from Timer 0 every 1,254 cycles, and FIFO DMA refills
+arrive every 20,064 cycles. That means the remaining 50-67ms local title offset
+is unlikely to be a simple timer overflow or FIFO refill cadence bug; inspect
+audio-buffer production timing, CPU/memory timing, and the sequence update path
+next.
 
 ## Suggested Test Set
 

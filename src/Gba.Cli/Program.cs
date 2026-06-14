@@ -1,6 +1,7 @@
 using Gba.Core;
 using Gba.Core.Audio;
 using Gba.Core.Cartridges;
+using Gba.Core.Dma;
 using Gba.Core.Input;
 using Gba.Core.Memory;
 using Gba.Core.Video;
@@ -1004,7 +1005,7 @@ static async Task<int> RunCompatibility(string[] args, byte[]? bios)
     keyEvents.Sort((left, right) => left.Step.CompareTo(right.Step));
     frameKeyEvents.Sort((left, right) => left.Frame.CompareTo(right.Frame));
     framePokeEvents.Sort((left, right) => left.Frame.CompareTo(right.Frame));
-    var options = new RunOptions(maxSteps, null, false, keys, keyEvents, frameKeyEvents, frameHashEvents, memoryTriggerEvents, framePokeEvents, [], [], [], [], 0, false, false, false, false, 0, false, false, 0, traceInput, [], [], [], null, 0, 0, null, false, null, 1, [], 0, 6, stopFrame, null, null, null, 1, alignRomEntry, null, null, false, null, 44_100, 0.5, false);
+    var options = new RunOptions(maxSteps, null, false, keys, keyEvents, frameKeyEvents, frameHashEvents, memoryTriggerEvents, framePokeEvents, [], [], [], [], 0, false, false, false, false, 0, false, false, 0, traceInput, [], [], [], null, 0, 0, null, false, null, 1, [], 0, 6, stopFrame, null, null, null, 1, alignRomEntry, null, null, false, null, null, 44_100, 0.5, false);
     var phases = BuildCompatibilityPhases(suiteName, phaseName, options, frameStepBudget);
     var rootFullPath = Path.GetFullPath(root);
     var indexedRoms = Directory.EnumerateFiles(rootFullPath, "*.gba", SearchOption.AllDirectories)
@@ -1792,12 +1793,15 @@ static int DumpFrame(GbaSystem gba, string[] args)
     using var audioSamples = OpenAudioSampleWriter(options, gba);
     using var psgSamples = OpenPsgSampleWriter(options, gba);
     using var audioWav = OpenAudioWavWriter(options, gba);
+    long currentStep = 0;
+    using var audioTiming = OpenAudioTimingWriter(options, gba, () => frame, () => currentStep);
     var traceTail = CreateTraceTail(options);
     var traceLimiter = CreateTraceLimiter(options);
     var wallClockLimit = StartWallClockLimit(options);
     var hitWallClockLimit = false;
     for (long step = 0; step < options.MaxSteps; step++)
     {
+        currentStep = step;
         if (ShouldStopAtWallClock(options, wallClockLimit))
         {
             hitWallClockLimit = true;
@@ -1862,6 +1866,11 @@ static int DumpFrame(GbaSystem gba, string[] args)
     if (audioWav is not null)
     {
         Console.WriteLine($"Wrote {audioWav.FrameCount:N0} stereo audio frames to {Path.GetFullPath(options.AudioWav!)}.");
+    }
+
+    if (audioTiming is not null)
+    {
+        Console.WriteLine($"Wrote {audioTiming.Count:N0} audio timing events to {Path.GetFullPath(options.AudioTimingCsv!)}.");
     }
 
     DumpMemoryIfRequested(gba, options);
@@ -2234,6 +2243,7 @@ static RunOptions ParseRunOptions(string[] args)
     string? audioCsv = null;
     string? psgCsv = null;
     var psgCsvIncludeSilence = false;
+    string? audioTimingCsv = null;
     string? audioWav = null;
     var audioSampleRate = 44_100;
     var audioGain = 0.5;
@@ -2442,6 +2452,10 @@ static RunOptions ParseRunOptions(string[] args)
                 psgCsvIncludeSilence = true;
                 break;
 
+            case "--audio-timing-csv" when i + 1 < args.Length:
+                audioTimingCsv = args[++i];
+                break;
+
             case "--audio-wav" when i + 1 < args.Length:
                 audioWav = args[++i];
                 break;
@@ -2485,7 +2499,7 @@ static RunOptions ParseRunOptions(string[] args)
     keyEvents.Sort((left, right) => left.Step.CompareTo(right.Step));
     frameKeyEvents.Sort((left, right) => left.Frame.CompareTo(right.Frame));
     framePokeEvents.Sort((left, right) => left.Frame.CompareTo(right.Frame));
-    return new RunOptions(maxSteps, maxSeconds, trace, keys, keyEvents, frameKeyEvents, frameHashEvents, memoryTriggerEvents, framePokeEvents, watchReads, watchReadRanges, watchWrites, watchWriteRanges, watchLimit, stopOnInvalidPc, printState, traceSwi, traceIrq, traceIrqLimit, traceDma, traceEeprom, traceEepromLimit, traceInput, dumps, instructionDumps, traceRanges, traceFrameRange, traceTail, traceHitLimit, saveFile, saveReadOnly, stopPc, stopPcHit, snapshotPcs, snapshotPcLimit, pcSnapshotStackWords, stopFrame, debugLayer, snapshotCsv, pcSnapshotCsv, snapshotFrames, alignRomEntry, audioCsv, psgCsv, psgCsvIncludeSilence, audioWav, audioSampleRate, audioGain, audioPadFromStart);
+    return new RunOptions(maxSteps, maxSeconds, trace, keys, keyEvents, frameKeyEvents, frameHashEvents, memoryTriggerEvents, framePokeEvents, watchReads, watchReadRanges, watchWrites, watchWriteRanges, watchLimit, stopOnInvalidPc, printState, traceSwi, traceIrq, traceIrqLimit, traceDma, traceEeprom, traceEepromLimit, traceInput, dumps, instructionDumps, traceRanges, traceFrameRange, traceTail, traceHitLimit, saveFile, saveReadOnly, stopPc, stopPcHit, snapshotPcs, snapshotPcLimit, pcSnapshotStackWords, stopFrame, debugLayer, snapshotCsv, pcSnapshotCsv, snapshotFrames, alignRomEntry, audioCsv, psgCsv, psgCsvIncludeSilence, audioTimingCsv, audioWav, audioSampleRate, audioGain, audioPadFromStart);
 }
 
 static void AddMenuSelectionEvents(List<KeyEvent> keyEvents, int selectedIndex)
@@ -3741,6 +3755,69 @@ static PsgSampleWriter? OpenPsgSampleWriter(RunOptions options, GbaSystem gba)
     return new PsgSampleWriter(writer);
 }
 
+static AudioTimingWriter? OpenAudioTimingWriter(RunOptions options, GbaSystem gba, Func<int> frameProvider, Func<long> stepProvider)
+{
+    if (options.AudioTimingCsv is not { Length: > 0 } path)
+    {
+        return null;
+    }
+
+    var fullPath = Path.GetFullPath(path);
+    var directory = Path.GetDirectoryName(fullPath);
+    if (!string.IsNullOrEmpty(directory))
+    {
+        Directory.CreateDirectory(directory);
+    }
+
+    var writer = new AudioTimingWriter(new StreamWriter(fullPath, append: false, System.Text.Encoding.ASCII));
+
+    bool FrameAllowed()
+    {
+        var frame = frameProvider();
+        return options.TraceFrameRange is not { } frameRange || frameRange.Contains(frame);
+    }
+
+    gba.Audio.SampleProduced += sample =>
+    {
+        if (FrameAllowed())
+        {
+            writer.WriteDirect(gba, stepProvider(), frameProvider(), sample);
+        }
+    };
+
+    gba.Dma.TransferStarted += trace =>
+    {
+        if (FrameAllowed())
+        {
+            writer.WriteDma(gba, stepProvider(), frameProvider(), trace);
+        }
+    };
+
+    gba.Bus.AddIoWriteObserver((address, bytes) =>
+    {
+        if (FrameAllowed() && IsAudioTimingIoAddress(address, bytes))
+        {
+            var value = bytes <= 2 ? gba.Bus.PeekIo16(address & ~1u) : gba.Bus.PeekIo32(address & ~3u);
+            writer.WriteIoWrite(gba, stepProvider(), frameProvider(), address, bytes, value);
+        }
+    });
+
+    return writer;
+}
+
+static bool IsAudioTimingIoAddress(uint address, int bytes)
+{
+    static bool Overlaps(uint writeAddress, int writeBytes, uint registerAddress, int registerBytes)
+        => writeAddress < registerAddress + registerBytes && registerAddress < writeAddress + writeBytes;
+
+    return Overlaps(address, bytes, IoRegisters.SOUNDCNT_L, 6)
+        || Overlaps(address, bytes, IoRegisters.SOUND1CNT_L, 0x30)
+        || Overlaps(address, bytes, IoRegisters.FIFO_A, 8)
+        || Overlaps(address, bytes, IoRegisters.TM0CNT_L, 8)
+        || Overlaps(address, bytes, IoRegisters.DMA1SAD, 0x18)
+        || Overlaps(address, bytes, IoRegisters.DMA2SAD, 0x18);
+}
+
 static AudioWavWriter? OpenAudioWavWriter(RunOptions options, GbaSystem gba)
 {
     if (options.AudioWav is not { Length: > 0 } path)
@@ -4821,7 +4898,7 @@ static void PrintUsage()
     Console.Error.WriteLine("  gbaSharp save-probe <rom-directory> [--limit N] [--start-index N] [--indexes 12,15-20] [--output save-probe.csv] [--summary-output save-probe-summary.csv]");
     Console.Error.WriteLine("  gbaSharp run <rom.gba> [--max-steps N] [--max-seconds N] [--stop-frame N] [--align-rom-entry] [--trace] [--audio-wav audio.wav]");
     Console.Error.WriteLine("  gbaSharp test-rom <rom.gba> [--max-steps N] [--max-seconds N] [--stop-frame N] [--trace] [--success-pc HEX] [--failure-pc HEX]");
-    Console.Error.WriteLine("  gbaSharp dump-frame <rom.gba> [--max-steps N] [--max-seconds N] [--stop-frame N] [--trace] [--output frame.ppm] [--audio-csv direct.csv] [--psg-csv psg.csv] [--psg-csv-include-silence] [--audio-wav audio.wav]");
+    Console.Error.WriteLine("  gbaSharp dump-frame <rom.gba> [--max-steps N] [--max-seconds N] [--stop-frame N] [--trace] [--output frame.ppm] [--audio-csv direct.csv] [--psg-csv psg.csv] [--psg-csv-include-silence] [--audio-timing-csv timing.csv] [--audio-wav audio.wav]");
     Console.Error.WriteLine("  gbaSharp compare-bios <rom.gba> --bios gba_bios.bin [--stop-frame N] [--compare-output diff.csv] [--compare-start-frame N] [--compare-frame-interval N] [--compare-first-diff-only] [--compare-game-state-only] [--compare-align-rom-entry]");
     Console.Error.WriteLine("  gbaSharp capture-frames <rom.gba> [--max-steps N] [--max-seconds N] [--output-dir captures] [--sample-steps N]");
     Console.Error.WriteLine("  gbaSharp verify-frame <rom.gba> --baseline baseline.ppm [--actual actual.ppm] [--diff diff.ppm] [--write-baseline] [--max-different-pixels N] [--max-channel-delta N] [--phase-window-frames N]");
@@ -4835,7 +4912,7 @@ static void PrintUsage()
     Console.Error.WriteLine("  Dynamic input: [--tap-on-hash HASH:KEYS[:DURATION[:MIN_FRAME]]] [--tap-on-memory ADDRESS:BYTES:VALUE:KEYS[:DURATION[:MIN_FRAME]]]");
     Console.Error.WriteLine("  Menu helper: [--menu-select INDEX] selects a zero-based menu row with Down taps then Start");
     Console.Error.WriteLine("  Save data: [--save-file game.sav] loads an existing save and writes it back on exit unless --save-read-only is set");
-    Console.Error.WriteLine("  Audio capture: [--audio-wav audio.wav] [--audio-sample-rate 44100] [--audio-gain 0.5] [--audio-pad-from-start]");
+    Console.Error.WriteLine("  Audio capture: [--audio-wav audio.wav] [--audio-sample-rate 44100] [--audio-gain 0.5] [--audio-pad-from-start] [--audio-csv direct.csv] [--psg-csv psg.csv] [--audio-timing-csv timing.csv]");
     Console.Error.WriteLine("  Debug reads/writes: [--watch-read 04000130] [--watch-read-range 03000000:03007FFF] [--watch-write 03007E44] [--watch-write-range 03000000:03007FFF] [--watch-limit 100] [--dump-memory 03000000:100] [--disassemble-memory 03000000:100[:arm|thumb]]");
     Console.Error.WriteLine("  Debug execution: [--stop-pc 08000100] [--stop-pc-hit 2] [--snapshot-pc 08000100] [--snapshot-pc-limit 4] [--pc-snapshot-csv pcs.csv] [--stop-on-invalid-pc] [--print-state] [--trace-swi] [--trace-irq] [--trace-irq-limit 100] [--trace-dma] [--trace-input] [--trace-range 08000000:08000100] [--trace-frames 120:140] [--trace-tail 200] [--trace-hit-limit 4]");
 }
@@ -5241,6 +5318,7 @@ internal sealed record RunOptions(
     string? AudioCsv,
     string? PsgCsv,
     bool PsgCsvIncludeSilence,
+    string? AudioTimingCsv,
     string? AudioWav,
     int AudioSampleRate,
     double AudioGain,
@@ -5698,6 +5776,201 @@ internal sealed class PsgSampleWriter(StreamWriter writer) : IDisposable
     public long Count { get; set; }
 
     public void Dispose() => Writer.Dispose();
+}
+
+internal sealed class AudioTimingWriter : IDisposable
+{
+    private readonly StreamWriter _writer;
+
+    public AudioTimingWriter(StreamWriter writer)
+    {
+        _writer = writer;
+        _writer.WriteLine("kind,step,frame,cycle,cpuPc,line,videoLine,dispstat,soundcntL,soundcntH,soundcntX,timer0Counter,timer0Control,timer1Counter,timer1Control,dmaChannel,dmaTiming,dmaSource,dmaDestination,dmaCount,dmaWidth,dmaControl,fifoALevel,fifoBLevel,fifo,timer,raw,left,right,address,bytes,value,sourcePreview");
+    }
+
+    public long Count { get; private set; }
+
+    public void WriteDirect(GbaSystem gba, long step, int frame, DirectSoundPcmSample sample)
+        => WriteRow(
+            gba,
+            "direct",
+            step,
+            frame,
+            sample.Cycle,
+            dmaChannel: "",
+            dmaTiming: "",
+            dmaSource: "",
+            dmaDestination: "",
+            dmaCount: "",
+            dmaWidth: "",
+            dmaControl: "",
+            fifoALevel: gba.Dma.SoundFifoALevel.ToString(CultureInfo.InvariantCulture),
+            fifoBLevel: gba.Dma.SoundFifoBLevel.ToString(CultureInfo.InvariantCulture),
+            fifo: sample.Fifo.ToString(CultureInfo.InvariantCulture),
+            timer: sample.Timer.ToString(CultureInfo.InvariantCulture),
+            raw: sample.RawSample.ToString(CultureInfo.InvariantCulture),
+            left: sample.Left.ToString(CultureInfo.InvariantCulture),
+            right: sample.Right.ToString(CultureInfo.InvariantCulture),
+            address: "",
+            bytes: "",
+            value: "",
+            sourcePreview: "");
+
+    public void WriteDma(GbaSystem gba, long step, int frame, DmaController.DmaTransferTrace trace)
+        => WriteRow(
+            gba,
+            "dma",
+            step,
+            frame,
+            gba.Scheduler.Now,
+            dmaChannel: trace.Channel.ToString(CultureInfo.InvariantCulture),
+            dmaTiming: trace.Timing,
+            dmaSource: Hex32(trace.Source),
+            dmaDestination: Hex32(trace.Destination),
+            dmaCount: trace.Count.ToString(CultureInfo.InvariantCulture),
+            dmaWidth: trace.WordTransfer ? "32" : "16",
+            dmaControl: Hex16(trace.Control),
+            fifoALevel: trace.FifoALevel.ToString(CultureInfo.InvariantCulture),
+            fifoBLevel: trace.FifoBLevel.ToString(CultureInfo.InvariantCulture),
+            fifo: "",
+            timer: "",
+            raw: "",
+            left: "",
+            right: "",
+            address: "",
+            bytes: "",
+            value: "",
+            sourcePreview: DmaSourcePreview(gba, trace.Source, trace.Count, trace.WordTransfer));
+
+    public void WriteIoWrite(GbaSystem gba, long step, int frame, uint address, int bytes, uint value)
+        => WriteRow(
+            gba,
+            "iowrite",
+            step,
+            frame,
+            gba.Scheduler.Now,
+            dmaChannel: "",
+            dmaTiming: "",
+            dmaSource: "",
+            dmaDestination: "",
+            dmaCount: "",
+            dmaWidth: "",
+            dmaControl: "",
+            fifoALevel: gba.Dma.SoundFifoALevel.ToString(CultureInfo.InvariantCulture),
+            fifoBLevel: gba.Dma.SoundFifoBLevel.ToString(CultureInfo.InvariantCulture),
+            fifo: "",
+            timer: "",
+            raw: "",
+            left: "",
+            right: "",
+            address: Hex32(address),
+            bytes: bytes.ToString(CultureInfo.InvariantCulture),
+            value: bytes <= 2 ? Hex16((ushort)value) : Hex32(value),
+            sourcePreview: "");
+
+    public void Dispose() => _writer.Dispose();
+
+    private void WriteRow(
+        GbaSystem gba,
+        string kind,
+        long step,
+        int frame,
+        long cycle,
+        string dmaChannel,
+        string dmaTiming,
+        string dmaSource,
+        string dmaDestination,
+        string dmaCount,
+        string dmaWidth,
+        string dmaControl,
+        string fifoALevel,
+        string fifoBLevel,
+        string fifo,
+        string timer,
+        string raw,
+        string left,
+        string right,
+        string address,
+        string bytes,
+        string value,
+        string sourcePreview)
+    {
+        _writer.WriteLine(string.Join(',', [
+            kind,
+            step.ToString(CultureInfo.InvariantCulture),
+            frame.ToString(CultureInfo.InvariantCulture),
+            cycle.ToString(CultureInfo.InvariantCulture),
+            Hex32(gba.Cpu.Pc),
+            gba.Bus.VerticalCount.ToString(CultureInfo.InvariantCulture),
+            gba.Video.CurrentLine.ToString(CultureInfo.InvariantCulture),
+            Hex16(gba.Bus.DisplayStatus),
+            Hex16(gba.Bus.PeekIo16(IoRegisters.SOUNDCNT_L)),
+            Hex16(gba.Bus.PeekIo16(IoRegisters.SOUNDCNT_H)),
+            Hex16(gba.Bus.PeekIo16(IoRegisters.SOUNDCNT_X)),
+            Hex16(gba.Bus.PeekIo16(IoRegisters.TM0CNT_L)),
+            Hex16(gba.Bus.PeekIo16(IoRegisters.TM0CNT_H)),
+            Hex16(gba.Bus.PeekIo16(IoRegisters.TM1CNT_L)),
+            Hex16(gba.Bus.PeekIo16(IoRegisters.TM1CNT_H)),
+            dmaChannel,
+            CsvToken(dmaTiming),
+            dmaSource,
+            dmaDestination,
+            dmaCount,
+            dmaWidth,
+            dmaControl,
+            fifoALevel,
+            fifoBLevel,
+            fifo,
+            timer,
+            raw,
+            left,
+            right,
+            address,
+            bytes,
+            value,
+            CsvToken(sourcePreview)
+        ]));
+        Count++;
+    }
+
+    private static string DmaSourcePreview(GbaSystem gba, uint source, int count, bool wordTransfer)
+    {
+        if (!CanPreviewDmaSource(source))
+        {
+            return "";
+        }
+
+        var unitSize = wordTransfer ? 4u : 2u;
+        var values = new List<string>();
+        for (var index = 0; index < Math.Min(count, 4); index++)
+        {
+            var address = source + (uint)index * unitSize;
+            values.Add(wordTransfer
+                ? Hex32(gba.Bus.Read32(address))
+                : Hex16(gba.Bus.Read16(address)));
+        }
+
+        return values.Count == 0 ? "" : string.Join('/', values);
+    }
+
+    private static bool CanPreviewDmaSource(uint source)
+        => source is >= GbaMemoryMap.EwramStart and < GbaMemoryMap.EwramStart + GbaMemoryMap.EwramSize
+            || source is >= GbaMemoryMap.IwramStart and < GbaMemoryMap.IwramStart + GbaMemoryMap.IwramSize
+            || source is >= GbaMemoryMap.GamePakRomStart and <= GbaMemoryMap.GamePakRomEnd;
+
+    private static string CsvToken(string value)
+    {
+        if (value.IndexOfAny([',', '"', '\r', '\n']) < 0)
+        {
+            return value;
+        }
+
+        return $"\"{value.Replace("\"", "\"\"")}\"";
+    }
+
+    private static string Hex16(ushort value) => $"0x{value:X4}";
+
+    private static string Hex32(uint value) => $"0x{value:X8}";
 }
 
 internal sealed class AudioWavWriter : IDisposable
