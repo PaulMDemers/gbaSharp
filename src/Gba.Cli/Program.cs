@@ -1005,7 +1005,7 @@ static async Task<int> RunCompatibility(string[] args, byte[]? bios)
     keyEvents.Sort((left, right) => left.Step.CompareTo(right.Step));
     frameKeyEvents.Sort((left, right) => left.Frame.CompareTo(right.Frame));
     framePokeEvents.Sort((left, right) => left.Frame.CompareTo(right.Frame));
-    var options = new RunOptions(maxSteps, null, false, keys, keyEvents, frameKeyEvents, frameHashEvents, memoryTriggerEvents, framePokeEvents, [], [], [], [], 0, false, false, false, false, 0, false, false, 0, traceInput, [], [], [], null, 0, 0, null, false, null, 1, [], 0, 6, stopFrame, null, null, null, 1, alignRomEntry, null, null, false, null, null, 44_100, 0.5, false);
+    var options = new RunOptions(maxSteps, null, false, keys, keyEvents, frameKeyEvents, frameHashEvents, memoryTriggerEvents, framePokeEvents, [], [], [], [], 0, false, false, false, false, 0, false, false, 0, traceInput, [], [], [], null, 0, 0, null, false, null, 1, [], 0, 6, stopFrame, null, null, null, 1, alignRomEntry, null, null, false, null, [], null, 44_100, 0.5, false);
     var phases = BuildCompatibilityPhases(suiteName, phaseName, options, frameStepBudget);
     var rootFullPath = Path.GetFullPath(root);
     var indexedRoms = Directory.EnumerateFiles(rootFullPath, "*.gba", SearchOption.AllDirectories)
@@ -2244,6 +2244,7 @@ static RunOptions ParseRunOptions(string[] args)
     string? psgCsv = null;
     var psgCsvIncludeSilence = false;
     string? audioTimingCsv = null;
+    var audioBufferRanges = new List<AddressRange>();
     string? audioWav = null;
     var audioSampleRate = 44_100;
     var audioGain = 0.5;
@@ -2456,6 +2457,10 @@ static RunOptions ParseRunOptions(string[] args)
                 audioTimingCsv = args[++i];
                 break;
 
+            case "--audio-buffer-range" when i + 1 < args.Length:
+                audioBufferRanges.Add(ParseAddressRange(args[++i]));
+                break;
+
             case "--audio-wav" when i + 1 < args.Length:
                 audioWav = args[++i];
                 break;
@@ -2499,7 +2504,7 @@ static RunOptions ParseRunOptions(string[] args)
     keyEvents.Sort((left, right) => left.Step.CompareTo(right.Step));
     frameKeyEvents.Sort((left, right) => left.Frame.CompareTo(right.Frame));
     framePokeEvents.Sort((left, right) => left.Frame.CompareTo(right.Frame));
-    return new RunOptions(maxSteps, maxSeconds, trace, keys, keyEvents, frameKeyEvents, frameHashEvents, memoryTriggerEvents, framePokeEvents, watchReads, watchReadRanges, watchWrites, watchWriteRanges, watchLimit, stopOnInvalidPc, printState, traceSwi, traceIrq, traceIrqLimit, traceDma, traceEeprom, traceEepromLimit, traceInput, dumps, instructionDumps, traceRanges, traceFrameRange, traceTail, traceHitLimit, saveFile, saveReadOnly, stopPc, stopPcHit, snapshotPcs, snapshotPcLimit, pcSnapshotStackWords, stopFrame, debugLayer, snapshotCsv, pcSnapshotCsv, snapshotFrames, alignRomEntry, audioCsv, psgCsv, psgCsvIncludeSilence, audioTimingCsv, audioWav, audioSampleRate, audioGain, audioPadFromStart);
+    return new RunOptions(maxSteps, maxSeconds, trace, keys, keyEvents, frameKeyEvents, frameHashEvents, memoryTriggerEvents, framePokeEvents, watchReads, watchReadRanges, watchWrites, watchWriteRanges, watchLimit, stopOnInvalidPc, printState, traceSwi, traceIrq, traceIrqLimit, traceDma, traceEeprom, traceEepromLimit, traceInput, dumps, instructionDumps, traceRanges, traceFrameRange, traceTail, traceHitLimit, saveFile, saveReadOnly, stopPc, stopPcHit, snapshotPcs, snapshotPcLimit, pcSnapshotStackWords, stopFrame, debugLayer, snapshotCsv, pcSnapshotCsv, snapshotFrames, alignRomEntry, audioCsv, psgCsv, psgCsvIncludeSilence, audioTimingCsv, audioBufferRanges, audioWav, audioSampleRate, audioGain, audioPadFromStart);
 }
 
 static void AddMenuSelectionEvents(List<KeyEvent> keyEvents, int selectedIndex)
@@ -3802,7 +3807,41 @@ static AudioTimingWriter? OpenAudioTimingWriter(RunOptions options, GbaSystem gb
         }
     });
 
+    if (options.AudioBufferRanges.Count > 0)
+    {
+        gba.Bus.AddMemoryWriteObserver((address, bytes) =>
+        {
+            if (FrameAllowed() && IsAudioBufferWrite(address, bytes, options.AudioBufferRanges))
+            {
+                writer.WriteMemoryWrite(gba, stepProvider(), frameProvider(), address, bytes, ReadWrittenMemoryValue(gba, address, bytes));
+            }
+        });
+    }
+
     return writer;
+}
+
+static bool IsAudioBufferWrite(uint address, int bytes, IReadOnlyList<AddressRange> ranges)
+{
+    foreach (var range in ranges)
+    {
+        if (address <= range.End && range.Start < address + bytes)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static uint ReadWrittenMemoryValue(GbaSystem gba, uint address, int bytes)
+{
+    return bytes switch
+    {
+        1 => gba.Bus.Read8(address),
+        2 => gba.Bus.Read16(address & ~1u),
+        _ => gba.Bus.Read32(address & ~3u)
+    };
 }
 
 static bool IsAudioTimingIoAddress(uint address, int bytes)
@@ -4898,7 +4937,7 @@ static void PrintUsage()
     Console.Error.WriteLine("  gbaSharp save-probe <rom-directory> [--limit N] [--start-index N] [--indexes 12,15-20] [--output save-probe.csv] [--summary-output save-probe-summary.csv]");
     Console.Error.WriteLine("  gbaSharp run <rom.gba> [--max-steps N] [--max-seconds N] [--stop-frame N] [--align-rom-entry] [--trace] [--audio-wav audio.wav]");
     Console.Error.WriteLine("  gbaSharp test-rom <rom.gba> [--max-steps N] [--max-seconds N] [--stop-frame N] [--trace] [--success-pc HEX] [--failure-pc HEX]");
-    Console.Error.WriteLine("  gbaSharp dump-frame <rom.gba> [--max-steps N] [--max-seconds N] [--stop-frame N] [--trace] [--output frame.ppm] [--audio-csv direct.csv] [--psg-csv psg.csv] [--psg-csv-include-silence] [--audio-timing-csv timing.csv] [--audio-wav audio.wav]");
+    Console.Error.WriteLine("  gbaSharp dump-frame <rom.gba> [--max-steps N] [--max-seconds N] [--stop-frame N] [--trace] [--output frame.ppm] [--audio-csv direct.csv] [--psg-csv psg.csv] [--psg-csv-include-silence] [--audio-timing-csv timing.csv] [--audio-buffer-range START:END] [--audio-wav audio.wav]");
     Console.Error.WriteLine("  gbaSharp compare-bios <rom.gba> --bios gba_bios.bin [--stop-frame N] [--compare-output diff.csv] [--compare-start-frame N] [--compare-frame-interval N] [--compare-first-diff-only] [--compare-game-state-only] [--compare-align-rom-entry]");
     Console.Error.WriteLine("  gbaSharp capture-frames <rom.gba> [--max-steps N] [--max-seconds N] [--output-dir captures] [--sample-steps N]");
     Console.Error.WriteLine("  gbaSharp verify-frame <rom.gba> --baseline baseline.ppm [--actual actual.ppm] [--diff diff.ppm] [--write-baseline] [--max-different-pixels N] [--max-channel-delta N] [--phase-window-frames N]");
@@ -4912,7 +4951,7 @@ static void PrintUsage()
     Console.Error.WriteLine("  Dynamic input: [--tap-on-hash HASH:KEYS[:DURATION[:MIN_FRAME]]] [--tap-on-memory ADDRESS:BYTES:VALUE:KEYS[:DURATION[:MIN_FRAME]]]");
     Console.Error.WriteLine("  Menu helper: [--menu-select INDEX] selects a zero-based menu row with Down taps then Start");
     Console.Error.WriteLine("  Save data: [--save-file game.sav] loads an existing save and writes it back on exit unless --save-read-only is set");
-    Console.Error.WriteLine("  Audio capture: [--audio-wav audio.wav] [--audio-sample-rate 44100] [--audio-gain 0.5] [--audio-pad-from-start] [--audio-csv direct.csv] [--psg-csv psg.csv] [--audio-timing-csv timing.csv]");
+    Console.Error.WriteLine("  Audio capture: [--audio-wav audio.wav] [--audio-sample-rate 44100] [--audio-gain 0.5] [--audio-pad-from-start] [--audio-csv direct.csv] [--psg-csv psg.csv] [--audio-timing-csv timing.csv] [--audio-buffer-range START:END]");
     Console.Error.WriteLine("  Debug reads/writes: [--watch-read 04000130] [--watch-read-range 03000000:03007FFF] [--watch-write 03007E44] [--watch-write-range 03000000:03007FFF] [--watch-limit 100] [--dump-memory 03000000:100] [--disassemble-memory 03000000:100[:arm|thumb]]");
     Console.Error.WriteLine("  Debug execution: [--stop-pc 08000100] [--stop-pc-hit 2] [--snapshot-pc 08000100] [--snapshot-pc-limit 4] [--pc-snapshot-csv pcs.csv] [--stop-on-invalid-pc] [--print-state] [--trace-swi] [--trace-irq] [--trace-irq-limit 100] [--trace-dma] [--trace-input] [--trace-range 08000000:08000100] [--trace-frames 120:140] [--trace-tail 200] [--trace-hit-limit 4]");
 }
@@ -5319,6 +5358,7 @@ internal sealed record RunOptions(
     string? PsgCsv,
     bool PsgCsvIncludeSilence,
     string? AudioTimingCsv,
+    IReadOnlyList<AddressRange> AudioBufferRanges,
     string? AudioWav,
     int AudioSampleRate,
     double AudioGain,
@@ -5866,6 +5906,37 @@ internal sealed class AudioTimingWriter : IDisposable
             address: Hex32(address),
             bytes: bytes.ToString(CultureInfo.InvariantCulture),
             value: bytes <= 2 ? Hex16((ushort)value) : Hex32(value),
+            sourcePreview: "");
+
+    public void WriteMemoryWrite(GbaSystem gba, long step, int frame, uint address, int bytes, uint value)
+        => WriteRow(
+            gba,
+            "memwrite",
+            step,
+            frame,
+            gba.Scheduler.Now,
+            dmaChannel: "",
+            dmaTiming: "",
+            dmaSource: "",
+            dmaDestination: "",
+            dmaCount: "",
+            dmaWidth: "",
+            dmaControl: "",
+            fifoALevel: gba.Dma.SoundFifoALevel.ToString(CultureInfo.InvariantCulture),
+            fifoBLevel: gba.Dma.SoundFifoBLevel.ToString(CultureInfo.InvariantCulture),
+            fifo: "",
+            timer: "",
+            raw: "",
+            left: "",
+            right: "",
+            address: Hex32(address),
+            bytes: bytes.ToString(CultureInfo.InvariantCulture),
+            value: bytes switch
+            {
+                1 => $"0x{(value & 0xFF):X2}",
+                2 => Hex16((ushort)value),
+                _ => Hex32(value)
+            },
             sourcePreview: "");
 
     public void Dispose() => _writer.Dispose();

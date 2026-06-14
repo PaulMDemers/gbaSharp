@@ -51,6 +51,40 @@ def common_intervals(cycles: list[int]) -> str:
     return "; ".join(f"{value}x{count}" for value, count in common) + f"; avg={average:.3f}"
 
 
+def dma_source_write_ages(rows: list[dict[str, str]]) -> list[dict[str, object]]:
+    last_write_by_chunk: dict[int, tuple[int, str]] = {}
+    ages: list[dict[str, object]] = []
+    for row in rows:
+        kind = row["kind"]
+        if kind == "memwrite":
+            address = int(row["address"], 16)
+            byte_count = int(row["bytes"])
+            start_chunk = address & ~0xF
+            end_chunk = (address + max(byte_count, 1) - 1) & ~0xF
+            for chunk in range(start_chunk, end_chunk + 1, 16):
+                last_write_by_chunk[chunk] = (int(row["cycle"]), row["cpuPc"])
+            continue
+
+        if kind != "dma" or row["dmaDestination"] not in {"0x040000A0", "0x040000A4"}:
+            continue
+
+        source = int(row["dmaSource"], 16)
+        chunk = source & ~0xF
+        cycle = int(row["cycle"])
+        previous = last_write_by_chunk.get(chunk)
+        ages.append(
+            {
+                "frame": int(row["frame"]),
+                "cycle": cycle,
+                "channel": row["dmaChannel"],
+                "source": row["dmaSource"],
+                "age": None if previous is None else cycle - previous[0],
+                "producerPc": "" if previous is None else previous[1],
+            }
+        )
+    return ages
+
+
 def summarize(rows: list[dict[str, str]], ranges: list[tuple[int, int]]) -> list[str]:
     lines: list[str] = []
     counts = collections.Counter(row["kind"] for row in rows)
@@ -60,6 +94,8 @@ def summarize(rows: list[dict[str, str]], ranges: list[tuple[int, int]]) -> list
     lines.append("")
     for kind, count in sorted(counts.items()):
         lines.append(f"- `{kind}`: {count:,}")
+
+    source_write_ages = dma_source_write_ages(rows)
 
     register_rows = [
         row for row in rows
@@ -86,6 +122,7 @@ def summarize(rows: list[dict[str, str]], ranges: list[tuple[int, int]]) -> list
             row for row in section_rows
             if row["kind"] == "dma" and row["dmaDestination"] in {"0x040000A0", "0x040000A4"}
         ]
+        memwrite_rows = [row for row in section_rows if row["kind"] == "memwrite"]
 
         lines.append("")
         lines.append(f"## Frames {start}-{end - 1}")
@@ -105,6 +142,37 @@ def summarize(rows: list[dict[str, str]], ranges: list[tuple[int, int]]) -> list
             lines.append(
                 f"- dma{key[0]}->{key[1]} count={len(cycles):,}: {common_intervals(cycles)}; firstSource={source}; firstPreview={preview}"
             )
+
+        lines.append(f"- buffer writes: {len(memwrite_rows):,}")
+        if memwrite_rows:
+            cycles = [int(row["cycle"]) for row in memwrite_rows]
+            addresses = [int(row["address"], 16) for row in memwrite_rows]
+            pcs = collections.Counter(row["cpuPc"] for row in memwrite_rows)
+            lines.append(f"- buffer write cadence: {common_intervals(cycles)}")
+            lines.append(f"- buffer address span: 0x{min(addresses):08X}-0x{max(addresses):08X}")
+            lines.append("- top buffer producer PCs: " + ", ".join(f"`{pc}` x{count}" for pc, count in pcs.most_common(8)))
+
+        section_ages = [
+            row for row in source_write_ages
+            if start <= int(row["frame"]) < end
+        ]
+        if section_ages:
+            present = [int(row["age"]) for row in section_ages if row["age"] is not None]
+            missing = len(section_ages) - len(present)
+            lines.append(f"- DMA source chunks with prior buffer write: {len(present):,}/{len(section_ages):,}; missing={missing:,}")
+            if present:
+                lines.append(
+                    "- DMA source write age cycles: "
+                    f"min={min(present):,}; avg={statistics.mean(present):.3f}; "
+                    f"median={statistics.median(present):.3f}; max={max(present):,}"
+                )
+                lines.append(
+                    "- DMA source write age frames: "
+                    f"min={min(present) / 280896:.3f}; avg={statistics.mean(present) / 280896:.3f}; "
+                    f"max={max(present) / 280896:.3f}"
+                )
+                producers = collections.Counter(str(row["producerPc"]) for row in section_ages if row["producerPc"])
+                lines.append("- DMA source producer PCs: " + ", ".join(f"`{pc}` x{count}" for pc, count in producers.most_common(8)))
 
     return lines
 

@@ -21,6 +21,7 @@ Useful options:
 - `--psg-csv psg.csv`
 - `--psg-csv-include-silence`
 - `--audio-timing-csv timing.csv`
+- `--audio-buffer-range START:END`
 
 The WAV path records mixed direct-sound FIFO output plus PSG output on the same
 emulated cycle timeline. The CSV paths remain useful when reducing whether a
@@ -30,11 +31,14 @@ which is useful when reconstructing mixed audio from CSV without accidentally
 holding a stale PSG value after a channel goes quiet. Leave it off for compact
 nonzero-only PSG traces.
 `--audio-timing-csv` writes a combined timing trace for direct-sound samples,
-FIFO DMA refills, and audio/timer IO writes. Combine it with `--trace-frames`
-to keep focused probes small:
+FIFO DMA refills, and audio/timer IO writes. Add one or more
+`--audio-buffer-range START:END` ranges to include RAM writes into active audio
+mix/output buffers as `memwrite` rows. Combine it with `--trace-frames` to keep
+focused probes small:
 
 ```powershell
 dotnet run --project src\Gba.Cli -c Release -- dump-frame Ruby.gba --bios path\to\gba_bios.bin --stop-frame 597 --trace-frames 430:597 --audio-timing-csv artifacts\audio\ruby-timing.csv
+dotnet run --project src\Gba.Cli -c Release -- dump-frame Ruby.gba --bios path\to\gba_bios.bin --stop-frame 597 --trace-frames 451:581 --audio-timing-csv artifacts\audio\ruby-buffer-timing.csv --audio-buffer-range 030065B0:03006FFF
 python scripts\summarize-audio-timing.py artifacts\audio\ruby-timing.csv --range 430:451 --range 451:581 --range 581:598 --output-md artifacts\audio\ruby-timing.md
 ```
 
@@ -360,6 +364,17 @@ arrive every 20,064 cycles. That means the remaining 50-67ms local title offset
 is unlikely to be a simple timer overflow or FIFO refill cadence bug; inspect
 audio-buffer production timing, CPU/memory timing, and the sequence update path
 next.
+
+The buffer-production probe
+`artifacts/ruby-audio-buffer-probe-20260613/ruby-buffer-timing-summary.md`
+adds writes to Ruby's active IWRAM audio buffers (`030065B0:03006FFF`). The
+main producer PCs are copied IWRAM routines around `03000FAC` and `030012CC`.
+During frames 451-581, DMA source chunks with prior writes are usually about
+0.87-1.99 frames old, averaging around 1.37 frames; some early chunks after the
+`SOUNDCNT_H=0x3302` transition still have no prior write in the focused window
+and are consumed as silence. The next compatibility pass should compare this
+buffer-production phase against a reference route or inspect why the producer
+cadence/phase lands about 50-67ms away from MAME's title audio.
 
 ## Suggested Test Set
 
