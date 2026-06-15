@@ -42,6 +42,14 @@ dotnet run --project src\Gba.Cli -c Release -- dump-frame Ruby.gba --bios path\t
 python scripts\summarize-audio-timing.py artifacts\audio\ruby-timing.csv --range 430:451 --range 451:581 --range 581:598 --output-md artifacts\audio\ruby-timing.md
 ```
 
+For high-frequency routine cadence without the heavier `--snapshot-pc` console
+dump path, use:
+
+```powershell
+dotnet run --project src\Gba.Cli -c Release -- dump-frame Ruby.gba --bios path\to\gba_bios.bin --stop-frame 581 --trace-frames 451:581 --trace-pc 03000FAC --trace-pc 03000FB0 --trace-pc 030012CC --trace-pc 030012D0 --trace-pc-csv artifacts\audio\ruby-producer-pc.csv
+python scripts\summarize-pc-trace.py artifacts\audio\ruby-producer-pc.csv --output-md artifacts\audio\ruby-producer-pc.md
+```
+
 For the common workflow, use the wrapper script:
 
 ```powershell
@@ -375,6 +383,17 @@ During frames 451-581, DMA source chunks with prior writes are usually about
 and are consumed as silence. The next compatibility pass should compare this
 buffer-production phase against a reference route or inspect why the producer
 cadence/phase lands about 50-67ms away from MAME's title audio.
+
+`artifacts/ruby-pc-producer-probe-20260615/ruby-producer-pc-summary.md`
+traces those producer PCs directly. In frames 451-581, the copied producer
+routines first appear at frame 458, after the frame-451 direct-sound mode
+change. The `03000FAC/03000FB0` loop then runs exactly 224 hits per frame, while
+`030012CC/030012D0` is frame-cadenced with variable work per frame. The calls
+land in VBlank around scanlines 164-172, so the remaining title-audio offset is
+probably not FIFO timer cadence or random producer jitter. Next compare this
+frame-458 producer start and VBlank phase against an external reference, or
+audit CPU/IRQ timing that could make the game's audio sequence begin a few
+frames late/early relative to MAME.
 
 ## Suggested Test Set
 
