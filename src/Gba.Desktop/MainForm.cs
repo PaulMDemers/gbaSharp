@@ -96,7 +96,7 @@ public sealed class MainForm : Form
 
         var emulation = new ToolStripMenuItem("Emulation");
         _pauseResumeMenuItem.Click += (_, _) => TogglePause();
-        _pauseResumeMenuItem.ShortcutKeys = Keys.Space;
+        _pauseResumeMenuItem.ShortcutKeyDisplayString = "Space";
         _frameStepMenuItem.Click += (_, _) => StepFrame();
         _frameStepMenuItem.ShortcutKeys = Keys.Control | Keys.F;
         _resetMenuItem.Click += (_, _) => ResetRom();
