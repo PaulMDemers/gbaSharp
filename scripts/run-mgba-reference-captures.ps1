@@ -429,7 +429,7 @@ try {
         )
         $argumentString = ($args | ForEach-Object { Quote-ProcessArg $_ }) -join " "
 
-        $process = Start-Process -FilePath $mgba -ArgumentList $argumentString -PassThru -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
+        $process = Start-Process -FilePath $mgba -ArgumentList $argumentString -PassThru -WindowStyle Hidden -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
         $timedOut = -not $process.WaitForExit($TimeoutSeconds * 1000)
         if ($timedOut) {
             $process.Kill()

@@ -1,8 +1,14 @@
 # GBA Reference Capture Status
 
-Last checked: 2026-06-13
+Last checked: 2026-06-15
 
-The external reference dashboard tooling is ready. The non-strict save-assisted dashboard run at `artifacts/reference-dashboard-post-audio-check` generated a capture checklist, validation CSV, comparison CSV, and placeholder comparison contact sheet. Strict longplay reference validation at `artifacts/longplay-reference-validation-gta-20260609.csv` now reports all 17 manifest rows as valid, with seven extra local artifacts left from older targets.
+The external reference dashboard tooling is ready. The save-assisted mGBA capture
+pass at `artifacts/save-assisted-mgba-captures-20260615` generated all 8
+reference PNGs, and the consolidated save-assisted reference run at
+`artifacts/save-assisted-reference-suite-20260615` validates them as 8 `ok`
+captures. Strict longplay reference validation at
+`artifacts/longplay-reference-validation-gta-20260609.csv` reports all 17
+manifest rows as valid, with seven extra local artifacts left from older targets.
 
 The latest strict longplay external oracle run is
 `artifacts/strict-reference-suite-visual-green-20260612`. Capture validation
@@ -12,10 +18,19 @@ reported 17/17 `pass`.
 ## Current Result
 
 - Save-assisted reference targets: 8
+- Present save-assisted reference captures: 8
 - Strict longplay reference targets: 17
 - Present strict longplay reference captures: 17
-- Missing save-assisted reference captures: 8
+- Missing save-assisted reference captures: 0
 - Invalid reference captures: 0
+- Save-assisted local deep gameplay: 8/8 `pass, match` with 0 low-diversity
+  warnings in `artifacts/save-assisted-deep-gameplay-rollup-20260615`
+- Broader deep gameplay: 40/40 `pass, match` with 0 low-diversity warnings in
+  `artifacts/deep-gameplay-40-route-rollup-20260616`
+- Save-assisted mGBA direct frame comparison: 2 `pass`, 6 `diff`; window
+  matching resolves those six as 2 `exact`, 3 `ballpark-minor-delta`, and 1
+  `renderer-or-route-delta` in
+  `artifacts/save-assisted-reference-suite-20260615`
 - Strict longplay pixel comparisons ready: 17 current references, with 17/17 passing the current bounded comparison
 - Visual smoke: all 17 local `docs/gba-visual-snapshots.csv` rows pass with the current ignored baselines and manifest settings. This covers title screens, scripted menu paths, five short save-assisted checks, and the two long Ruby save gameplay routes.
 - Audio smoke: 11/11 routes reached target frames in `artifacts/audio-smoke-full-expectation-gain045-20260613`; signal triage reports 10 `ok` routes, the expected `silent` Sonic title route, 0 signal expectation mismatches, and 0 clipped samples at `-WavGain 0.45`.
@@ -35,6 +50,13 @@ Ruby's May-room save route passes at frame 65000 after raising the local ignored
 row wall-clock cap from 900s to 1500s; the 900s run timed out on-track outside
 in Littleroot at frame 44755. The passing report is
 `artifacts/visual-ruby-may-room-1500s-20260612/visual-snapshots.csv`.
+The 2026-06-15 save-assisted refresh promoted stale exact baselines for Advance
+Wars, Metroid Fusion, Tony Hawk 2, Pokemon Ruby, and Mario Kart after confirming
+they were scene-consistent current outputs. Metroid's promoted save-assisted
+frame is an exact mGBA match at frame 30000. The remaining Ruby mGBA
+save-assisted reference lands in a Birch/dialog path even though mGBA reports
+`loadSaveFile=true`; treat that row as a reference-emulator save-load follow-up
+rather than a renderer regression until the Flash128K import path is isolated.
 
 Highest current bounded deltas from the latest strict run:
 
@@ -49,9 +71,9 @@ Highest current bounded deltas from the latest strict run:
 | `pokemon-ruby-external-reference` | 116 | 150 |
 | `fzero-maximum-longplay` | 111 | 200 |
 
-## Missing Save-Assisted mGBA Captures
+## Current Save-Assisted mGBA Captures
 
-Place 240x160 PNG captures at these paths:
+The save-assisted manifest has valid 240x160 PNG captures at these paths:
 
 | Label | Reference PNG |
 | --- | --- |
@@ -94,6 +116,12 @@ Generate the current checklist:
 
 ```powershell
 .\scripts\run-reference-dashboard.ps1 -OutputRoot artifacts\reference-dashboard-post-audio-check -NoBuild
+```
+
+Run the save-assisted reference wrapper, including mGBA capture if desired:
+
+```powershell
+.\scripts\run-save-assisted-reference-suite.ps1 -OutputRoot artifacts\save-assisted-reference-suite-latest -CaptureMgba -ForceCapture
 ```
 
 After captures are present, run strict validation and comparison:

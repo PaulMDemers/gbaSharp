@@ -21,9 +21,16 @@ external emulator captures from tools such as mGBA or no$gba.
   pairwise, which is useful when input timing can diverge between emulators.
 - `scripts/score-reference-regions.py` scores named screen regions so global
   route drift can be separated from layer-specific render drift.
+- `scripts/triage-frame-candidates.py` scores frame-candidate sweeps for
+  duplicate/static frames and low-motion captures before a candidate is promoted
+  into the gameplay manifest.
 - `scripts/run-reference-dashboard.ps1` runs the checklist, validation,
   comparison, contact sheet, and Markdown summary steps as one command. It can
   optionally refresh the save-assisted deep gameplay suite first.
+- `scripts/run-save-assisted-reference-suite.ps1` is the focused save-assisted
+  wrapper: it can capture mGBA references, validate them, compare direct frames,
+  run bounded gbaSharp window matching, and optionally refresh the local
+  save-assisted gameplay baselines.
 - Reference images should be placed under `reference-captures/<source>/`.
   These images are local artifacts and are intentionally ignored by git.
 - `docs/gba-reference-status.md` records the latest capture intake status.
@@ -63,11 +70,13 @@ The first strict longplay set covers longer exact-match scenes:
 
 ## Current Status
 
-As of 2026-06-09, the dashboard tooling is ready. The save-assisted set still
-needs 8 manual mGBA PNG captures, while the strict longplay external set has 17
-valid captures and 17/17 passing bounded pixel comparisons. See
-`docs/gba-reference-status.md` for the current capture status and strict
-commands.
+As of 2026-06-16, the dashboard tooling is ready. The save-assisted set has 8/8
+valid mGBA PNG captures, and the local save-assisted deep gameplay rollup is
+8/8 `pass, match` with no low-diversity warnings. The broader deep gameplay
+suite is 40/40 `pass, match`. The strict longplay external set has 17 valid
+captures and 17/17 passing bounded pixel comparisons. See
+`docs/gba-reference-status.md` and `docs/gba-post-audio-deep-gameplay-rollup.md`
+for the current capture/status commands.
 
 ## Manual Reference Capture
 
@@ -120,6 +129,18 @@ For the combined dashboard path, run:
 
 ```powershell
 .\scripts\run-reference-dashboard.ps1
+```
+
+For the focused save-assisted path:
+
+```powershell
+.\scripts\run-save-assisted-reference-suite.ps1 -OutputRoot artifacts\save-assisted-reference-suite-latest
+```
+
+To refresh the mGBA save-assisted captures too:
+
+```powershell
+.\scripts\run-save-assisted-reference-suite.ps1 -OutputRoot artifacts\save-assisted-reference-suite-latest -CaptureMgba -ForceCapture
 ```
 
 Useful strict dashboard mode once all references should be present:

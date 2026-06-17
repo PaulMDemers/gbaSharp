@@ -32,6 +32,23 @@ function Test-BaselineOk {
     return $Row.baselineStatus -in @("match", "updated")
 }
 
+function Get-RouteThreshold {
+    param([object]$Row, [int]$DefaultThreshold)
+
+    if ($manifestByLabel.ContainsKey($Row.label)) {
+        $manifestThreshold = [string]$manifestByLabel[$Row.label].Row.minDistinctPcs
+        if (-not [string]::IsNullOrWhiteSpace($manifestThreshold)) {
+            return [int]$manifestThreshold
+        }
+    }
+
+    if ($Row.PSObject.Properties.Name -contains "minDistinctPcs" -and -not [string]::IsNullOrWhiteSpace($Row.minDistinctPcs)) {
+        return [int]$Row.minDistinctPcs
+    }
+
+    return $DefaultThreshold
+}
+
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 Push-Location $repoRoot
 try {
@@ -102,11 +119,7 @@ try {
     $lowDiversityRows = @()
     if ($LowDiversityWarningThreshold -gt 0) {
         $lowDiversityRows = @($combinedRows | Where-Object {
-            $threshold = $LowDiversityWarningThreshold
-            if ($_.PSObject.Properties.Name -contains "minDistinctPcs" -and -not [string]::IsNullOrWhiteSpace($_.minDistinctPcs)) {
-                $threshold = [int]$_.minDistinctPcs
-            }
-
+            $threshold = Get-RouteThreshold -Row $_ -DefaultThreshold $LowDiversityWarningThreshold
             (Get-IntOrDefault $_.distinctPcs) -lt $threshold
         })
     }
@@ -135,10 +148,7 @@ try {
 
     $lines += @("", "## Lowest Distinct PC Counts", "")
     $lines += ($combinedRows | Sort-Object @{ Expression = { Get-IntOrDefault $_.distinctPcs }; Ascending = $true }, label | Select-Object -First 12 | ForEach-Object {
-        $threshold = $LowDiversityWarningThreshold
-        if ($_.PSObject.Properties.Name -contains "minDistinctPcs" -and -not [string]::IsNullOrWhiteSpace($_.minDistinctPcs)) {
-            $threshold = [int]$_.minDistinctPcs
-        }
+        $threshold = Get-RouteThreshold -Row $_ -DefaultThreshold $LowDiversityWarningThreshold
 
         "- $($_.label): distinctPcs=$($_.distinctPcs), threshold=$threshold, snapshots=$($_.snapshotRows), baseline=$($_.baselineStatus)"
     })
@@ -151,10 +161,7 @@ try {
     if ($lowDiversityRows.Count -gt 0) {
         $lines += @("", "## Low-Diversity Warnings", "")
         $lines += ($lowDiversityRows | Sort-Object @{ Expression = { Get-IntOrDefault $_.distinctPcs }; Ascending = $true }, label | ForEach-Object {
-            $threshold = $LowDiversityWarningThreshold
-            if ($_.PSObject.Properties.Name -contains "minDistinctPcs" -and -not [string]::IsNullOrWhiteSpace($_.minDistinctPcs)) {
-                $threshold = [int]$_.minDistinctPcs
-            }
+            $threshold = Get-RouteThreshold -Row $_ -DefaultThreshold $LowDiversityWarningThreshold
 
             "- $($_.label): distinctPcs=$($_.distinctPcs), threshold=$threshold, snapshots=$($_.snapshotRows), scene=$($_.expectedScene)"
         })

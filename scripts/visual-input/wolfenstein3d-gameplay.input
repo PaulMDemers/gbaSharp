@@ -1,0 +1,17 @@
+# Select default episode/difficulty and keep moving through the first-person scene.
+at 120 Start 5
+at 300 A 5
+at 600 Start 5
+at 900 A 5
+at 1200 A 5
+at 1600 Start 5
+at 2000 A 5
+at 2500 A 5
+at 3100 Start 5
+at 3600 A 5
+at 4300 Up 900
+at 5400 Right 420
+at 6100 Up 900
+at 7300 A 20
+at 7800 Left 420
+at 8500 Up 1200

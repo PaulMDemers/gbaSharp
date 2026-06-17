@@ -32,6 +32,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rom-root", default="curated_official_gba")
     parser.add_argument("--output-dir", default="")
     parser.add_argument("--configuration", default="Release")
+    parser.add_argument("--bios", default="", help="Optional BIOS path; defaults to the local real-BIOS fixture when present.")
     parser.add_argument("--window", type=int, default=1200, help="Frames before/after route stopFrame to probe.")
     parser.add_argument("--stride", type=int, default=60, help="Frame interval to sample inside the window.")
     parser.add_argument("--max-items", type=int, default=0)
@@ -66,6 +67,18 @@ def find_cli_dll(root: Path, configuration: str) -> Path:
     if not candidates:
         raise SystemExit(f"Could not find built Gba.Cli.dll under {bin_root}. Build first or omit --no-build.")
     return candidates[0]
+
+
+def default_bios(root: Path) -> str:
+    candidate = (
+        root
+        / "gba_collection"
+        / "Massive GBA - EverDrive GBA 2022-08-08"
+        / "5 Tools & Service Test Carts"
+        / "BIOS"
+        / "[BIOS] Game Boy Advance (World).bin"
+    )
+    return str(candidate) if candidate.exists() else ""
 
 
 def resolve_rom(root: Path, rom_root: Path, row: dict[str, str], roms: list[Path]) -> Path:
@@ -222,6 +235,10 @@ def capture_route(
 
     if not args.no_align_rom_entry:
         command.append("--align-rom-entry")
+
+    bios = args.bios or default_bios(root)
+    if bios:
+        command.extend(["--bios", bios])
 
     input_script = row.get("inputScript", "").strip()
     if input_script:

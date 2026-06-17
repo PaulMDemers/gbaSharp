@@ -1,0 +1,18 @@
+# Select default race options and hold acceleration with light steering.
+at 120 Start 5
+at 300 A 5
+at 600 Start 5
+at 900 A 5
+at 1300 A 5
+at 1800 Start 5
+at 2400 A 5
+at 3000 A 5
+at 3800 A 5
+at 4700 Start 5
+at 5800 A 5
+at 7000 A 5
+at 8200 A 5
+at 9500 A,Right 900
+at 11000 A,Left 600
+at 12400 A,Right 900
+press 14000 A
