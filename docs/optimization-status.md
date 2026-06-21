@@ -12,6 +12,12 @@ Use the helper script for repeatable release-mode compatibility profiling:
 
 The script builds `src\Gba.Cli\Gba.Cli.csproj` in Release mode unless `-NoBuild` is passed, runs the CLI compatibility profile, and prints average steps/sec, frames/sec, and CPU/bus/scheduler percentages.
 
+Compare candidate profiles against a baseline before keeping hot-path changes:
+
+```powershell
+.\scripts\compare-optimization-profiles.ps1 -BaselineProfile artifacts\optimization-render-fastpaths-focus\profile.csv -CandidateProfile artifacts\optimization-semitrans-row-focus\profile.csv -OutputPath artifacts\optimization-compare.csv
+```
+
 ## Completed Pass
 
 - Normal rendering now leaves video debug layer/composition/sample buffers disabled unless a CLI command explicitly requests debug output.
@@ -37,6 +43,8 @@ Focused render/audio fast paths improved the intended slow subset (`GTA`, `ALIEN
 
 - Scheduler next-event cache: passed tests, but the short smoke profile regressed. The existing `PriorityQueue.TryPeek` path is currently preferable.
 - Additional branch-heavy memory read helpers: passed tests, but smoke profiling was neutral to negative. Keep future memory work tied to broader curated slices, not only tiny boot ROMs.
+- Cached window-state threading through scanline draw loops: passed tests, but regressed the four-title scheduler-heavy focus slice by roughly 15%.
+- Semi-transparent OBJ row flag: passed tests, but regressed the same focus slice by roughly 2.8%. The direct row scan remains preferable for now.
 
 ## Next Targets
 
