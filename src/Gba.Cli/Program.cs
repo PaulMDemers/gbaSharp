@@ -852,6 +852,7 @@ static async Task<int> RunCompatibility(string[] args, byte[]? bios)
     var traceInput = false;
     var errorDetails = false;
     var alignRomEntry = false;
+    var videoProfile = false;
     for (var i = 1; i < args.Length; i++)
     {
         switch (args[i])
@@ -919,6 +920,10 @@ static async Task<int> RunCompatibility(string[] args, byte[]? bios)
 
             case "--profile-output" when i + 1 < args.Length:
                 profileOutputPath = args[++i];
+                break;
+
+            case "--video-profile":
+                videoProfile = true;
                 break;
 
             case "--capture-dir" when i + 1 < args.Length:
@@ -1035,7 +1040,7 @@ static async Task<int> RunCompatibility(string[] args, byte[]? bios)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(profileOutputPath)) ?? ".");
         profileWriter = new StreamWriter(File.Create(profileOutputPath), System.Text.Encoding.UTF8);
-        await profileWriter.WriteLineAsync("index,phase,status,classification,frames,steps,cycles,wallMs,stepsPerSecond,framesPerSecond,cpuMs,busMs,schedulerMs,cpuPct,busPct,schedulerPct,title,gameCode,path");
+        await profileWriter.WriteLineAsync("index,phase,status,classification,frames,steps,cycles,wallMs,stepsPerSecond,framesPerSecond,cpuMs,busMs,schedulerMs,cpuPct,busPct,schedulerPct,videoScanlines,videoScanlineMs,videoRegularBgMs,videoAffineBgMs,videoSpriteMs,videoBlendMs,videoBitmapMs,videoObjectWindowMs,videoOtherMs,videoRegularBgPct,videoAffineBgPct,videoSpritePct,videoBlendPct,videoBitmapPct,videoObjectWindowPct,videoOtherPct,title,gameCode,path");
     }
 
     var passed = 0;
@@ -1050,7 +1055,7 @@ static async Task<int> RunCompatibility(string[] args, byte[]? bios)
         foreach (var phase in phases)
         {
             runIndex++;
-            var result = await RunCompatibilityRom(rootFullPath, roms[index].Path, roms[index].Index, phase, maxSeconds, bios, captureDir, captureStatuses, errorDetails, profileWriter is not null);
+            var result = await RunCompatibilityRom(rootFullPath, roms[index].Path, roms[index].Index, phase, maxSeconds, bios, captureDir, captureStatuses, errorDetails, profileWriter is not null, videoProfile);
             results.Add(result);
             await writer.WriteLineAsync(result.ToCsv());
             await writer.FlushAsync();
@@ -1101,7 +1106,7 @@ static async Task<int> RunCompatibility(string[] args, byte[]? bios)
     return crashed == 0 && timedOut == 0 ? 0 : 4;
 }
 
-static async Task<CompatibilityResult> RunCompatibilityRom(string rootFullPath, string romPath, int index, CompatibilityPhase phase, int? maxSeconds, byte[]? bios, string captureDir, IReadOnlySet<string> captureStatuses, bool errorDetails, bool profileSteps)
+static async Task<CompatibilityResult> RunCompatibilityRom(string rootFullPath, string romPath, int index, CompatibilityPhase phase, int? maxSeconds, byte[]? bios, string captureDir, IReadOnlySet<string> captureStatuses, bool errorDetails, bool profileSteps, bool videoProfile)
 {
     const long compatibilityRomEntryAlignmentMaxSteps = 90_000_000;
 
@@ -1124,6 +1129,11 @@ static async Task<CompatibilityResult> RunCompatibilityRom(string rootFullPath, 
         cartridge = await Cartridge.LoadFileAsync(romPath);
         gba = new GbaSystem(bios);
         gba.LoadCartridge(cartridge);
+        if (videoProfile)
+        {
+            gba.Video.RenderProfilingEnabled = true;
+            gba.Video.ResetRenderProfile();
+        }
 
         gba.Video.VBlankStarted += () =>
         {
@@ -1196,6 +1206,10 @@ static async Task<CompatibilityResult> RunCompatibilityRom(string rootFullPath, 
             steps = 0;
             inputState = new InputEventState();
             stepProfile = new GbaStepProfile();
+            if (videoProfile)
+            {
+                gba.Video.ResetRenderProfile();
+            }
             stopwatch.Restart();
         }
 
@@ -4984,7 +4998,7 @@ static void PrintUsage()
 {
     Console.Error.WriteLine("Usage:");
     Console.Error.WriteLine("  gbaSharp <rom.gba>");
-    Console.Error.WriteLine("  gbaSharp compat <rom-directory> [--bios gba_bios.bin] [--align-rom-entry] [--limit N] [--start-index N] [--indexes 12,15-20] [--suite single|boot|standard|input|gameplay] [--phase NAME] [--max-steps N] [--frame-step-budget N] [--max-seconds N] [--stop-frame N] [--output compat-report.csv] [--summary-output compat-summary.csv] [--capture-dir captures --capture-statuses crash,static] [--error-details]");
+    Console.Error.WriteLine("  gbaSharp compat <rom-directory> [--bios gba_bios.bin] [--align-rom-entry] [--limit N] [--start-index N] [--indexes 12,15-20] [--suite single|boot|standard|input|gameplay] [--phase NAME] [--max-steps N] [--frame-step-budget N] [--max-seconds N] [--stop-frame N] [--output compat-report.csv] [--summary-output compat-summary.csv] [--profile-output profile.csv] [--video-profile] [--capture-dir captures --capture-statuses crash,static] [--error-details]");
     Console.Error.WriteLine("  gbaSharp compat-summary <compat-report.csv> [summary.csv]");
     Console.Error.WriteLine("  gbaSharp save-probe <rom-directory> [--limit N] [--start-index N] [--indexes 12,15-20] [--output save-probe.csv] [--summary-output save-probe-summary.csv]");
     Console.Error.WriteLine("  gbaSharp run <rom.gba> [--max-steps N] [--max-seconds N] [--stop-frame N] [--align-rom-entry] [--trace] [--audio-wav audio.wav]");
@@ -5553,6 +5567,7 @@ internal readonly record struct CompatibilityResult(
     double ProfileCpuMilliseconds,
     double ProfileBusMilliseconds,
     double ProfileSchedulerMilliseconds,
+    VideoRenderProfile VideoProfile,
     int DistinctFrames,
     int ChangedFrames,
     int LastChangedFrame,
@@ -5626,6 +5641,7 @@ internal readonly record struct CompatibilityResult(
             stepProfile.CpuMilliseconds,
             stepProfile.BusMilliseconds,
             stepProfile.SchedulerMilliseconds,
+            gba?.Video.RenderProfile ?? default,
             distinctFrames,
             changedFrames,
             lastChangedFrame,
@@ -5715,6 +5731,22 @@ internal readonly record struct CompatibilityResult(
             ProfileCpuPercent.ToString("F1", System.Globalization.CultureInfo.InvariantCulture),
             ProfileBusPercent.ToString("F1", System.Globalization.CultureInfo.InvariantCulture),
             ProfileSchedulerPercent.ToString("F1", System.Globalization.CultureInfo.InvariantCulture),
+            VideoProfile.Scanlines.ToString(),
+            VideoProfile.ScanlineMilliseconds.ToString("F1", System.Globalization.CultureInfo.InvariantCulture),
+            VideoProfile.RegularBackgroundMilliseconds.ToString("F1", System.Globalization.CultureInfo.InvariantCulture),
+            VideoProfile.AffineBackgroundMilliseconds.ToString("F1", System.Globalization.CultureInfo.InvariantCulture),
+            VideoProfile.SpriteMilliseconds.ToString("F1", System.Globalization.CultureInfo.InvariantCulture),
+            VideoProfile.BlendMilliseconds.ToString("F1", System.Globalization.CultureInfo.InvariantCulture),
+            VideoProfile.BitmapMilliseconds.ToString("F1", System.Globalization.CultureInfo.InvariantCulture),
+            VideoProfile.ObjectWindowMilliseconds.ToString("F1", System.Globalization.CultureInfo.InvariantCulture),
+            VideoProfile.OtherMilliseconds.ToString("F1", System.Globalization.CultureInfo.InvariantCulture),
+            VideoProfile.RegularBackgroundPercent.ToString("F1", System.Globalization.CultureInfo.InvariantCulture),
+            VideoProfile.AffineBackgroundPercent.ToString("F1", System.Globalization.CultureInfo.InvariantCulture),
+            VideoProfile.SpritePercent.ToString("F1", System.Globalization.CultureInfo.InvariantCulture),
+            VideoProfile.BlendPercent.ToString("F1", System.Globalization.CultureInfo.InvariantCulture),
+            VideoProfile.BitmapPercent.ToString("F1", System.Globalization.CultureInfo.InvariantCulture),
+            VideoProfile.ObjectWindowPercent.ToString("F1", System.Globalization.CultureInfo.InvariantCulture),
+            VideoProfile.OtherPercent.ToString("F1", System.Globalization.CultureInfo.InvariantCulture),
             Csv(Title),
             Csv(GameCode),
             Csv(Path)

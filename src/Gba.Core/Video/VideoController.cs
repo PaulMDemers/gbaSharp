@@ -1,5 +1,6 @@
 using Gba.Core.Memory;
 using Gba.Core.Scheduling;
+using System.Diagnostics;
 
 namespace Gba.Core.Video;
 
@@ -47,6 +48,7 @@ public sealed class VideoController
     private readonly int[] _affineCurrentX = new int[2];
     private readonly int[] _affineCurrentY = new int[2];
     private bool _debugRenderingEnabled;
+    private VideoRenderProfile _renderProfile;
     private int _line;
     private long _scanlineStartCycle;
 
@@ -60,6 +62,8 @@ public sealed class VideoController
     public int CurrentLine => _line;
 
     public ReadOnlySpan<uint> Framebuffer => _framebuffer;
+
+    public bool RenderProfilingEnabled { get; set; }
 
     public bool DebugRenderingEnabled
     {
@@ -98,6 +102,10 @@ public sealed class VideoController
     public event Action? HBlankStarted;
 
     public event Action<bool>? DisplayStartDmaRequested;
+
+    public VideoRenderProfile RenderProfile => _renderProfile;
+
+    public void ResetRenderProfile() => _renderProfile = default;
 
     public uint[] RenderDebugLayer(int layer)
     {
@@ -343,6 +351,12 @@ public sealed class VideoController
 
     private void RenderScanline(int y)
     {
+        if (RenderProfilingEnabled)
+        {
+            RenderScanlineProfiled(y);
+            return;
+        }
+
         if (_debugRenderingEnabled)
         {
             ClearDebugLayerRows(y);
@@ -384,6 +398,55 @@ public sealed class VideoController
                 _framebuffer.AsSpan(y * Width, Width).Clear();
                 break;
         }
+    }
+
+    private void RenderScanlineProfiled(int y)
+    {
+        var profileStart = Stopwatch.GetTimestamp();
+        if (_debugRenderingEnabled)
+        {
+            ClearDebugLayerRows(y);
+        }
+
+        if ((_bus.DisplayControl & (1 << 7)) != 0)
+        {
+            _framebuffer.AsSpan(y * Width, Width).Fill(0xFFFF_FFFFu);
+            RecordRenderScanline(profileStart);
+            return;
+        }
+
+        switch (_bus.DisplayControl & 0x7)
+        {
+            case 0:
+                RenderLayeredScanlineProfiled(y, tileBackgrounds: 0b1111, affineBackgrounds: 0);
+                break;
+
+            case 1:
+                RenderLayeredScanlineProfiled(y, tileBackgrounds: 0b0011, affineBackgrounds: 0b0100);
+                break;
+
+            case 2:
+                RenderLayeredScanlineProfiled(y, tileBackgrounds: 0, affineBackgrounds: 0b1100);
+                break;
+
+            case 3:
+                ProfileBitmapScanline(() => RenderMode3Scanline(y));
+                break;
+
+            case 4:
+                ProfileBitmapScanline(() => RenderMode4Scanline(y));
+                break;
+
+            case 5:
+                ProfileBitmapScanline(() => RenderMode5Scanline(y));
+                break;
+
+            default:
+                _framebuffer.AsSpan(y * Width, Width).Clear();
+                break;
+        }
+
+        RecordRenderScanline(profileStart);
     }
 
     private void RenderDebugLayerScanline(int y, int layer)
@@ -573,6 +636,79 @@ public sealed class VideoController
         {
             CaptureDebugCompositionScanline(y, layers, secondLayers);
             ApplyBlendEffectsScanline(y, layers, secondLayers);
+        }
+    }
+
+    private void RenderLayeredScanlineProfiled(int y, int tileBackgrounds, int affineBackgrounds, int? debugLayer = null)
+    {
+        var backdrop = debugLayer.HasValue ? 0xFF00_0000u : ReadPaletteColor(0);
+        var rowOffset = y * Width;
+        _framebuffer.AsSpan(rowOffset, Width).Fill(backdrop);
+
+        Span<byte> priorities = stackalloc byte[Width];
+        priorities.Fill(4);
+        Span<byte> layers = stackalloc byte[Width];
+        layers.Fill(5);
+        Span<byte> secondLayers = stackalloc byte[Width];
+        secondLayers.Fill(5);
+        _secondFramebuffer.AsSpan(rowOffset, Width).Fill(backdrop);
+        Array.Clear(_objectWindow, rowOffset, Width);
+        Array.Clear(_semiTransparentObject, rowOffset, Width);
+        if ((_bus.DisplayControl & (1 << 15)) != 0)
+        {
+            var start = Stopwatch.GetTimestamp();
+            RenderObjectWindowScanline(y);
+            _renderProfile.ObjectWindowTicks += Stopwatch.GetTimestamp() - start;
+        }
+
+        for (var priority = 3; priority >= 0; priority--)
+        {
+            for (var bg = 3; bg >= 0; bg--)
+            {
+                if (debugLayer is { } selectedLayer && selectedLayer != bg)
+                {
+                    continue;
+                }
+
+                if ((_bus.DisplayControl & (1 << (8 + bg))) == 0)
+                {
+                    continue;
+                }
+
+                var control = _bus.PeekIo16(IoRegisters.BG0CNT + (uint)(bg * 2));
+                if ((control & 0x3) != priority)
+                {
+                    continue;
+                }
+
+                if ((tileBackgrounds & (1 << bg)) != 0)
+                {
+                    var start = Stopwatch.GetTimestamp();
+                    RenderRegularBackgroundScanline(bg, control, y, priorities, layers, secondLayers);
+                    _renderProfile.RegularBackgroundTicks += Stopwatch.GetTimestamp() - start;
+                }
+                else if ((affineBackgrounds & (1 << bg)) != 0)
+                {
+                    var start = Stopwatch.GetTimestamp();
+                    RenderAffineBackgroundScanline(bg, control, y, priorities, layers, secondLayers);
+                    _renderProfile.AffineBackgroundTicks += Stopwatch.GetTimestamp() - start;
+                }
+            }
+
+            if ((_bus.DisplayControl & (1 << 12)) != 0 && debugLayer is null or 4)
+            {
+                var start = Stopwatch.GetTimestamp();
+                RenderSpritesForPriorityScanline(priority, y, priorities, layers, secondLayers);
+                _renderProfile.SpriteTicks += Stopwatch.GetTimestamp() - start;
+            }
+        }
+
+        if (!debugLayer.HasValue)
+        {
+            CaptureDebugCompositionScanline(y, layers, secondLayers);
+            var start = Stopwatch.GetTimestamp();
+            ApplyBlendEffectsScanline(y, layers, secondLayers);
+            _renderProfile.BlendTicks += Stopwatch.GetTimestamp() - start;
         }
     }
 
@@ -1169,6 +1305,19 @@ public sealed class VideoController
                 RecordDebugLayerPixel(targetOffset + x, 2, outputColor);
             }
         }
+    }
+
+    private void RecordRenderScanline(long profileStart)
+    {
+        _renderProfile.Scanlines++;
+        _renderProfile.ScanlineTicks += Stopwatch.GetTimestamp() - profileStart;
+    }
+
+    private void ProfileBitmapScanline(Action render)
+    {
+        var start = Stopwatch.GetTimestamp();
+        render();
+        _renderProfile.BitmapTicks += Stopwatch.GetTimestamp() - start;
     }
 
     private static uint Bgr555ToRgba8888(ushort color)
@@ -2079,3 +2228,59 @@ public readonly record struct RegularBgDebugSample(
     int PaletteIndex,
     int HOffset,
     int VOffset);
+
+public struct VideoRenderProfile
+{
+    public long Scanlines;
+    public long ScanlineTicks;
+    public long RegularBackgroundTicks;
+    public long AffineBackgroundTicks;
+    public long SpriteTicks;
+    public long BlendTicks;
+    public long BitmapTicks;
+    public long ObjectWindowTicks;
+
+    public long AccountedTicks
+        => RegularBackgroundTicks
+            + AffineBackgroundTicks
+            + SpriteTicks
+            + BlendTicks
+            + BitmapTicks
+            + ObjectWindowTicks;
+
+    public long OtherTicks => Math.Max(0, ScanlineTicks - AccountedTicks);
+
+    public double ScanlineMilliseconds => TicksToMilliseconds(ScanlineTicks);
+
+    public double RegularBackgroundMilliseconds => TicksToMilliseconds(RegularBackgroundTicks);
+
+    public double AffineBackgroundMilliseconds => TicksToMilliseconds(AffineBackgroundTicks);
+
+    public double SpriteMilliseconds => TicksToMilliseconds(SpriteTicks);
+
+    public double BlendMilliseconds => TicksToMilliseconds(BlendTicks);
+
+    public double BitmapMilliseconds => TicksToMilliseconds(BitmapTicks);
+
+    public double ObjectWindowMilliseconds => TicksToMilliseconds(ObjectWindowTicks);
+
+    public double OtherMilliseconds => TicksToMilliseconds(OtherTicks);
+
+    public double RegularBackgroundPercent => Percent(RegularBackgroundTicks);
+
+    public double AffineBackgroundPercent => Percent(AffineBackgroundTicks);
+
+    public double SpritePercent => Percent(SpriteTicks);
+
+    public double BlendPercent => Percent(BlendTicks);
+
+    public double BitmapPercent => Percent(BitmapTicks);
+
+    public double ObjectWindowPercent => Percent(ObjectWindowTicks);
+
+    public double OtherPercent => Percent(OtherTicks);
+
+    private double Percent(long ticks) => ScanlineTicks == 0 ? 0 : ticks * 100.0 / ScanlineTicks;
+
+    private static double TicksToMilliseconds(long ticks) => ticks * 1000.0 / Stopwatch.Frequency;
+}

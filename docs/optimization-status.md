@@ -1,6 +1,6 @@
 # Emulator Optimization Status
 
-Last updated: 2026-06-20.
+Last updated: 2026-06-21.
 
 ## Current Profiling Command
 
@@ -12,11 +12,21 @@ Use the helper script for repeatable release-mode compatibility profiling:
 
 The script builds `src\Gba.Cli\Gba.Cli.csproj` in Release mode unless `-NoBuild` is passed, runs the CLI compatibility profile, and prints average steps/sec, frames/sec, and CPU/bus/scheduler percentages.
 
+Add `-VideoProfile` when diagnosing renderer cost by scanline/layer:
+
+```powershell
+.\scripts\run-optimization-profile.ps1 -RomRoot curated_official_gba -Indexes '4' -Suite gameplay -StopFrame 300 -MaxSteps 20000000 -MaxSeconds 60 -OutputDir artifacts\optimization-video-breakdown-smoke -NoBuild -VideoProfile
+```
+
+Video profiling appends scanline totals and regular BG, affine BG, sprite, blend, bitmap, OBJ-window, and unaccounted render timings to `profile.csv`. Because it uses per-scanline stopwatch sampling, keep it opt-in and do not compare its speed numbers against normal non-video-profile runs.
+
 Compare candidate profiles against a baseline before keeping hot-path changes:
 
 ```powershell
 .\scripts\compare-optimization-profiles.ps1 -BaselineProfile artifacts\optimization-render-fastpaths-focus\profile.csv -CandidateProfile artifacts\optimization-semitrans-row-focus\profile.csv -OutputPath artifacts\optimization-compare.csv
 ```
+
+When possible, compare candidate and baseline profiles from the same machine/session. The old artifact baselines are useful for trend context, but clean same-session A/B runs are the authority when system load changes.
 
 ## Completed Pass
 
@@ -26,6 +36,7 @@ Compare candidate profiles against a baseline before keeping hot-path changes:
 - PSG advance now fast-forwards sample/frame-sequencer phase when no PSG channel is active and no PSG capture/subscriber is present.
 - Normal bitmap scanline rendering skips debug-layer recording calls unless debug rendering is enabled.
 - Window/effect checks now fast-return for the common no-window/no-OBJ cases.
+- CLI optimization profiles can now collect optional video render breakdowns without changing the normal render hot path.
 
 ## Current Retail Slice
 
@@ -45,9 +56,11 @@ Focused render/audio fast paths improved the intended slow subset (`GTA`, `ALIEN
 - Additional branch-heavy memory read helpers: passed tests, but smoke profiling was neutral to negative. Keep future memory work tied to broader curated slices, not only tiny boot ROMs.
 - Cached window-state threading through scanline draw loops: passed tests, but regressed the four-title scheduler-heavy focus slice by roughly 15%.
 - Semi-transparent OBJ row flag: passed tests, but regressed the same focus slice by roughly 2.8%. The direct row scan remains preferable for now.
+- Regular-background screen-entry cache: passed tests, but regressed the focused render-heavy profile and was backed out. The added state did not pay for itself.
 
 ## Next Targets
 
 - Profile longer retail gameplay routes in Release mode, especially known slow/progressful rows.
-- Optimize renderer paths that are active during normal gameplay, starting with object/background scanline loops and per-pixel priority/layer bookkeeping.
+- Use `-VideoProfile` on targeted slow games to pick renderer work by measured buckets. The first GTA smoke showed regular background rendering as the dominant cost, with affine/sprite costs becoming relevant during later phases.
+- Optimize renderer paths that are active during normal gameplay, starting with regular background scanline loops and per-pixel priority/layer bookkeeping.
 - Revisit memory fast paths only with a broad curated benchmark and direct before/after classification checks.

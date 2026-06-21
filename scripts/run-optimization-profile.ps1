@@ -7,6 +7,7 @@ param(
     [int]$StopFrame = 120,
     [int]$MaxSteps = 1500000,
     [int]$MaxSeconds = 30,
+    [switch]$VideoProfile,
     [switch]$NoBuild
 )
 
@@ -49,6 +50,10 @@ $arguments += @(
     '--summary-output', $summaryPath,
     '--profile-output', $profilePath
 )
+
+if ($VideoProfile) {
+    $arguments += '--video-profile'
+}
 
 dotnet @arguments
 
