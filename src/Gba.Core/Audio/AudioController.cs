@@ -56,6 +56,13 @@ public sealed class AudioController
             return;
         }
 
+        if (!HasPsgOutputWork)
+        {
+            _emitPsgSilenceAtNextAdvance = false;
+            FastForwardPsgClock(cycles);
+            return;
+        }
+
         if (_emitPsgSilenceAtNextAdvance)
         {
             _emitPsgSilenceAtNextAdvance = false;
@@ -74,6 +81,46 @@ public sealed class AudioController
         }
 
         _psgCyclesUntilNext -= remaining;
+    }
+
+    private bool HasPsgOutputWork
+        => CapturePsgSamples
+            || PsgSampleProduced is not null
+            || _square1.IsActive
+            || _square2.IsActive
+            || _wave.IsActive
+            || _noise.IsActive;
+
+    private void FastForwardPsgClock(long cycles)
+    {
+        if (cycles < _psgCyclesUntilNext)
+        {
+            _psgCyclesUntilNext -= cycles;
+            return;
+        }
+
+        var cyclesAfterNextSample = cycles - _psgCyclesUntilNext;
+        var skippedSamples = 1 + cyclesAfterNextSample / PsgCyclesPerSample;
+        var remainder = cyclesAfterNextSample % PsgCyclesPerSample;
+        _psgCyclesUntilNext = remainder == 0 ? PsgCyclesPerSample : PsgCyclesPerSample - remainder;
+        AdvanceFrameSequencerPhase(skippedSamples);
+    }
+
+    private void AdvanceFrameSequencerPhase(long samples)
+    {
+        if (samples < _psgSamplesUntilFrameSequencer)
+        {
+            _psgSamplesUntilFrameSequencer -= (int)samples;
+            return;
+        }
+
+        samples -= _psgSamplesUntilFrameSequencer;
+        var ticks = 1 + samples / PsgSamplesPerFrameSequencerTick;
+        _frameSequencerStep = (int)((_frameSequencerStep + ticks) & 7);
+        var remainder = samples % PsgSamplesPerFrameSequencerTick;
+        _psgSamplesUntilFrameSequencer = remainder == 0
+            ? PsgSamplesPerFrameSequencerTick
+            : PsgSamplesPerFrameSequencerTick - (int)remainder;
     }
 
     public DirectSoundPcmSample[] DrainSamples()

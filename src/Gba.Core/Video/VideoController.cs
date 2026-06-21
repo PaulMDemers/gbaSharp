@@ -1081,7 +1081,10 @@ public sealed class VideoController
             var color = (ushort)(vram[offset] | (vram[offset + 1] << 8));
             var outputColor = Bgr555ToRgba8888(color);
             _framebuffer[targetOffset + x] = outputColor;
-            RecordDebugLayerPixel(targetOffset + x, 2, outputColor);
+            if (_debugRenderingEnabled)
+            {
+                RecordDebugLayerPixel(targetOffset + x, 2, outputColor);
+            }
         }
     }
 
@@ -1114,7 +1117,10 @@ public sealed class VideoController
             var color = (ushort)(palette[paletteOffset] | (palette[paletteOffset + 1] << 8));
             var outputColor = Bgr555ToRgba8888(color);
             _framebuffer[targetOffset + x] = outputColor;
-            RecordDebugLayerPixel(targetOffset + x, 2, outputColor);
+            if (_debugRenderingEnabled)
+            {
+                RecordDebugLayerPixel(targetOffset + x, 2, outputColor);
+            }
         }
     }
 
@@ -1158,7 +1164,10 @@ public sealed class VideoController
             var color = (ushort)(vram[offset] | (vram[offset + 1] << 8));
             var outputColor = Bgr555ToRgba8888(color);
             _framebuffer[targetOffset + x] = outputColor;
-            RecordDebugLayerPixel(targetOffset + x, 2, outputColor);
+            if (_debugRenderingEnabled)
+            {
+                RecordDebugLayerPixel(targetOffset + x, 2, outputColor);
+            }
         }
     }
 
@@ -1561,6 +1570,11 @@ public sealed class VideoController
     {
         var blendControl = _bus.PeekIo16(IoRegisters.BLDCNT);
         var effect = (blendControl >> 6) & 0x3;
+        if (effect == 0 && (_bus.DisplayControl & (1 << 12)) == 0)
+        {
+            return;
+        }
+
         var targetMask = blendControl & 0x3F;
         var secondTargetMask = (blendControl >> 8) & 0x3F;
         var rowOffset = y * Width;
@@ -1644,14 +1658,24 @@ public sealed class VideoController
     }
 
     private bool IsLayerVisibleAtPixel(int layer, int x, int y)
-        => (GetWindowMaskAtPixel(x, y) & (1 << layer)) != 0;
-
-    private bool AreEffectsEnabledAtPixel(int x, int y)
-        => (GetWindowMaskAtPixel(x, y) & (1 << 5)) != 0;
-
-    private int GetWindowMaskAtPixel(int x, int y)
     {
         var displayControl = _bus.DisplayControl;
+        return (displayControl & 0xE000) == 0
+            || (GetWindowMaskAtPixel(displayControl, x, y) & (1 << layer)) != 0;
+    }
+
+    private bool AreEffectsEnabledAtPixel(int x, int y)
+    {
+        var displayControl = _bus.DisplayControl;
+        return (displayControl & 0xE000) == 0
+            || (GetWindowMaskAtPixel(displayControl, x, y) & (1 << 5)) != 0;
+    }
+
+    private int GetWindowMaskAtPixel(int x, int y)
+        => GetWindowMaskAtPixel(_bus.DisplayControl, x, y);
+
+    private int GetWindowMaskAtPixel(ushort displayControl, int x, int y)
+    {
         var win0Enabled = (displayControl & (1 << 13)) != 0;
         var win1Enabled = (displayControl & (1 << 14)) != 0;
 
