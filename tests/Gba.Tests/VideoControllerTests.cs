@@ -214,6 +214,7 @@ public sealed class VideoControllerTests
     public void DebugRegularBgSamplesExposeScrollAndTileMetadata()
     {
         var gba = new GbaSystem();
+        gba.Video.DebugRenderingEnabled = true;
         gba.Bus.DisplayControl = 1 << 8; // BG0 enabled, mode 0
         gba.Bus.Write16(IoRegisters.BG0CNT, 1 << 8); // screen block 1, char block 0
         gba.Bus.Write16(IoRegisters.BG0HOFS, 1);
@@ -435,6 +436,7 @@ public sealed class VideoControllerTests
     public void DebugAffineSamplesExposeSourceAndTileMetadata()
     {
         var gba = new GbaSystem();
+        gba.Video.DebugRenderingEnabled = true;
         gba.Bus.DisplayControl = 2 | (1 << 10); // BG2 enabled, mode 2
         gba.Bus.Write16(IoRegisters.BG2CNT, (ushort)((1 << 8) | (1 << 13))); // screen block 1, wrap
         gba.Bus.Write16(IoRegisters.BG2PA, 0x0100);
@@ -517,6 +519,7 @@ public sealed class VideoControllerTests
     public void DebugLayerReturnsCapturedAffineScanlines()
     {
         var gba = new GbaSystem();
+        gba.Video.DebugRenderingEnabled = true;
         gba.Bus.DisplayControl = 2 | (1 << 10); // BG2 enabled, mode 2
         gba.Bus.Write16(IoRegisters.BG2CNT, (ushort)((1 << 8) | (1 << 13))); // screen block 1, wrap
         gba.Bus.Write16(IoRegisters.BG2PA, 0x0100);
@@ -580,6 +583,7 @@ public sealed class VideoControllerTests
     public void DebugCompositionCapturesPreBlendAndSecondTarget()
     {
         var gba = new GbaSystem();
+        gba.Video.DebugRenderingEnabled = true;
         gba.Bus.DisplayControl = (1 << 8) | (1 << 9); // BG0/BG1 enabled, mode 0
         gba.Bus.Write16(IoRegisters.BG0CNT, 1 << 8); // priority 0, screen block 1
         gba.Bus.Write16(IoRegisters.BG1CNT, (ushort)((1 << 0) | (2 << 8))); // priority 1, screen block 2

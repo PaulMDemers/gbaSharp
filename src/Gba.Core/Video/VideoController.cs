@@ -46,6 +46,7 @@ public sealed class VideoController
     private readonly bool[] _semiTransparentObject = new bool[Pixels];
     private readonly int[] _affineCurrentX = new int[2];
     private readonly int[] _affineCurrentY = new int[2];
+    private bool _debugRenderingEnabled;
     private int _line;
     private long _scanlineStartCycle;
 
@@ -59,6 +60,27 @@ public sealed class VideoController
     public int CurrentLine => _line;
 
     public ReadOnlySpan<uint> Framebuffer => _framebuffer;
+
+    public bool DebugRenderingEnabled
+    {
+        get => _debugRenderingEnabled;
+        set
+        {
+            if (_debugRenderingEnabled == value)
+            {
+                return;
+            }
+
+            _debugRenderingEnabled = value;
+            if (value)
+            {
+                ClearDebugLayerFramebuffers();
+                ClearDebugCompositionFramebuffers();
+                ClearDebugAffineSamples();
+                ClearDebugRegularBgSamples();
+            }
+        }
+    }
 
     public int CyclesUntilNextVBlankStart
     {
@@ -118,10 +140,14 @@ public sealed class VideoController
     public void Reset()
     {
         _line = 0;
-        ClearDebugLayerFramebuffers();
-        ClearDebugCompositionFramebuffers();
-        ClearDebugAffineSamples();
-        ClearDebugRegularBgSamples();
+        if (_debugRenderingEnabled)
+        {
+            ClearDebugLayerFramebuffers();
+            ClearDebugCompositionFramebuffers();
+            ClearDebugAffineSamples();
+            ClearDebugRegularBgSamples();
+        }
+
         ReloadAffineReference(2);
         ReloadAffineReference(3);
         BeginScanline();
@@ -133,10 +159,14 @@ public sealed class VideoController
         const int defaultCyclesUntilFirstVideoEvent = 117;
 
         _line = lineOverride ?? defaultBiosHandoffLine;
-        ClearDebugLayerFramebuffers();
-        ClearDebugCompositionFramebuffers();
-        ClearDebugAffineSamples();
-        ClearDebugRegularBgSamples();
+        if (_debugRenderingEnabled)
+        {
+            ClearDebugLayerFramebuffers();
+            ClearDebugCompositionFramebuffers();
+            ClearDebugAffineSamples();
+            ClearDebugRegularBgSamples();
+        }
+
         ReloadAffineReference(2);
         ReloadAffineReference(3);
         BeginScanline(cyclesUntilFirstVideoEventOverride ?? defaultCyclesUntilFirstVideoEvent);
@@ -313,7 +343,10 @@ public sealed class VideoController
 
     private void RenderScanline(int y)
     {
-        ClearDebugLayerRows(y);
+        if (_debugRenderingEnabled)
+        {
+            ClearDebugLayerRows(y);
+        }
 
         if ((_bus.DisplayControl & (1 << 7)) != 0)
         {
@@ -592,26 +625,29 @@ public sealed class VideoController
                 var tileOffset = charBase + tileNumber * 64 + (sourceY & 7) * 8 + (sourceX & 7);
                 var paletteIndex = ReadBgVram8(tileOffset);
                 var pixel = y * Width + x;
-                RecordAffineDebugSample(
-                    bg,
-                    pixel,
-                    control,
-                    currentX,
-                    currentY,
-                    sourceX,
-                    sourceY,
-                    tileX,
-                    tileY,
-                    mapOffset,
-                    tileNumber,
-                    tileOffset,
-                    paletteIndex,
-                    pa,
-                    pb,
-                    pc,
-                    pd,
-                    originX,
-                    originY);
+                if (_debugRenderingEnabled)
+                {
+                    RecordAffineDebugSample(
+                        bg,
+                        pixel,
+                        control,
+                        currentX,
+                        currentY,
+                        sourceX,
+                        sourceY,
+                        tileX,
+                        tileY,
+                        mapOffset,
+                        tileNumber,
+                        tileOffset,
+                        paletteIndex,
+                        pa,
+                        pb,
+                        pc,
+                        pd,
+                        originX,
+                        originY);
+                }
                 if (paletteIndex == 0 || priority > priorities[pixel] || !IsLayerVisibleAtPixel(bg, x, y))
                 {
                     continue;
@@ -668,26 +704,29 @@ public sealed class VideoController
             var tileNumber = ReadBgVram8(mapOffset);
             var tileOffset = charBase + tileNumber * 64 + (sourceY & 7) * 8 + (sourceX & 7);
             var paletteIndex = ReadBgVram8(tileOffset);
-            RecordAffineDebugSample(
-                bg,
-                y * Width + x,
-                control,
-                pixelX,
-                pixelY,
-                sourceX,
-                sourceY,
-                tileX,
-                tileY,
-                mapOffset,
-                tileNumber,
-                tileOffset,
-                paletteIndex,
-                pa,
-                pb,
-                pc,
-                pd,
-                currentX,
-                currentY);
+            if (_debugRenderingEnabled)
+            {
+                RecordAffineDebugSample(
+                    bg,
+                    y * Width + x,
+                    control,
+                    pixelX,
+                    pixelY,
+                    sourceX,
+                    sourceY,
+                    tileX,
+                    tileY,
+                    mapOffset,
+                    tileNumber,
+                    tileOffset,
+                    paletteIndex,
+                    pa,
+                    pb,
+                    pc,
+                    pd,
+                    currentX,
+                    currentY);
+            }
             if (paletteIndex == 0 || priority > priorities[x] || !IsLayerVisibleAtPixel(bg, x, y))
             {
                 continue;
@@ -730,19 +769,22 @@ public sealed class VideoController
                 var entry = ReadVram16(screenOffset);
                 var paletteIndex = GetTilePaletteIndex(charBase, entry, bgX & 7, inTileY, eightBitColor);
                 var pixel = y * Width + x;
-                RecordRegularBgDebugSample(
-                    bg,
-                    pixel,
-                    control,
-                    bgX,
-                    bgY,
-                    tileX,
-                    tileY,
-                    screenOffset,
-                    entry,
-                    paletteIndex,
-                    hofs,
-                    vofs);
+                if (_debugRenderingEnabled)
+                {
+                    RecordRegularBgDebugSample(
+                        bg,
+                        pixel,
+                        control,
+                        bgX,
+                        bgY,
+                        tileX,
+                        tileY,
+                        screenOffset,
+                        entry,
+                        paletteIndex,
+                        hofs,
+                        vofs);
+                }
                 if (paletteIndex == 0 || priority > priorities[pixel] || !IsLayerVisibleAtPixel(bg, x, y))
                 {
                     continue;
@@ -782,19 +824,22 @@ public sealed class VideoController
             var screenOffset = screenBase + GetRegularScreenEntryOffset(tileX, tileY, widthTiles, heightTiles);
             var entry = ReadVram16(screenOffset);
             var paletteIndex = GetTilePaletteIndex(charBase, entry, bgX & 7, inTileY, eightBitColor);
-            RecordRegularBgDebugSample(
-                bg,
-                y * Width + x,
-                control,
-                bgX,
-                bgY,
-                tileX,
-                tileY,
-                screenOffset,
-                entry,
-                paletteIndex,
-                hofs,
-                vofs);
+            if (_debugRenderingEnabled)
+            {
+                RecordRegularBgDebugSample(
+                    bg,
+                    y * Width + x,
+                    control,
+                    bgX,
+                    bgY,
+                    tileX,
+                    tileY,
+                    screenOffset,
+                    entry,
+                    paletteIndex,
+                    hofs,
+                    vofs);
+            }
             if (paletteIndex == 0 || priority > priorities[x] || !IsLayerVisibleAtPixel(bg, x, y))
             {
                 continue;
@@ -1217,6 +1262,11 @@ public sealed class VideoController
 
     private void CaptureDebugCompositionFrame(ReadOnlySpan<byte> layers, ReadOnlySpan<byte> secondLayers)
     {
+        if (!_debugRenderingEnabled)
+        {
+            return;
+        }
+
         _framebuffer.CopyTo(_debugPreBlendFramebuffer, 0);
         _secondFramebuffer.CopyTo(_debugSecondTargetFramebuffer, 0);
         layers.CopyTo(_debugTopLayers);
@@ -1225,6 +1275,11 @@ public sealed class VideoController
 
     private void CaptureDebugCompositionScanline(int y, ReadOnlySpan<byte> layers, ReadOnlySpan<byte> secondLayers)
     {
+        if (!_debugRenderingEnabled)
+        {
+            return;
+        }
+
         var rowOffset = y * Width;
         _framebuffer.AsSpan(rowOffset, Width).CopyTo(_debugPreBlendFramebuffer.AsSpan(rowOffset, Width));
         _secondFramebuffer.AsSpan(rowOffset, Width).CopyTo(_debugSecondTargetFramebuffer.AsSpan(rowOffset, Width));
@@ -1275,6 +1330,11 @@ public sealed class VideoController
             return;
         }
 
+        if (!_debugRenderingEnabled)
+        {
+            return;
+        }
+
         _debugRegularBgSamples[bg][pixel] = new RegularBgDebugSample(
             true,
             (byte)bg,
@@ -1312,6 +1372,11 @@ public sealed class VideoController
         int referenceY)
     {
         if (bg is not (2 or 3))
+        {
+            return;
+        }
+
+        if (!_debugRenderingEnabled)
         {
             return;
         }
@@ -1362,6 +1427,11 @@ public sealed class VideoController
 
     private void RecordDebugLayerPixel(int pixel, byte layer, uint color)
     {
+        if (!_debugRenderingEnabled)
+        {
+            return;
+        }
+
         if (layer < _debugLayerFramebuffers.Length)
         {
             _debugLayerFramebuffers[layer][pixel] = color;
@@ -1383,7 +1453,11 @@ public sealed class VideoController
         priorities[pixel] = priority;
         layers[pixel] = layer;
         _framebuffer[pixel] = color;
-        RecordDebugLayerPixel(pixel, layer, color);
+        if (_debugRenderingEnabled)
+        {
+            RecordDebugLayerPixel(pixel, layer, color);
+        }
+
         _semiTransparentObject[pixel] = semiTransparentObject;
     }
 
@@ -1403,7 +1477,11 @@ public sealed class VideoController
         priorities[rowPixel] = priority;
         layers[rowPixel] = layer;
         _framebuffer[pixel] = color;
-        RecordDebugLayerPixel(pixel, layer, color);
+        if (_debugRenderingEnabled)
+        {
+            RecordDebugLayerPixel(pixel, layer, color);
+        }
+
         _semiTransparentObject[pixel] = semiTransparentObject;
     }
 

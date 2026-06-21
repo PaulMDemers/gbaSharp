@@ -910,6 +910,11 @@ public sealed class MemoryBus
 
     private void NotifyIoWrite(uint address, int bytes)
     {
+        if (_ioWriteObservers.Count == 0)
+        {
+            return;
+        }
+
         if (GetRegion(address) != MemoryRegion.Io)
         {
             return;
@@ -923,6 +928,11 @@ public sealed class MemoryBus
 
     private void NotifyMemoryWrite(uint address, int bytes)
     {
+        if (_memoryWriteObservers.Count == 0)
+        {
+            return;
+        }
+
         foreach (var observer in _memoryWriteObservers)
         {
             observer(address, bytes);
@@ -931,6 +941,11 @@ public sealed class MemoryBus
 
     private void NotifyMemoryRead(uint address, int bytes, uint value)
     {
+        if (_memoryReadObservers.Count == 0)
+        {
+            return;
+        }
+
         foreach (var observer in _memoryReadObservers)
         {
             observer(address, bytes, value);
@@ -1340,6 +1355,11 @@ public sealed class MemoryBus
 
     private void NotifyIoRead(uint address, int bytes)
     {
+        if (_ioReadObservers.Count == 0)
+        {
+            return;
+        }
+
         foreach (var observer in _ioReadObservers)
         {
             observer(address, bytes);

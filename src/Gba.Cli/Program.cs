@@ -1782,6 +1782,7 @@ static int DumpFrame(GbaSystem gba, string[] args)
         inputState = new InputEventState();
     }
 
+    gba.Video.DebugRenderingEnabled = options.DebugLayer.HasValue || !string.IsNullOrWhiteSpace(debugLayerDir);
     gba.Keypad.SetPressedKeys(options.Keys);
     InstallWatchReads(gba, options, () => frame);
     InstallWatchWrites(gba, options, () => frame);
@@ -1906,6 +1907,7 @@ static int CaptureFrames(GbaSystem gba, string[] args)
         inputState = new InputEventState();
     }
 
+    gba.Video.DebugRenderingEnabled = options.DebugLayer.HasValue;
     gba.Keypad.SetPressedKeys(options.Keys);
     InstallWatchReads(gba, options, () => frame);
     InstallWatchWrites(gba, options, () => frame);
@@ -2019,6 +2021,7 @@ static int VerifyFrame(GbaSystem gba, string[] args)
     var frame = 0;
     gba.Video.VBlankStarted += () => frame++;
     LoadSaveFileIfRequested(gba, options);
+    gba.Video.DebugRenderingEnabled = options.DebugLayer.HasValue;
     gba.Keypad.SetPressedKeys(options.Keys);
     InstallWatchReads(gba, options, () => frame);
     InstallWatchWrites(gba, options, () => frame);
