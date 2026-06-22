@@ -71,6 +71,23 @@ This gives the current broad confidence picture: 300/300 curated official titles
 boot under the aligned real-BIOS path, and a 28-title stress slice passes boot,
 Start-probe, and broad-input phases without crashes or timeouts.
 
+## 2026-06-22 Post-Regular-BG Gameplay Smoke
+
+After the regular background scanline optimization, a small gameplay sweep was
+run against the first 20 `curated_official_gba` titles using 5-ROM chunks,
+`-NoCapture`, `-MaxSteps 20000000`, and `-MaxSeconds 60`:
+
+| Report | Rows | Boot | Static | Timeout | Crash |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `compat-curated-post-regularbg-20260622-001-020-small/compat-all.csv` | 80 | 80 | 0 | 0 | 0 |
+
+Classifications were 46 `animated`, 30 `stalled-late`, and 4 `low-motion`.
+The weak rows are concentrated in generic title/menu probes rather than hard
+failures; follow-up candidates are Contra Advance JP, Alienators, Advance GTA,
+and Beyblade G-Revolution. A larger attempted 25-ROM gameplay chunk produced
+mostly synthetic `process-timeout` rows, so continue using 5-ROM chunks for
+long gameplay validation on this machine.
+
 Use `--profile-output` on performance-focused compatibility runs. This enables profiled stepping and writes a second CSV with wall time, steps/sec, frames/sec, and CPU/bus/scheduler percentages:
 
 ```powershell
