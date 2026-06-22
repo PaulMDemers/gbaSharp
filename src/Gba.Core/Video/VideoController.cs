@@ -941,22 +941,62 @@ public sealed class VideoController
         var heightTiles = (size & 2) != 0 ? 64 : 32;
         var width = widthTiles * 8;
         var height = heightTiles * 8;
+        var widthMask = width - 1;
+        var heightMask = height - 1;
         var hofs = _bus.PeekIo16(IoRegisters.BG0HOFS + (uint)(bg * 4)) & 0x1FF;
         var vofs = _bus.PeekIo16(IoRegisters.BG0VOFS + (uint)(bg * 4)) & 0x1FF;
         var priority = (byte)(control & 0x3);
         var mosaic = IsBackgroundMosaicEnabled(control);
-        var mosaicH = mosaic ? GetBackgroundMosaicHorizontalSize() : 1;
+        var rowOffset = y * Width;
         var mosaicV = mosaic ? GetBackgroundMosaicVerticalSize() : 1;
         var mosaicY = mosaic ? y - y % mosaicV : y;
-        var bgY = (mosaicY + vofs) % height;
-        var tileY = bgY / 8;
+        var bgY = (mosaicY + vofs) & heightMask;
+        var tileY = bgY >> 3;
         var inTileY = bgY & 7;
 
+        if (!mosaic)
+        {
+            var bgX = hofs & widthMask;
+            for (var x = 0; x < Width; x++)
+            {
+                var tileX = bgX >> 3;
+                var screenOffset = screenBase + GetRegularScreenEntryOffset(tileX, tileY, widthTiles, heightTiles);
+                var entry = ReadVram16(screenOffset);
+                var paletteIndex = GetTilePaletteIndex(charBase, entry, bgX & 7, inTileY, eightBitColor);
+                var pixel = rowOffset + x;
+                if (_debugRenderingEnabled)
+                {
+                    RecordRegularBgDebugSample(
+                        bg,
+                        pixel,
+                        control,
+                        bgX,
+                        bgY,
+                        tileX,
+                        tileY,
+                        screenOffset,
+                        entry,
+                        paletteIndex,
+                        hofs,
+                        vofs);
+                }
+                if (paletteIndex != 0 && priority <= priorities[x] && IsLayerVisibleAtPixel(bg, x, y))
+                {
+                    SetLayerPixel(pixel, x, priority, (byte)bg, ReadPaletteColor(paletteIndex), priorities, layers, secondLayers);
+                }
+
+                bgX = (bgX + 1) & widthMask;
+            }
+
+            return;
+        }
+
+        var mosaicH = GetBackgroundMosaicHorizontalSize();
         for (var x = 0; x < Width; x++)
         {
-            var mosaicX = mosaic ? x - x % mosaicH : x;
-            var bgX = (mosaicX + hofs) % width;
-            var tileX = bgX / 8;
+            var mosaicX = x - x % mosaicH;
+            var bgX = (mosaicX + hofs) & widthMask;
+            var tileX = bgX >> 3;
             var screenOffset = screenBase + GetRegularScreenEntryOffset(tileX, tileY, widthTiles, heightTiles);
             var entry = ReadVram16(screenOffset);
             var paletteIndex = GetTilePaletteIndex(charBase, entry, bgX & 7, inTileY, eightBitColor);
@@ -964,7 +1004,7 @@ public sealed class VideoController
             {
                 RecordRegularBgDebugSample(
                     bg,
-                    y * Width + x,
+                    rowOffset + x,
                     control,
                     bgX,
                     bgY,
@@ -981,7 +1021,7 @@ public sealed class VideoController
                 continue;
             }
 
-            SetLayerPixel(y * Width + x, x, priority, (byte)bg, ReadPaletteColor(paletteIndex), priorities, layers, secondLayers);
+            SetLayerPixel(rowOffset + x, x, priority, (byte)bg, ReadPaletteColor(paletteIndex), priorities, layers, secondLayers);
         }
     }
 

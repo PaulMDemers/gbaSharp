@@ -37,6 +37,7 @@ When possible, compare candidate and baseline profiles from the same machine/ses
 - Normal bitmap scanline rendering skips debug-layer recording calls unless debug rendering is enabled.
 - Window/effect checks now fast-return for the common no-window/no-OBJ cases.
 - CLI optimization profiles can now collect optional video render breakdowns without changing the normal render hot path.
+- Regular background scanline rendering now uses power-of-two masks/shifts and a non-mosaic fast path instead of paying modulo/mosaic arithmetic per pixel.
 
 ## Current Retail Slice
 
@@ -50,6 +51,8 @@ The slowest title averages were scheduler/video-heavy: `BEYBLADEGREV`, `GTA`, `A
 
 Focused render/audio fast paths improved the intended slow subset (`GTA`, `ALIENHOMINID`, `BEYBLADEGREV`, `BEYBLADE: UL`) from roughly 2.42M to 2.53M steps/sec on the 16-row profile. The broader 15-20 chunk was mixed: several slow rows improved, but `ALIENATORS` regressed on repeated runs. Keep this pass easy to isolate if a larger sweep shows the tradeoff is not worthwhile.
 
+The regular-BG mask/non-mosaic scanline pass improved the current 16-row slow focus profile from 990,710 to 1,653,225 steps/sec, with all 16 rows improved. On the opt-in video-profile version of the same focus slice, aggregate regular-BG time dropped from 29.2s to 19.2s and aggregate scanline time dropped from 43.2s to 29.0s.
+
 ## Rejected Experiments
 
 - Scheduler next-event cache: passed tests, but the short smoke profile regressed. The existing `PriorityQueue.TryPeek` path is currently preferable.
@@ -57,6 +60,7 @@ Focused render/audio fast paths improved the intended slow subset (`GTA`, `ALIEN
 - Cached window-state threading through scanline draw loops: passed tests, but regressed the four-title scheduler-heavy focus slice by roughly 15%.
 - Semi-transparent OBJ row flag: passed tests, but regressed the same focus slice by roughly 2.8%. The direct row scan remains preferable for now.
 - Regular-background screen-entry cache: passed tests, but regressed the focused render-heavy profile and was backed out. The added state did not pay for itself.
+- Lazy palette conversion cache: passed tests and helped one GTA long-input row, but regressed most rows in the same single-ROM focus check, so it was backed out.
 
 ## Next Targets
 
