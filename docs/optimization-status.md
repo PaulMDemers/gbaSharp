@@ -61,10 +61,13 @@ The regular-BG mask/non-mosaic scanline pass improved the current 16-row slow fo
 - Semi-transparent OBJ row flag: passed tests, but regressed the same focus slice by roughly 2.8%. The direct row scan remains preferable for now.
 - Regular-background screen-entry cache: passed tests, but regressed the focused render-heavy profile and was backed out. The added state did not pay for itself.
 - Lazy palette conversion cache: passed tests and helped one GTA long-input row, but regressed most rows in the same single-ROM focus check, so it was backed out.
+- Sprite scanline priority buckets: passed tests, but regressed the 16-row slow focus profile from 1.65M to 0.99M steps/sec. The extra stack setup and reparse cost outweighed the saved OAM scans.
+- Non-affine sprite source fast path: passed tests, but regressed the same 16-row focus profile to 0.82M steps/sec. The current `GetObjectSourcePixel` shape appears more JIT-friendly than the branch split.
+- Blend effects window fast path: passed tests, but regressed the 16-row focus profile from 1.65M to 1.24M steps/sec. The extra branch shape was worse than the existing helper call pattern.
 
 ## Next Targets
 
 - Profile longer retail gameplay routes in Release mode, especially known slow/progressful rows.
 - Use `-VideoProfile` on targeted slow games to pick renderer work by measured buckets. The first GTA smoke showed regular background rendering as the dominant cost, with affine/sprite costs becoming relevant during later phases.
-- Optimize renderer paths that are active during normal gameplay, starting with regular background scanline loops and per-pixel priority/layer bookkeeping.
+- Optimize renderer paths that are active during normal gameplay, starting with per-pixel priority/layer bookkeeping or larger algorithmic changes. Small branch-shape changes in sprite/blend code need especially strict same-session A/B checks because several have caused large JIT regressions.
 - Revisit memory fast paths only with a broad curated benchmark and direct before/after classification checks.
