@@ -105,6 +105,15 @@ Contra Hard Spirits JP side-scrolling scene with
 GTA JP race with the existing GT route. Both are tracked as non-baseline
 deep-gameplay routes.
 
+The next 5-ROM-chunk gameplay smoke covers curated indexes 21-40 in
+`compat-curated-post-regularbg-20260622-021-040-small/compat-all.csv`: 80 rows,
+73 boot, 7 timeout, 0 static, and 0 crash. All timeout rows are
+`slow-progress-timeout` in the Dragon Ball/DBZ cluster at indexes 21-24. A
+focused optimization-profile rerun of indexes 21-24 at
+`artifacts/optimization-dragonball-timeout-cluster-20260622` completes all 16
+gameplay phases with 0 timeouts, averaging about 3.89M steps/sec. Treat these
+as budget/performance follow-up rows rather than core correctness failures.
+
 Use `--profile-output` on performance-focused compatibility runs. This enables profiled stepping and writes a second CSV with wall time, steps/sec, frames/sec, and CPU/bus/scheduler percentages:
 
 ```powershell
