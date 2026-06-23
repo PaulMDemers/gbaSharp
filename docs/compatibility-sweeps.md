@@ -114,6 +114,17 @@ focused optimization-profile rerun of indexes 21-24 at
 gameplay phases with 0 timeouts, averaging about 3.89M steps/sec. Treat these
 as budget/performance follow-up rows rather than core correctness failures.
 
+The 41-60 gameplay smoke at
+`compat-curated-post-regularbg-20260623-041-060-small/compat-all.csv` has 80
+rows: 75 boot, 5 timeout, 0 static, and 0 crash. The timeout rows are
+`slow-progress-timeout` for WarioWare Twisted, Powerpuff Girls Mojo Jojo A-Go-Go,
+and Scooby-Doo Unmasked. A focused profile rerun at
+`artifacts/optimization-curated-041-060-timeout-cluster-20260623` completes all
+12 phases for those titles with 0 timeouts, averaging about 4.21M steps/sec.
+WarioWare Twisted remains visually stalled/white under generic input and should
+be tracked as a tilt-hardware/input-route coverage case; Powerpuff and Scooby
+show normal title/story/menu progression in the focused captures.
+
 Use `--profile-output` on performance-focused compatibility runs. This enables profiled stepping and writes a second CSV with wall time, steps/sec, frames/sec, and CPU/bus/scheduler percentages:
 
 ```powershell
