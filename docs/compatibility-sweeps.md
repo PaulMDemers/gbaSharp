@@ -88,6 +88,15 @@ and Beyblade G-Revolution. A larger attempted 25-ROM gameplay chunk produced
 mostly synthetic `process-timeout` rows, so continue using 5-ROM chunks for
 long gameplay validation on this machine.
 
+Focused follow-up on Alienators and Beyblade G-Revolution confirms the weak
+generic classifications are input-route coverage problems, not immediate core
+failures. `deep-gameplay-weakrows-20260622-rerun` reaches Alienators title/story
+progression with a dense Start/A route, though it remains CPU-heavy.
+`deep-gameplay-weakrows-beyblade-20260622` reaches an in-game Beyblade dialog
+scene with the dedicated `scripts/visual-input/beyblade-grev-dialog.input`
+route. These routes are tracked in `docs/gba-deep-gameplay-routes.csv` with
+`baselineRequired=false` until stable baselines are intentionally promoted.
+
 Use `--profile-output` on performance-focused compatibility runs. This enables profiled stepping and writes a second CSV with wall time, steps/sec, frames/sec, and CPU/bus/scheduler percentages:
 
 ```powershell
