@@ -97,6 +97,14 @@ scene with the dedicated `scripts/visual-input/beyblade-grev-dialog.input`
 route. These routes are tracked in `docs/gba-deep-gameplay-routes.csv` with
 `baselineRequired=false` until stable baselines are intentionally promoted.
 
+The remaining weak-row candidates from the same smoke are also route coverage
+cases. `deep-gameplay-weakrows-contra-jp-20260622-rerun` reaches the first
+Contra Hard Spirits JP side-scrolling scene with
+`scripts/visual-input/contra-hard-spirits-jp-gameplay.input`, and
+`deep-gameplay-weakrows-advance-gta-jp-20260622-final` reaches a live Advance
+GTA JP race with the existing GT route. Both are tracked as non-baseline
+deep-gameplay routes.
+
 Use `--profile-output` on performance-focused compatibility runs. This enables profiled stepping and writes a second CSV with wall time, steps/sec, frames/sec, and CPU/bus/scheduler percentages:
 
 ```powershell
