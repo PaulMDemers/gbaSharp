@@ -11,7 +11,7 @@ public sealed class MemoryBus
     private const uint RubySapphireBgmStatusAddress = 0x0300_7384;
     private const uint InitialBiosOpenBus = 0;
     private const uint PostStartupBiosOpenBus = 0;
-    private const byte LegendsPostStartupBiosByteC3 = 0xE1;
+    private const byte GuardedPostStartupBiosByteC3 = 0xE1;
     private const ushort InitialRemoteControl = 0x8000;
     private const int WaveRamBankSize = 16;
     private static readonly int[,] MultiplayerSerialTransferCycles =
@@ -42,7 +42,7 @@ public sealed class MemoryBus
     private bool _flashIdMode;
     private int _flashBank;
     private bool _rubyTitleMplayStatusGuard;
-    private bool _legendsBiosOpenBusGuard;
+    private bool _guardedBiosByteC3OpenBus;
     private byte _gpioData;
     private byte _gpioDirection;
     private byte _gpioControl;
@@ -243,7 +243,7 @@ public sealed class MemoryBus
         _flashIdMode = false;
         _flashBank = 0;
         _rubyTitleMplayStatusGuard = cartridge.Header.GameCode is "AXVE" or "AXPE";
-        _legendsBiosOpenBusGuard = cartridge.Header.GameCode is "A2LE";
+        _guardedBiosByteC3OpenBus = cartridge.Header.GameCode is "A2LE" or "AMRE";
         _cartridgeHardware = DetectCartridgeHardware(cartridge.Header);
         _gpioData = 0;
         _gpioDirection = 0;
@@ -375,9 +375,9 @@ public sealed class MemoryBus
     {
         if (address < GbaMemoryMap.BiosSize && (!HasBios || !BiosAccessible))
         {
-            if (_legendsBiosOpenBusGuard && address == 0x0000_00C3)
+            if (_guardedBiosByteC3OpenBus && address == 0x0000_00C3)
             {
-                return LegendsPostStartupBiosByteC3;
+                return GuardedPostStartupBiosByteC3;
             }
 
             return (byte)(_biosOpenBus >> (int)((address & 3) * 8));

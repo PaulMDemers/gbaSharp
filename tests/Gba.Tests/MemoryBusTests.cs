@@ -150,14 +150,29 @@ public sealed class MemoryBusTests
         Assert.Equal(0u, bus.Read32(0x0000_0090));
     }
 
-    [Fact]
-    public void LegendsNoBiosBiosByteProbeReturnsNonZeroPostStartupValue()
+    [Theory]
+    [InlineData("A2LE")]
+    [InlineData("AMRE")]
+    public void GuardedNoBiosBiosByteProbeReturnsNonZeroPostStartupValue(string gameCode)
     {
         var bus = new MemoryBus();
 
-        bus.LoadCartridge(Cartridge.Load(CreateRom("A2LE")));
+        bus.LoadCartridge(Cartridge.Load(CreateRom(gameCode)));
 
         Assert.Equal(0xE1, bus.Read8(0x0000_00C3));
+        Assert.Equal(0u, bus.Read32(0x0000_0090));
+    }
+
+    [Theory]
+    [InlineData("APTE")]
+    [InlineData("TEST")]
+    public void UnguardedNoBiosBiosByteProbeKeepsZeroPostStartupValue(string gameCode)
+    {
+        var bus = new MemoryBus();
+
+        bus.LoadCartridge(Cartridge.Load(CreateRom(gameCode)));
+
+        Assert.Equal(0x00, bus.Read8(0x0000_00C3));
         Assert.Equal(0u, bus.Read32(0x0000_0090));
     }
 
