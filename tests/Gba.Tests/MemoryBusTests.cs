@@ -164,6 +164,21 @@ public sealed class MemoryBusTests
     }
 
     [Theory]
+    [InlineData("ATOE")]
+    [InlineData("ATOJ")]
+    public void TacticsOgreNoBiosBiosWordProbeReturnsLockedBiosOpenBus(string gameCode)
+    {
+        var bus = new MemoryBus();
+
+        bus.LoadCartridge(Cartridge.Load(CreateRom(gameCode)));
+
+        Assert.Equal(0xE510_F004u, bus.Read32(0x0000_0000));
+        Assert.Equal(0x04, bus.Read8(0x0000_0000));
+        Assert.Equal(0xF0, bus.Read8(0x0000_0001));
+        Assert.Equal(0u, bus.Read32(0x0000_0090));
+    }
+
+    [Theory]
     [InlineData("APTE")]
     [InlineData("TEST")]
     public void UnguardedNoBiosBiosByteProbeKeepsZeroPostStartupValue(string gameCode)

@@ -11,6 +11,7 @@ public sealed class MemoryBus
     private const uint RubySapphireBgmStatusAddress = 0x0300_7384;
     private const uint InitialBiosOpenBus = 0;
     private const uint PostStartupBiosOpenBus = 0;
+    private const uint TacticsOgreLockedBiosWord0 = 0xE510_F004;
     private const byte GuardedPostStartupBiosByteC3 = 0xE1;
     private const ushort InitialRemoteControl = 0x8000;
     private const int WaveRamBankSize = 16;
@@ -43,6 +44,7 @@ public sealed class MemoryBus
     private int _flashBank;
     private bool _rubyTitleMplayStatusGuard;
     private bool _guardedBiosByteC3OpenBus;
+    private bool _guardedBiosWord0OpenBus;
     private byte _gpioData;
     private byte _gpioDirection;
     private byte _gpioControl;
@@ -244,6 +246,7 @@ public sealed class MemoryBus
         _flashBank = 0;
         _rubyTitleMplayStatusGuard = cartridge.Header.GameCode is "AXVE" or "AXPE";
         _guardedBiosByteC3OpenBus = cartridge.Header.GameCode is "A2LE" or "AMRE";
+        _guardedBiosWord0OpenBus = cartridge.Header.GameCode is "ATOE" or "ATOJ";
         _cartridgeHardware = DetectCartridgeHardware(cartridge.Header);
         _gpioData = 0;
         _gpioDirection = 0;
@@ -375,6 +378,11 @@ public sealed class MemoryBus
     {
         if (address < GbaMemoryMap.BiosSize && (!HasBios || !BiosAccessible))
         {
+            if (_guardedBiosWord0OpenBus && address < 4)
+            {
+                return (byte)(TacticsOgreLockedBiosWord0 >> (int)((address & 3) * 8));
+            }
+
             if (_guardedBiosByteC3OpenBus && address == 0x0000_00C3)
             {
                 return GuardedPostStartupBiosByteC3;
