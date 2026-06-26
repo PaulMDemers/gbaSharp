@@ -198,7 +198,7 @@ For animated title screens, keep exact matching as the default and opt into a bo
 
 `-PhaseWindowFrames` forwards to `verify-frame --phase-window-frames`. The CLI still runs the ROM once, compares frames inside the requested window, and writes the best matched frame to the normal actual/diff paths. A nearby exact match reports `phase-pass`; otherwise the row remains `diff` but records the closest frame and metrics.
 
-Manifest rows can include `phase`, `inputScript`, `saveFile`, and `expectedScene`. `inputScript` uses the same frame input script syntax as the CLI, so a visual row can drive title/menu input before capturing a later frame.
+Manifest rows can include `phase`, `inputScript`, `saveFile`, and `expectedScene`. `inputScript` uses the same frame input script syntax as the CLI, so a visual row can drive title/menu input before capturing a later frame. For long repeated confirmations, prefer `repeat KEYS FIRST_FRAME INTERVAL_FRAMES COUNT DURATION` in the script rather than dozens of one-off `at` rows. For route tuning, `dump-frame --frame-dump FRAME:path.ppm` can save multiple candidate frames during a single run while still writing the normal final `--output` frame.
 
 Rows with `saveFile` are loaded read-only by default from the batch runner. Pass `-WriteSaveFiles` only when intentionally regenerating save data.
 

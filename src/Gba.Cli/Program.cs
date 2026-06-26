@@ -1768,6 +1768,7 @@ static int DumpFrame(GbaSystem gba, string[] args)
     LoadSaveFileIfRequested(gba, options);
     var outputPath = "frame.ppm";
     string? debugLayerDir = null;
+    var frameDumps = new List<FrameDumpRequest>();
 
     for (var i = 0; i < args.Length; i++)
     {
@@ -1779,6 +1780,10 @@ static int DumpFrame(GbaSystem gba, string[] args)
 
             case "--debug-layer-dir" when i + 1 < args.Length:
                 debugLayerDir = args[++i];
+                break;
+
+            case "--frame-dump" when i + 1 < args.Length:
+                frameDumps.Add(ParseFrameDumpRequest(args[++i]));
                 break;
         }
     }
@@ -1815,6 +1820,7 @@ static int DumpFrame(GbaSystem gba, string[] args)
     var traceLimiter = CreateTraceLimiter(options);
     var wallClockLimit = StartWallClockLimit(options);
     var hitWallClockLimit = false;
+    var writtenFrameDumps = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
     for (long step = 0; step < options.MaxSteps; step++)
     {
         currentStep = step;
@@ -1842,6 +1848,20 @@ static int DumpFrame(GbaSystem gba, string[] args)
             ApplyFrameHashEvents(gba, options, inputState, step, frame);
             ApplyMemoryTriggerEvents(gba, options, inputState, step, frame);
             WriteSnapshotIfNeeded(gba, options, snapshots, frame);
+            foreach (var frameDump in frameDumps)
+            {
+                if (frameDump.Frame != frame)
+                {
+                    continue;
+                }
+
+                var key = $"{frameDump.Frame}\0{frameDump.Path}";
+                if (writtenFrameDumps.Add(key))
+                {
+                    WritePpm(frameDump.Path, GetOutputFramebuffer(gba, options));
+                    Console.WriteLine($"Captured frame dump {Path.GetFullPath(frameDump.Path)} at frame={frame:N0}, PC=0x{gba.Cpu.Pc:X8}, cycles={gba.Scheduler.Now:N0}.");
+                }
+            }
         }
         catch (Exception ex)
         {
@@ -4479,6 +4499,22 @@ static FrameKeyEvent ParseFrameKeyEvent(string value)
     return new FrameKeyEvent(frame, ParseKeys(value[(separator + 1)..]));
 }
 
+static FrameDumpRequest ParseFrameDumpRequest(string value)
+{
+    var separator = value.IndexOf(':');
+    if (separator <= 0 || separator == value.Length - 1)
+    {
+        throw new ArgumentException($"Invalid frame dump '{value}'. Expected FRAME:PATH.");
+    }
+
+    if (!int.TryParse(value[..separator], NumberStyles.Integer, CultureInfo.InvariantCulture, out var frame) || frame <= 0)
+    {
+        throw new ArgumentException($"Invalid frame dump frame in '{value}'.");
+    }
+
+    return new FrameDumpRequest(frame, value[(separator + 1)..]);
+}
+
 static void AddFrameTapEvents(List<FrameKeyEvent> keyEvents, string value)
 {
     var parts = value.Split(':', StringSplitOptions.TrimEntries);
@@ -4552,6 +4588,21 @@ static void AddInputScriptEvents(List<FrameKeyEvent> keyEvents, string path)
                     RequirePartCount(parts, 2, 2, "release FRAME");
                     cursor = ParseNonNegativeInt(parts[1], "frame");
                     keyEvents.Add(new FrameKeyEvent(cursor, GbaKey.None));
+                    break;
+
+                case "repeat":
+                    RequirePartCount(parts, 6, 6, "repeat KEYS FIRST_FRAME INTERVAL_FRAMES COUNT DURATION");
+                    var repeatedKeys = ParseKeys(parts[1]);
+                    var firstFrame = ParseNonNegativeInt(parts[2], "first frame");
+                    var intervalFrames = ParsePositiveInt(parts[3], "interval");
+                    var count = ParseNonNegativeInt(parts[4], "count");
+                    var durationFrames = ParsePositiveInt(parts[5], "duration");
+                    for (var repeatIndex = 0; repeatIndex < count; repeatIndex++)
+                    {
+                        AddTap(keyEvents, firstFrame + (repeatIndex * intervalFrames), repeatedKeys, durationFrames);
+                    }
+
+                    cursor = firstFrame + (Math.Max(0, count - 1) * intervalFrames);
                     break;
 
                 case "wait":
@@ -5003,7 +5054,7 @@ static void PrintUsage()
     Console.Error.WriteLine("  gbaSharp save-probe <rom-directory> [--limit N] [--start-index N] [--indexes 12,15-20] [--output save-probe.csv] [--summary-output save-probe-summary.csv]");
     Console.Error.WriteLine("  gbaSharp run <rom.gba> [--max-steps N] [--max-seconds N] [--stop-frame N] [--align-rom-entry] [--trace] [--audio-wav audio.wav]");
     Console.Error.WriteLine("  gbaSharp test-rom <rom.gba> [--max-steps N] [--max-seconds N] [--stop-frame N] [--trace] [--success-pc HEX] [--failure-pc HEX]");
-    Console.Error.WriteLine("  gbaSharp dump-frame <rom.gba> [--max-steps N] [--max-seconds N] [--stop-frame N] [--trace] [--output frame.ppm] [--audio-csv direct.csv] [--psg-csv psg.csv] [--psg-csv-include-silence] [--audio-timing-csv timing.csv] [--audio-buffer-range START:END] [--audio-wav audio.wav]");
+    Console.Error.WriteLine("  gbaSharp dump-frame <rom.gba> [--max-steps N] [--max-seconds N] [--stop-frame N] [--trace] [--output frame.ppm] [--frame-dump FRAME:path.ppm] [--audio-csv direct.csv] [--psg-csv psg.csv] [--psg-csv-include-silence] [--audio-timing-csv timing.csv] [--audio-buffer-range START:END] [--audio-wav audio.wav]");
     Console.Error.WriteLine("  gbaSharp compare-bios <rom.gba> --bios gba_bios.bin [--stop-frame N] [--compare-output diff.csv] [--compare-start-frame N] [--compare-frame-interval N] [--compare-first-diff-only] [--compare-game-state-only] [--compare-align-rom-entry]");
     Console.Error.WriteLine("  gbaSharp capture-frames <rom.gba> [--max-steps N] [--max-seconds N] [--output-dir captures] [--sample-steps N]");
     Console.Error.WriteLine("  gbaSharp verify-frame <rom.gba> --baseline baseline.ppm [--actual actual.ppm] [--diff diff.ppm] [--write-baseline] [--max-different-pixels N] [--max-channel-delta N] [--phase-window-frames N]");
@@ -5495,6 +5546,8 @@ internal sealed class InstructionTraceLimiter
 internal readonly record struct KeyEvent(int Step, GbaKey Keys);
 
 internal readonly record struct FrameKeyEvent(int Frame, GbaKey Keys);
+
+internal readonly record struct FrameDumpRequest(int Frame, string Path);
 
 internal readonly record struct FrameHashEvent(ulong Hash, GbaKey Keys, int DurationFrames, int MinFrame);
 
