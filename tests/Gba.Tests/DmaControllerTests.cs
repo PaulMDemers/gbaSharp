@@ -443,7 +443,7 @@ public sealed class DmaControllerTests
     }
 
     [Fact]
-    public void ImmediateDmaReenableReloadsInitialRegisterAddresses()
+    public void ImmediateDmaReenableContinuesInternalAddressesUntilRegistersAreRewritten()
     {
         var gba = new GbaSystem();
         gba.Bus.Write32(GbaMemoryMap.IwramStart, 0x1111_2222);
@@ -460,11 +460,11 @@ public sealed class DmaControllerTests
             ((uint)(IoRegisters.DmaEnable | IoRegisters.DmaWord) << 16) | 1);
 
         Assert.Equal(0x1111_2222u, gba.Bus.Read32(GbaMemoryMap.IwramStart + 0x100));
-        Assert.Equal(0u, gba.Bus.Read32(GbaMemoryMap.IwramStart + 0x104));
+        Assert.Equal(0x3333_4444u, gba.Bus.Read32(GbaMemoryMap.IwramStart + 0x104));
     }
 
     [Fact]
-    public void SoundFifoDmaReenableReloadsInitialSourceAddress()
+    public void SoundFifoDmaReenableContinuesInternalSourceAddress()
     {
         var gba = new GbaSystem();
         for (uint i = 0; i < 8; i++)
@@ -490,7 +490,7 @@ public sealed class DmaControllerTests
         gba.Bus.Write16(IoRegisters.DMA1CNT_H, (ushort)(IoRegisters.DmaEnable | IoRegisters.DmaRepeat | IoRegisters.DmaWord | specialTiming | fixedDestination));
         gba.Scheduler.Advance(1);
 
-        Assert.Equal(0x4444_0003u, gba.Bus.PeekIo32(IoRegisters.FIFO_A));
+        Assert.Equal(0x4444_0007u, gba.Bus.PeekIo32(IoRegisters.FIFO_A));
     }
 
     [Fact]
