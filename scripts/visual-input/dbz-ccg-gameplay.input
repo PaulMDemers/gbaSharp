@@ -1,0 +1,11 @@
+# Advance Dragon Ball Z Collectible Card Game to an active card/hand scene.
+repeat Start 120 120 10 5
+repeat A 180 120 28 5
+repeat Down 2400 90 8 8
+repeat A 2460 90 8 5
+repeat Right 3600 90 8 8
+repeat A 3660 90 8 5
+repeat A 5200 90 16 5
+repeat Down 6600 90 6 8
+repeat Right 7200 90 6 8
+repeat A 7800 90 8 5
