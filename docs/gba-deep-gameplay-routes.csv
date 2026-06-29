@@ -1,5 +1,6 @@
 label,index,romPath,inputScript,stopFrame,maxSteps,maxSeconds,snapshotFrames,saveFile,saveReadOnly,targetScene,baselineRequired,minDistinctPcs,expectedScene,notes
 doom-gameplay,1,,scripts\visual-input\doom-gameplay.input,9000,4500000000,900,900,,,gameplay,true,,First-person Doom gameplay,Action shooter rendering baseline
+doomii-gameplay,2,,scripts\visual-input\doom-gameplay.input,6000,3000000000,600,600,,,gameplay,true,8,Doom II first-person gameplay,Expansion route for the Doom II raycast/3D engine using the shared Doom menu route
 gta-gameplay,4,,scripts\visual-input\gta-gameplay.input,12000,6000000000,1500,1200,,,gameplay,true,7,On-foot GTA gameplay in Chinatown,Former DMA timing crash anchor now routes past save-slot/name setup with stable 7-PC route-loop diversity
 sonic-advance-default,125,,scripts\visual-input\sonic-advance-scripted.input,3600,1800000000,600,300,,,gameplay,true,7,In-level Sonic gameplay,Sonic scanline/HBlank DMA regression anchor with stable 7-PC route-loop diversity
 mario-kart-race,119,,scripts\visual-input\mario-kart-race.input,7200,3600000000,600,600,,,gameplay,true,,Active race on Peach Circuit,Affine/background racing baseline
