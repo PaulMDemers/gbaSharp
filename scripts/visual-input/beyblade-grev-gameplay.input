@@ -1,0 +1,94 @@
+# Preserve the known opening route, then advance the story dialogue into the first
+# room-control scene.
+at 120 Start 5
+tap A 5
+wait 80
+tap Start 5
+tap A 5
+wait 80
+tap Start 5
+tap A 5
+wait 80
+tap Start 5
+tap A 5
+wait 80
+tap Start 5
+tap A 5
+wait 80
+tap Start 5
+tap A 5
+wait 80
+tap Start 5
+tap A 5
+wait 80
+tap Start 5
+tap A 5
+wait 80
+tap Start 5
+tap A 5
+wait 80
+tap Start 5
+tap A 5
+wait 80
+tap Start 5
+tap A 5
+wait 80
+tap Start 5
+tap A 5
+wait 80
+tap Start 5
+tap A 5
+wait 80
+tap Start 5
+tap A 5
+wait 80
+tap Start 5
+tap A 5
+wait 80
+tap Start 5
+tap A 5
+wait 80
+tap Start 5
+tap A 5
+wait 80
+tap Start 5
+tap A 5
+wait 80
+tap Start 5
+tap A 5
+wait 80
+tap Start 5
+tap A 5
+wait 80
+tap Start 5
+tap A 5
+wait 80
+tap Start 5
+tap A 5
+wait 80
+tap Start 5
+tap A 5
+wait 80
+tap Start 5
+tap A 5
+wait 80
+tap Start 5
+tap A 5
+wait 80
+tap Start 5
+tap A 5
+wait 80
+tap Down 12
+wait 60
+tap A 5
+wait 80
+tap Right 12
+wait 60
+tap A 5
+wait 80
+tap A 5
+repeat A 4200 90 40 5
+repeat Down 7800 120 6 8
+repeat A 7860 120 6 5
+repeat Right 9000 120 6 8
+repeat A 9060 120 6 5

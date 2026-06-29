@@ -1,0 +1,22 @@
+# Skip Alienators' opening/title-room flow into the first side-scrolling gameplay scene.
+repeat Start 120 90 24 5
+repeat A 125 90 24 5
+repeat A 2400 60 20 5
+tap Down 8
+wait 30
+tap A 6
+wait 90
+tap A 6
+wait 90
+tap Right 12
+wait 20
+tap Right 12
+wait 20
+tap A 6
+wait 60
+repeat Right 3600 45 20 10
+repeat Left 4500 45 20 10
+repeat Up 5400 45 12 10
+repeat Down 6000 45 12 10
+repeat B 6600 30 24 5
+repeat A 6900 30 24 5
