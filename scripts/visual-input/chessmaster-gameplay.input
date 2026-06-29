@@ -1,0 +1,14 @@
+# Reach Chessmaster's board screen and exercise cursor/menu input.
+repeat Start 120 120 8 5
+repeat A 180 120 12 5
+repeat Down 1800 90 4 8
+repeat A 1860 90 4 5
+repeat Right 2600 60 8 8
+repeat Down 3100 60 4 8
+repeat A 3400 80 4 5
+repeat Left 4200 60 4 8
+repeat Up 4600 60 4 8
+repeat A 5000 80 6 5
+repeat Right 6000 60 8 8
+repeat Down 6500 60 8 8
+repeat A 7200 80 8 5
