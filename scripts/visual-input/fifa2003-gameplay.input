@@ -1,0 +1,12 @@
+# Advance FIFA Soccer 2003 into an active match and exercise player controls.
+repeat Start 120 120 12 5
+repeat A 180 120 28 5
+repeat Down 2400 120 6 8
+repeat A 2520 120 10 5
+repeat Right 4200 120 4 8
+repeat A 4320 120 10 5
+repeat A 6000 180 16 5
+at 8200 A,Right 900
+at 9800 B,Left 600
+at 11200 A,Up 900
+press 13000 Up
