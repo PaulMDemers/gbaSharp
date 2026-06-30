@@ -1,6 +1,6 @@
 # GBA Route Candidate Notes
 
-Last updated: 2026-06-29
+Last updated: 2026-06-30
 
 This file tracks useful but unpromoted route probes so compatibility work does not
 repeat the same blind input experiments.
@@ -13,6 +13,6 @@ repeat the same blind input experiments.
 | Driver 2 Advance | Promoted as `driver2-gameplay`: active 3D mission scene with HUD/minimap, traffic, and 10 distinct PCs at frame 9,000. | `artifacts/route-probes-20260629/driver2-run/contact-sheet.png` | Covered in the deep-gameplay manifest; not a remaining blocker. | Optional future work is a longer mission soak or a route that enters a vehicle. |
 | Lara Croft Tomb Raider - The Prophecy | Promoted as `tombraider-prophecy-gameplay`: in-engine snowy action scene with 4 distinct PCs at frame 6,000. | `artifacts/route-probes-20260629/tombraider-prophecy-6000-run/contact-sheet.png` | Covered in the deep-gameplay manifest; not a remaining blocker. | Optional future work is a longer route that exercises combat/climbing. |
 | Lara Croft Tomb Raider - Legend | Boots and reaches an illustrated story/dialog scene by frame 6,000 with 6 distinct PCs. | `artifacts/route-probes-20260629/tomb-baldur-run/contact-sheet.png` | Generic route is still in opening story text, not controllable gameplay. | Continue slower A/Start dialogue advances; avoid promoting until a controllable scene is visible. |
-| Baldur's Gate - Dark Alliance | Boots and reaches a busy rendered scene by frame 6,000 with 10 distinct PCs, but the captured frame has severe vertical striping/corruption. | `artifacts/route-probes-20260629/baldur-6000-run/contact-sheet.png` | Visual corruption makes it a likely graphics-bug anchor rather than clean compatibility evidence. | Reproduce against mGBA/MAME reference and inspect display mode/BG/object composition before route promotion. |
+| Baldur's Gate - Dark Alliance | The bitmap-mode vertical striping is fixed. Frame 12,000 and 18,000 now show clean rendered intro/dialogue scenes with 11-12 distinct PCs. | `artifacts/route-probes-20260630/baldur-bitmap-layered-18000-run/contact-sheet.png` | Generic route is still in story/dialogue, not controllable gameplay. | Add game-specific dialogue/menu routing, then promote only after a controllable dungeon/town scene is visible. |
 | CIMA - The Enemy | Frame 6,000 is black, but frame 12,000 reaches a rendered RPG dialogue scene with 6 distinct PCs. | `artifacts/route-probes-20260629/cima-12000-run/contact-sheet.png` | Generic route is still in early dialogue, not controllable gameplay. | Add slower dialogue-confirm routing and wait for an overhead control scene before promoting. |
 | Driv3r | Frames 6,000 and 12,000 both show cinematic/video scenes with 4-5 distinct PCs. | `artifacts/route-probes-20260629/driv3r-12000-run/contact-sheet.png` | Generic route has not skipped or exhausted the opening cinematic sequence. | Add Start/A/B skip probes and menu-specific confirms, then verify a mission/driving frame before promotion. |

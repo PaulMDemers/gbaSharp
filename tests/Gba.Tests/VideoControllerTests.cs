@@ -124,7 +124,7 @@ public sealed class VideoControllerTests
     public void Mode3RendersBgr555PixelsToFramebuffer()
     {
         var gba = new GbaSystem();
-        gba.Bus.DisplayControl = 3;
+        gba.Bus.DisplayControl = 3 | (1 << 10);
         gba.Bus.Write16(GbaMemoryMap.VramStart, 0x001F);
         gba.Bus.Write16(GbaMemoryMap.VramStart + 2, 0x03E0);
         gba.Bus.Write16(GbaMemoryMap.VramStart + 4, 0x7C00);
@@ -140,7 +140,7 @@ public sealed class VideoControllerTests
     public void Mode4RendersPaletteIndexedPixels()
     {
         var gba = new GbaSystem();
-        gba.Bus.DisplayControl = 4;
+        gba.Bus.DisplayControl = 4 | (1 << 10);
         gba.Bus.Write16(GbaMemoryMap.PaletteStart + 2, 0x001F);
         gba.Bus.Write16(GbaMemoryMap.PaletteStart + 4, 0x03E0);
         WriteVideoByte(gba.Bus, GbaMemoryMap.VramStart, 1);
@@ -156,7 +156,7 @@ public sealed class VideoControllerTests
     public void Mode4UsesSecondFramePageWhenSelected()
     {
         var gba = new GbaSystem();
-        gba.Bus.DisplayControl = 4 | (1 << 4);
+        gba.Bus.DisplayControl = 4 | (1 << 4) | (1 << 10);
         gba.Bus.Write16(GbaMemoryMap.PaletteStart + 2, 0x7C00);
         WriteVideoByte(gba.Bus, GbaMemoryMap.VramStart + 0xA000, 1);
 
@@ -169,7 +169,7 @@ public sealed class VideoControllerTests
     public void Mode5Renders160By128BitmapInsideFramebuffer()
     {
         var gba = new GbaSystem();
-        gba.Bus.DisplayControl = 5;
+        gba.Bus.DisplayControl = 5 | (1 << 10);
         gba.Bus.Write16(GbaMemoryMap.VramStart, 0x7FFF);
         gba.Bus.Write16(GbaMemoryMap.VramStart + ((127 * 160 + 159) * 2), 0x001F);
 
@@ -177,7 +177,63 @@ public sealed class VideoControllerTests
 
         Assert.Equal(0xFFFF_FFFFu, gba.Video.Framebuffer[0]);
         Assert.Equal(0xFFFF_0000u, gba.Video.Framebuffer[127 * VideoController.Width + 159]);
-        Assert.Equal(0u, gba.Video.Framebuffer[128 * VideoController.Width]);
+        Assert.Equal(0xFF00_0000u, gba.Video.Framebuffer[128 * VideoController.Width]);
+    }
+
+    [Fact]
+    public void Mode4DoesNotRenderBitmapWhenBg2Disabled()
+    {
+        var gba = new GbaSystem();
+        gba.Bus.DisplayControl = 4;
+        gba.Bus.Write16(GbaMemoryMap.PaletteStart, 0x0000);
+        gba.Bus.Write16(GbaMemoryMap.PaletteStart + 2, 0x001F);
+        WriteVideoByte(gba.Bus, GbaMemoryMap.VramStart, 1);
+
+        AdvanceToVBlank(gba);
+
+        Assert.Equal(0xFF00_0000u, gba.Video.Framebuffer[0]);
+    }
+
+    [Fact]
+    public void Mode4RendersObjectsWhenBg2Disabled()
+    {
+        var gba = new GbaSystem();
+        gba.Bus.DisplayControl = (ushort)(4 | (1 << 12) | (1 << 6));
+        gba.Bus.Write16(GbaMemoryMap.PaletteStart + 0x200 + 2, 0x03E0);
+        WriteVideoByte(gba.Bus, GbaMemoryMap.VramStart + 0x14000, 0x01);
+        for (var sprite = 1; sprite < 128; sprite++)
+        {
+            gba.Bus.Write16(GbaMemoryMap.OamStart + (uint)(sprite * 8), 160);
+        }
+
+        gba.Bus.Write16(GbaMemoryMap.OamStart, 0);
+        gba.Bus.Write16(GbaMemoryMap.OamStart + 2, 0);
+        gba.Bus.Write16(GbaMemoryMap.OamStart + 4, 512);
+
+        AdvanceToVBlank(gba);
+
+        Assert.Equal(0xFF00_FF00u, gba.Video.Framebuffer[0]);
+    }
+
+    [Fact]
+    public void BitmapModeObjectsIgnoreTilesBelow512()
+    {
+        var gba = new GbaSystem();
+        gba.Bus.DisplayControl = (ushort)(4 | (1 << 12) | (1 << 6));
+        gba.Bus.Write16(GbaMemoryMap.PaletteStart + 0x200 + 2, 0x03E0);
+        WriteVideoByte(gba.Bus, GbaMemoryMap.VramStart + 0x10000, 0x01);
+        for (var sprite = 1; sprite < 128; sprite++)
+        {
+            gba.Bus.Write16(GbaMemoryMap.OamStart + (uint)(sprite * 8), 160);
+        }
+
+        gba.Bus.Write16(GbaMemoryMap.OamStart, 0);
+        gba.Bus.Write16(GbaMemoryMap.OamStart + 2, 0);
+        gba.Bus.Write16(GbaMemoryMap.OamStart + 4, 0);
+
+        AdvanceToVBlank(gba);
+
+        Assert.Equal(0xFF00_0000u, gba.Video.Framebuffer[0]);
     }
 
     [Fact]

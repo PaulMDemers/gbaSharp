@@ -383,15 +383,15 @@ public sealed class VideoController
                 break;
 
             case 3:
-                RenderMode3Scanline(y);
+                RenderBitmapLayeredScanline(y, 3);
                 break;
 
             case 4:
-                RenderMode4Scanline(y);
+                RenderBitmapLayeredScanline(y, 4);
                 break;
 
             case 5:
-                RenderMode5Scanline(y);
+                RenderBitmapLayeredScanline(y, 5);
                 break;
 
             default:
@@ -430,15 +430,15 @@ public sealed class VideoController
                 break;
 
             case 3:
-                ProfileBitmapScanline(() => RenderMode3Scanline(y));
+                RenderBitmapLayeredScanlineProfiled(y, 3);
                 break;
 
             case 4:
-                ProfileBitmapScanline(() => RenderMode4Scanline(y));
+                RenderBitmapLayeredScanlineProfiled(y, 4);
                 break;
 
             case 5:
-                ProfileBitmapScanline(() => RenderMode5Scanline(y));
+                RenderBitmapLayeredScanlineProfiled(y, 5);
                 break;
 
             default:
@@ -472,39 +472,15 @@ public sealed class VideoController
                 break;
 
             case 3:
-                if (layer == 2)
-                {
-                    RenderMode3Scanline(y);
-                }
-                else
-                {
-                    _framebuffer.AsSpan(y * Width, Width).Fill(0xFF00_0000u);
-                }
-
+                RenderBitmapLayeredScanline(y, 3, layer);
                 break;
 
             case 4:
-                if (layer == 2)
-                {
-                    RenderMode4Scanline(y);
-                }
-                else
-                {
-                    _framebuffer.AsSpan(y * Width, Width).Fill(0xFF00_0000u);
-                }
-
+                RenderBitmapLayeredScanline(y, 4, layer);
                 break;
 
             case 5:
-                if (layer == 2)
-                {
-                    RenderMode5Scanline(y);
-                }
-                else
-                {
-                    _framebuffer.AsSpan(y * Width, Width).Fill(0xFF00_0000u);
-                }
-
+                RenderBitmapLayeredScanline(y, 5, layer);
                 break;
 
             default:
@@ -709,6 +685,124 @@ public sealed class VideoController
             var start = Stopwatch.GetTimestamp();
             ApplyBlendEffectsScanline(y, layers, secondLayers);
             _renderProfile.BlendTicks += Stopwatch.GetTimestamp() - start;
+        }
+    }
+
+    private void RenderBitmapLayeredScanline(int y, int mode, int? debugLayer = null)
+    {
+        var backdrop = debugLayer.HasValue ? 0xFF00_0000u : ReadPaletteColor(0);
+        var rowOffset = y * Width;
+        _framebuffer.AsSpan(rowOffset, Width).Fill(backdrop);
+
+        Span<byte> priorities = stackalloc byte[Width];
+        priorities.Fill(4);
+        Span<byte> layers = stackalloc byte[Width];
+        layers.Fill(5);
+        Span<byte> secondLayers = stackalloc byte[Width];
+        secondLayers.Fill(5);
+        _secondFramebuffer.AsSpan(rowOffset, Width).Fill(backdrop);
+        Array.Clear(_objectWindow, rowOffset, Width);
+        Array.Clear(_semiTransparentObject, rowOffset, Width);
+        if ((_bus.DisplayControl & (1 << 15)) != 0)
+        {
+            RenderObjectWindowScanline(y);
+        }
+
+        var bg2Enabled = (_bus.DisplayControl & (1 << 10)) != 0;
+        var bg2Control = _bus.PeekIo16(IoRegisters.BG2CNT);
+        var bg2Priority = (byte)(bg2Control & 0x3);
+        for (var priority = 3; priority >= 0; priority--)
+        {
+            if (bg2Enabled
+                && bg2Priority == priority
+                && debugLayer is null or 2)
+            {
+                RenderBitmapBackgroundScanline(mode, y, bg2Priority, priorities, layers, secondLayers);
+            }
+
+            if ((_bus.DisplayControl & (1 << 12)) != 0 && debugLayer is null or 4)
+            {
+                RenderSpritesForPriorityScanline(priority, y, priorities, layers, secondLayers);
+            }
+        }
+
+        if (!debugLayer.HasValue)
+        {
+            CaptureDebugCompositionScanline(y, layers, secondLayers);
+            ApplyBlendEffectsScanline(y, layers, secondLayers);
+        }
+    }
+
+    private void RenderBitmapLayeredScanlineProfiled(int y, int mode)
+    {
+        var backdrop = ReadPaletteColor(0);
+        var rowOffset = y * Width;
+        _framebuffer.AsSpan(rowOffset, Width).Fill(backdrop);
+
+        Span<byte> priorities = stackalloc byte[Width];
+        priorities.Fill(4);
+        Span<byte> layers = stackalloc byte[Width];
+        layers.Fill(5);
+        Span<byte> secondLayers = stackalloc byte[Width];
+        secondLayers.Fill(5);
+        _secondFramebuffer.AsSpan(rowOffset, Width).Fill(backdrop);
+        Array.Clear(_objectWindow, rowOffset, Width);
+        Array.Clear(_semiTransparentObject, rowOffset, Width);
+        if ((_bus.DisplayControl & (1 << 15)) != 0)
+        {
+            var start = Stopwatch.GetTimestamp();
+            RenderObjectWindowScanline(y);
+            _renderProfile.ObjectWindowTicks += Stopwatch.GetTimestamp() - start;
+        }
+
+        var bg2Enabled = (_bus.DisplayControl & (1 << 10)) != 0;
+        var bg2Control = _bus.PeekIo16(IoRegisters.BG2CNT);
+        var bg2Priority = (byte)(bg2Control & 0x3);
+        for (var priority = 3; priority >= 0; priority--)
+        {
+            if (bg2Enabled && bg2Priority == priority)
+            {
+                var start = Stopwatch.GetTimestamp();
+                RenderBitmapBackgroundScanline(mode, y, bg2Priority, priorities, layers, secondLayers);
+                _renderProfile.BitmapTicks += Stopwatch.GetTimestamp() - start;
+            }
+
+            if ((_bus.DisplayControl & (1 << 12)) != 0)
+            {
+                var start = Stopwatch.GetTimestamp();
+                RenderSpritesForPriorityScanline(priority, y, priorities, layers, secondLayers);
+                _renderProfile.SpriteTicks += Stopwatch.GetTimestamp() - start;
+            }
+        }
+
+        CaptureDebugCompositionScanline(y, layers, secondLayers);
+        var blendStart = Stopwatch.GetTimestamp();
+        ApplyBlendEffectsScanline(y, layers, secondLayers);
+        _renderProfile.BlendTicks += Stopwatch.GetTimestamp() - blendStart;
+    }
+
+    private void RenderBitmapBackgroundScanline(
+        int mode,
+        int y,
+        byte priority,
+        Span<byte> priorities,
+        Span<byte> layers,
+        Span<byte> secondLayers)
+    {
+        var rowOffset = y * Width;
+        for (var x = 0; x < Width; x++)
+        {
+            if (priority > priorities[x] || !IsLayerVisibleAtPixel(2, x, y))
+            {
+                continue;
+            }
+
+            if (!TryReadBitmapPixel(mode, x, y, out var color))
+            {
+                continue;
+            }
+
+            SetLayerPixel(rowOffset + x, x, priority, 2, color, priorities, layers, secondLayers);
         }
     }
 
@@ -1347,6 +1441,49 @@ public sealed class VideoController
         }
     }
 
+    private bool TryReadBitmapPixel(int mode, int x, int y, out uint color)
+    {
+        color = 0;
+        var vram = _bus.VideoRam;
+        switch (mode)
+        {
+            case 3:
+            {
+                var offset = (y * Width + x) * 2;
+                color = Bgr555ToRgba8888((ushort)(vram[offset] | (vram[offset + 1] << 8)));
+                return true;
+            }
+
+            case 4:
+            {
+                var pageOffset = (_bus.DisplayControl & (1 << 4)) != 0 ? 0xA000 : 0;
+                var paletteIndex = vram[pageOffset + y * Width + x];
+                var paletteOffset = paletteIndex * 2;
+                var palette = _bus.PaletteRam;
+                color = Bgr555ToRgba8888((ushort)(palette[paletteOffset] | (palette[paletteOffset + 1] << 8)));
+                return true;
+            }
+
+            case 5:
+            {
+                const int mode5Width = 160;
+                const int mode5Height = 128;
+                if (x >= mode5Width || y >= mode5Height)
+                {
+                    return false;
+                }
+
+                var pageOffset = (_bus.DisplayControl & (1 << 4)) != 0 ? 0xA000 : 0;
+                var offset = pageOffset + (y * mode5Width + x) * 2;
+                color = Bgr555ToRgba8888((ushort)(vram[offset] | (vram[offset + 1] << 8)));
+                return true;
+            }
+
+            default:
+                return false;
+        }
+    }
+
     private void RecordRenderScanline(long profileStart)
     {
         _renderProfile.Scanlines++;
@@ -1414,15 +1551,34 @@ public sealed class VideoController
 
         if (color256)
         {
-            return _bus.VideoRam[MapObjectTileOffset(tileNumber * 32 + inTileY * 8 + inTileX)];
+            var offset = MapObjectTileOffset(tileNumber, inTileY * 8 + inTileX);
+            return offset < 0 ? 0 : _bus.VideoRam[offset];
         }
 
-        var packed = _bus.VideoRam[MapObjectTileOffset(tileNumber * 32 + inTileY * 4 + inTileX / 2)];
+        var packedOffset = MapObjectTileOffset(tileNumber, inTileY * 4 + inTileX / 2);
+        if (packedOffset < 0)
+        {
+            return 0;
+        }
+
+        var packed = _bus.VideoRam[packedOffset];
         var color = (inTileX & 1) == 0 ? packed & 0xF : packed >> 4;
         return color == 0 ? 0 : paletteBank * 16 + color;
     }
 
-    private static int MapObjectTileOffset(int offset) => 0x10000 + (offset & 0x7FFF);
+    private int MapObjectTileOffset(int tileNumber, int byteOffsetInTile)
+    {
+        var offset = tileNumber * 32 + byteOffsetInTile;
+        var displayMode = _bus.DisplayControl & 0x7;
+        if (displayMode is >= 3 and <= 5)
+        {
+            return offset < 0x4000
+                ? -1
+                : 0x14000 + ((offset - 0x4000) & 0x3FFF);
+        }
+
+        return 0x10000 + (offset & 0x7FFF);
+    }
 
     private uint ReadPaletteColor(int index)
     {
