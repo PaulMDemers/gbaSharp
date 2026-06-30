@@ -1,0 +1,16 @@
+# Advance Tomb Raider: The Prophecy into an active in-engine snowy area.
+repeat Start 120 120 12 5
+repeat A 180 120 30 5
+repeat Down 2400 120 6 8
+repeat A 2520 120 10 5
+repeat Right 4200 120 6 8
+repeat A 4320 120 12 5
+repeat A 6000 180 12 5
+at 7600 Right 900
+at 9000 Down 900
+at 10400 Left 900
+at 11800 Up 900
+press 13200 A
+at 15000 B,Right 900
+at 16800 A,Down 900
+press 19000 A
