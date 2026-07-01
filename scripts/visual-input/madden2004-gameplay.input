@@ -1,0 +1,19 @@
+# Advance Madden NFL 2004 into an on-field coin-toss/play setup scene.
+repeat Start 120 60 10 5
+repeat A 180 45 12 5
+repeat Right 260 90 10 10
+repeat A 720 75 14 6
+repeat B 760 120 9 6
+repeat Right 820 160 7 18
+repeat Down 900 180 6 12
+repeat Left 1040 220 4 12
+repeat A 3200 180 10 5
+repeat Start 5000 240 6 5
+repeat A 5600 180 12 5
+repeat Right 7200 180 4 12
+repeat A 8000 180 10 5
+repeat Start 9800 240 8 5
+repeat A 10800 180 14 5
+at 13200 A,Right 900
+at 15000 B,Left 600
+at 16800 A,Up 900
