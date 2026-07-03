@@ -11,6 +11,7 @@ param(
     [switch]$NoContactSheet,
     [switch]$DryRun,
     [switch]$Resume,
+    [switch]$ContinueOnFailure,
     [switch]$NormalPriority
 )
 
@@ -289,6 +290,11 @@ try {
             manifest = $manifestPath
             labels = $suite.labels
             message = $message
+        }
+
+        if ($required -and $status -ne "pass" -and -not $ContinueOnFailure) {
+            Write-Warning "Stopping release gate after required suite failure. Pass -ContinueOnFailure to audit remaining suites."
+            break
         }
     }
 
