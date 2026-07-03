@@ -7,6 +7,10 @@ build. It wraps the existing focused runners instead of replacing them.
 
 - `smoke`: Release builds, unit tests, a small hero gameplay set, and a short
   audio sanity pass. Use this after ordinary emulator changes.
+- `candidate`: Release builds, unit tests, release-critical strict gameplay
+  routes, save-assisted routes, and audio smoke. Use this as the fast release
+  candidate gate while broader fresh-start route flakiness is still being
+  triaged.
 - `standard`: Release builds, unit tests, the full strict deep-gameplay suite,
   save-assisted routes, and audio smoke. Use this before merging compatibility
   work.
@@ -17,6 +21,7 @@ build. It wraps the existing focused runners instead of replacing them.
 
 ```powershell
 .\scripts\run-release-gate.ps1 -Profile smoke -NormalPriority
+.\scripts\run-release-gate.ps1 -Profile candidate -NormalPriority
 .\scripts\run-release-gate.ps1 -Profile standard -NormalPriority
 .\scripts\run-release-gate.ps1 -Profile full -NormalPriority
 ```
@@ -92,3 +97,19 @@ calibrated release-gate WAV gain is `0.45`. The audio CSV helpers now tolerate
 truncated trailing CSV rows by treating missing numeric fields as defaults,
 which fixed the Castlevania Aria WAV export failure seen during the first
 targeted audio run.
+
+The release-candidate critical deep manifest intentionally excludes the older
+fresh-start `metroid-fusion-gameplay`, `castlevania-aria-gameplay`, and
+`castlevania-harmony-gameplay` routes while their intermittent hard-abort
+behavior is being triaged. Metroid remains covered by the save-assisted route,
+and Castlevania remains covered by audio smoke while broader fresh-start visual
+coverage stays in the full suite.
+
+After additional one-route checks, the candidate deep manifest was narrowed to
+the strict visual routes that are currently reliable inside repeated gate runs
+on this host: Doom II, Sonic Advance, and Mario Kart. Doom and GTA both have
+focused `pass, match` follow-ups, but still intermittently hard-abort inside
+suite execution, so they stay in `standard`/`full` rather than the fast
+candidate line. Broader visual diversity remains in `standard`/`full`;
+`candidate` is intentionally the fast release line paired with save-assisted
+gameplay and audio smoke.

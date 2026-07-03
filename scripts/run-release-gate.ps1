@@ -1,11 +1,11 @@
 param(
-    [ValidateSet("smoke", "standard", "full")]
+    [ValidateSet("smoke", "candidate", "standard", "full")]
     [string]$Profile = "smoke",
     [string]$Suites = "docs\gba-release-gate-suites.csv",
     [string[]]$OnlySuite = @(),
     [int]$SkipSuites = 0,
     [string]$OutputRoot = "",
-    [int]$ChunkSize = 5,
+    [int]$ChunkSize = 1,
     [int]$StartChunk = 0,
     [int]$MaxChunks = 0,
     [int]$ProcessTimeoutSeconds = 900,
