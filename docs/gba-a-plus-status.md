@@ -399,3 +399,5 @@ Probe compatibility is not the same as perfect gameplay. Next milestones:
 - Deepen the scripted visual snapshots with true save-assisted gameplay scenes and external mGBA/no$gba reference captures.
 - Add frontend controls for solar, gyro/tilt, and rumble state.
 - Audit audio timing and DMA/FIFO behavior with longer gameplay captures.
+
+2026-07-03 compatibility update: Driv3r now has a strict-verified active third-person 3D city/HUD route at frame 18,000 (`driv3r-gameplay`) using an explicit FMV/menu skip script. `artifacts/deep-gameplay-current-driv3r-gameplay-strict-20260703/deep-gameplay.csv` reports `pass, match` with 5 distinct PCs, and `artifacts/deep-gameplay-current-55-rollup-20260703/summary.md` covers 55/55 manifest routes with 55 strict `pass, match` rows, 0 missing routes, 0 failures, and 0 low-diversity warnings. CIMA also advanced significantly through the early cabin sequence, but remains a route-followup instead of a strict baseline because the shorter 48,000-frame route is still in dialogue and the longer 72,000-frame probe did not complete a final frame row within the current harness budget.

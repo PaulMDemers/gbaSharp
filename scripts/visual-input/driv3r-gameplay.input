@@ -1,0 +1,15 @@
+# Driv3r: skip the opening FMV, accept default menu choices, then exercise active 3D movement.
+repeat Start 120 90 18 5
+repeat A 180 90 18 5
+repeat B 240 120 8 5
+repeat A 1800 150 18 5
+repeat Start 4200 180 12 5
+repeat A 4800 150 20 5
+repeat Down 7200 180 3 7
+repeat A 7800 150 12 5
+at 9600 Up 1200
+at 10800 Right 1200
+at 12000 A,Up 1200
+at 13800 B,Right 1200
+at 15600 L,Right 900
+at 16800 R,Up 900
