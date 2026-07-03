@@ -1,0 +1,14 @@
+profile,suite,runner,manifest,labels,required,notes
+smoke,build-test,build-test,,,true,Build CLI and desktop in Release and run unit tests
+smoke,deep-hero-smoke,deep-gameplay,docs\gba-deep-gameplay-routes.csv,"sonic-advance-default;mario-kart-race",true,Fast representative scrolling and affine-rendering smoke
+smoke,save-assisted-hero-smoke,deep-gameplay,docs\gba-save-assisted-deep-routes.csv,"pokemon-ruby-save-bedroom",true,Fast Flash128K save-assisted smoke
+smoke,audio-hero-smoke,audio-smoke,docs\gba-audio-smoke-routes.csv,"pokemon-ruby-title;sonic-advance-save-controlled",true,Short audio signal sanity smoke
+standard,build-test,build-test,,,true,Build CLI and desktop in Release and run unit tests
+standard,deep-current-full,deep-gameplay-suite,docs\gba-deep-gameplay-routes.csv,,true,Full current strict deep-gameplay suite
+standard,save-assisted-current,deep-gameplay-suite,docs\gba-save-assisted-deep-routes.csv,,true,Save-assisted strict gameplay fixtures
+standard,audio-current,audio-smoke,docs\gba-audio-smoke-routes.csv,,true,Audio signal smoke routes
+full,build-test,build-test,,,true,Build CLI and desktop in Release and run unit tests
+full,deep-current-full,deep-gameplay-suite,docs\gba-deep-gameplay-routes.csv,,true,Full current strict deep-gameplay suite
+full,save-assisted-current,deep-gameplay-suite,docs\gba-save-assisted-deep-routes.csv,,true,Save-assisted strict gameplay fixtures
+full,longplay-current,longplay-suite,docs\gba-longplay-strict-routes.csv,,true,Strict longplay suite for longer gameplay soaks
+full,audio-current,audio-smoke,docs\gba-audio-smoke-routes.csv,,true,Audio signal smoke routes
