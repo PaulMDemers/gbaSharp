@@ -12,7 +12,7 @@ DEFAULT_MAX_FRAMES_PER_EVENT = 4_410
 
 def parse_int(row: dict[str, str], name: str, default: int = 0) -> int:
     value = row.get(name, "")
-    if value == "":
+    if value is None or value == "":
         return default
     return int(value)
 

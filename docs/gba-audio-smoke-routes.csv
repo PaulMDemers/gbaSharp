@@ -1,5 +1,5 @@
 label,romPath,inputScript,saveFile,saveReadOnly,stopFrame,maxSteps,maxSeconds,keys,alignRomEntry,expectedSignalStatus,notes
-sonic-advance-title,"Sonic Advance (USA) (En,Ja).gba",,,false,300,500000000,180,,false,silent,Root Sonic Advance no-BIOS title/intro audio smoke
+sonic-advance-title,"Sonic Advance (USA) (En,Ja).gba",,,false,300,500000000,180,,false,ok,Root Sonic Advance title/intro audio smoke under current release-gate BIOS/default path
 pokemon-ruby-title,Ruby.gba,,,false,300,500000000,180,,false,ok,Root Pokemon Ruby title/intro audio smoke
 zelda-minish-save-bedroom,"curated_official_gba\platform-action\054 - Legend of Zelda, The - The Minish Cap (USA).gba",scripts\visual-input\zelda-minish-opening.input,visual-saves\approved\zelda-minish-roundtrip.sav,true,1800,1200000000,360,,true,ok,Save-assisted Zelda bedroom audio smoke
 advance-wars-save-map,"curated_official_gba\strategy-card\116 - Advance Wars (USA) (Rev 1).gba",scripts\visual-input\advance-wars-map.input,visual-saves\approved\advance-wars-roundtrip.sav,true,1800,1200000000,300,,true,ok,Save-assisted Advance Wars map/menu audio smoke

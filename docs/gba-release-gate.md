@@ -21,6 +21,16 @@ build. It wraps the existing focused runners instead of replacing them.
 .\scripts\run-release-gate.ps1 -Profile full -NormalPriority
 ```
 
+Run a single suite or chunk range when a full profile is too large for the
+current host:
+
+```powershell
+.\scripts\run-release-gate.ps1 -Profile standard -OnlySuite deep-current-full -StartChunk 0 -MaxChunks 1 -NormalPriority
+.\scripts\run-release-gate.ps1 -Profile standard -OnlySuite save-assisted-current -NormalPriority
+.\scripts\run-release-gate.ps1 -Profile standard -OnlySuite audio-current -NormalPriority
+.\scripts\run-release-gate.ps1 -Profile full -OnlySuite longplay-current -StartChunk 2 -MaxChunks 1 -NormalPriority
+```
+
 Each run writes a timestamped folder under `artifacts\release-gate-*` with a
 top-level `release-gate-summary.md`, per-suite logs, and the normal runner
 reports/contact sheets.
@@ -74,3 +84,11 @@ and Mario Kart matched, while Doom and GTA aborted under that loaded chunk run;
 the focused follow-up `artifacts\release-gate-followup-doom-gta-solo-20260703`
 then verified both `doom-gameplay` and `gta-gameplay` as `pass, match`. Treat
 those as harness/load-budget noise unless they reproduce in focused solo runs.
+
+The targeted audio standard suite now passes at
+`artifacts\release-gate-standard-20260703-112043-564\release-gate-summary.md`:
+11/11 rows reached target frames, all 11 signal expectations matched, and the
+calibrated release-gate WAV gain is `0.45`. The audio CSV helpers now tolerate
+truncated trailing CSV rows by treating missing numeric fields as defaults,
+which fixed the Castlevania Aria WAV export failure seen during the first
+targeted audio run.

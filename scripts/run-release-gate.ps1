@@ -2,10 +2,15 @@ param(
     [ValidateSet("smoke", "standard", "full")]
     [string]$Profile = "smoke",
     [string]$Suites = "docs\gba-release-gate-suites.csv",
+    [string[]]$OnlySuite = @(),
+    [int]$SkipSuites = 0,
     [string]$OutputRoot = "",
     [int]$ChunkSize = 5,
+    [int]$StartChunk = 0,
+    [int]$MaxChunks = 0,
     [int]$ProcessTimeoutSeconds = 900,
     [int]$RouteMaxSecondsCap = 0,
+    [double]$AudioWavGain = 0.45,
     [switch]$NoBuild,
     [switch]$SkipTests,
     [switch]$NoContactSheet,
@@ -171,9 +176,11 @@ function Invoke-RunnerSuite {
                 "-Manifest", $ManifestPath,
                 "-OutputRoot", $SuiteDir,
                 "-ChunkSize", "$ChunkSize",
+                "-StartChunk", "$StartChunk",
                 "-ProcessTimeoutSeconds", "$ProcessTimeoutSeconds",
                 "-FailOnBaselineDiff"
             )
+            if ($MaxChunks -gt 0) { $args += @("-MaxChunks", "$MaxChunks") }
             if ($RouteMaxSecondsCap -gt 0) { $args += @("-RouteMaxSecondsCap", "$RouteMaxSecondsCap") }
             if ($NoContactSheet) { $args += "-NoContactSheet" }
             if ($Resume) { $args += "-Resume" }
@@ -184,8 +191,10 @@ function Invoke-RunnerSuite {
                 "-Manifest", $ManifestPath,
                 "-OutputRoot", $SuiteDir,
                 "-ChunkSize", "$ChunkSize",
+                "-StartChunk", "$StartChunk",
                 "-ProcessTimeoutSeconds", "$ProcessTimeoutSeconds"
             )
+            if ($MaxChunks -gt 0) { $args += @("-MaxChunks", "$MaxChunks") }
             if ($RouteMaxSecondsCap -gt 0) { $args += @("-RouteMaxSecondsCap", "$RouteMaxSecondsCap") }
             if ($NoContactSheet) { $args += "-NoContactSheet" }
             if ($Resume) { $args += "-Resume" }
@@ -196,6 +205,7 @@ function Invoke-RunnerSuite {
                 "-Manifest", $ManifestPath,
                 "-OutputDir", $SuiteDir,
                 "-ProcessTimeoutSeconds", "$ProcessTimeoutSeconds",
+                "-WavGain", $AudioWavGain.ToString([Globalization.CultureInfo]::InvariantCulture),
                 "-FailOnSignalMismatch"
             )
             if ($Resume) { $args += "-Resume" }
@@ -220,7 +230,7 @@ $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 Push-Location $repoRoot
 try {
     if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
-        $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
+        $stamp = Get-Date -Format "yyyyMMdd-HHmmss-fff"
         $OutputRoot = "artifacts\release-gate-$Profile-$stamp"
     }
 
@@ -228,6 +238,14 @@ try {
 
     $allSuites = @(Import-Csv -LiteralPath $Suites)
     $selectedSuites = @($allSuites | Where-Object { $_.profile -eq $Profile })
+    if ($OnlySuite.Count -gt 0) {
+        $selectedSuites = @($selectedSuites | Where-Object { $OnlySuite -contains $_.suite })
+    }
+
+    if ($SkipSuites -gt 0) {
+        $selectedSuites = @($selectedSuites | Select-Object -Skip $SkipSuites)
+    }
+
     if ($selectedSuites.Count -eq 0) {
         throw "No release gate suites found for profile '$Profile' in $Suites."
     }
