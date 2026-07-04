@@ -106,6 +106,12 @@ With those logs enabled, the candidate save-assisted suite passed at
 `artifacts\release-gate-candidate-20260703-205120-887\release-gate-summary.md`:
 8/8 rows are strict `pass, match` with 0 low-diversity warnings.
 
+The current full candidate gate is
+`artifacts\release-gate-candidate-20260704-165847-342\release-gate-summary.md`.
+It passes all 4 required suites: Release build/tests, 3/3 critical visual
+routes as strict `pass, match`, 8/8 save-assisted gameplay routes as strict
+`pass, match`, and 11/11 audio smoke rows with 0 signal expectation mismatches.
+
 The release-candidate critical deep manifest intentionally excludes the older
 fresh-start `metroid-fusion-gameplay`, `castlevania-aria-gameplay`, and
 `castlevania-harmony-gameplay` routes while their intermittent hard-abort
