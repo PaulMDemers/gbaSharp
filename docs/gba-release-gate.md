@@ -98,6 +98,14 @@ truncated trailing CSV rows by treating missing numeric fields as defaults,
 which fixed the Castlevania Aria WAV export failure seen during the first
 targeted audio run.
 
+`dump-frame` diagnostics are now available through `--diagnostic-log`, and
+`scripts\run-deep-gameplay.ps1` writes per-route command, stdout, stderr, and
+diagnostic logs under each run's `logs` directory. The first diagnostic reruns
+confirmed useful frame/step/PC breadcrumbs and managed process-exit markers.
+With those logs enabled, the candidate save-assisted suite passed at
+`artifacts\release-gate-candidate-20260703-205120-887\release-gate-summary.md`:
+8/8 rows are strict `pass, match` with 0 low-diversity warnings.
+
 The release-candidate critical deep manifest intentionally excludes the older
 fresh-start `metroid-fusion-gameplay`, `castlevania-aria-gameplay`, and
 `castlevania-harmony-gameplay` routes while their intermittent hard-abort

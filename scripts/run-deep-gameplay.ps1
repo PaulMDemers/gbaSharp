@@ -235,8 +235,10 @@ try {
     New-Item -ItemType Directory -Force -Path $BaselineDir | Out-Null
     $frameDir = Join-Path $OutputDir "frames"
     $snapshotDir = Join-Path $OutputDir "snapshots"
+    $logDir = Join-Path $OutputDir "logs"
     New-Item -ItemType Directory -Force -Path $frameDir | Out-Null
     New-Item -ItemType Directory -Force -Path $snapshotDir | Out-Null
+    New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 
     $roms = @(Get-ChildItem -Path $RomRoot -Recurse -Filter *.gba | Sort-Object FullName)
     if ($roms.Count -eq 0) {
@@ -303,6 +305,10 @@ try {
         $finalPpm = Join-Path $frameDir "$label.ppm"
         $baselinePpm = Join-Path $BaselineDir "$label.ppm"
         $snapshotCsv = Join-Path $snapshotDir "$label.csv"
+        $stdoutLog = Join-Path $logDir "$label.stdout.log"
+        $stderrLog = Join-Path $logDir "$label.stderr.log"
+        $commandLog = Join-Path $logDir "$label.command.txt"
+        $diagnosticLog = Join-Path $logDir "$label.diagnostic.log"
         $effectiveMaxSeconds = Get-PathOrEmpty $item "maxSeconds"
         if ($RouteMaxSecondsCap -gt 0) {
             if ([string]::IsNullOrWhiteSpace($effectiveMaxSeconds)) {
@@ -325,7 +331,8 @@ try {
             "--max-steps", "$($item.maxSteps)",
             "--output", $finalPpm,
             "--snapshot-csv", $snapshotCsv,
-            "--snapshot-frames", "$($item.snapshotFrames)"
+            "--snapshot-frames", "$($item.snapshotFrames)",
+            "--diagnostic-log", $diagnosticLog
         )
 
         if (-not $NoAlignRomEntry) {
@@ -358,7 +365,15 @@ try {
         }
 
         Write-Host "Running deep gameplay route $label (#$index)"
+        @(
+            "dotnet $(Join-ProcessArguments $args)",
+            "",
+            "TimeoutSeconds=$routeTimeoutSeconds",
+            "Started=$([DateTimeOffset]::Now.ToString('O'))"
+        ) | Set-Content -LiteralPath $commandLog -Encoding UTF8
         $result = Invoke-DotnetChecked -Arguments $args -TimeoutSeconds $routeTimeoutSeconds -Description "Deep gameplay $label"
+        $result.Stdout | Set-Content -LiteralPath $stdoutLog -Encoding UTF8
+        $result.Stderr | Set-Content -LiteralPath $stderrLog -Encoding UTF8
         $message = (($result.Stdout + " " + $result.Stderr) -replace '\s+', ' ').Trim()
         $observedFrame = Get-FrameFromOutput $message
         $snapshotRows = 0

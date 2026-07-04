@@ -19,8 +19,11 @@ if (args.Length == 0)
 try
 {
     var rawArgs = args.ToList();
+    var diagnosticLog = ExtractStringOption(rawArgs, "--diagnostic-log");
+    CliDiagnostics.Configure(diagnosticLog, args);
     var bios = ExtractBiosOption(rawArgs);
     var command = rawArgs[0].ToLowerInvariant();
+    CliDiagnostics.Write($"command={command}");
     if (command == "compat")
     {
         return await RunCompatibility(rawArgs.Skip(1).ToArray(), bios);
@@ -74,13 +77,43 @@ try
 }
 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
 {
+    CliDiagnostics.WriteException("handled-error", ex);
     Console.Error.WriteLine(ex.Message);
     return 1;
 }
 catch (NotSupportedException ex)
 {
+    CliDiagnostics.WriteException("not-supported", ex);
     Console.Error.WriteLine(ex.Message);
     return 3;
+}
+catch (Exception ex)
+{
+    CliDiagnostics.WriteException("unhandled-error", ex);
+    Console.Error.WriteLine(ex);
+    return 1;
+}
+
+static string? ExtractStringOption(List<string> args, string name)
+{
+    for (var i = 0; i < args.Count; i++)
+    {
+        if (!string.Equals(args[i], name, StringComparison.OrdinalIgnoreCase))
+        {
+            continue;
+        }
+
+        if (i + 1 >= args.Count)
+        {
+            throw new ArgumentException($"{name} requires a value.");
+        }
+
+        var value = args[i + 1];
+        args.RemoveRange(i, 2);
+        return value;
+    }
+
+    return null;
 }
 
 static byte[]? ExtractBiosOption(List<string> args)
@@ -1762,6 +1795,7 @@ static int TestRom(GbaSystem gba, string[] args)
 static int DumpFrame(GbaSystem gba, string[] args)
 {
     var options = ParseRunOptions(args);
+    CliDiagnostics.Write($"dump-frame start stopFrame={options.StopFrame?.ToString(CultureInfo.InvariantCulture) ?? ""} maxSteps={options.MaxSteps} maxSeconds={options.MaxSeconds?.ToString(CultureInfo.InvariantCulture) ?? ""} inputEvents={options.FrameKeyEvents.Count} inputScriptKeys={options.KeyEvents.Count} saveFile={options.SaveFile ?? ""}");
     var inputState = new InputEventState();
     var frame = 0;
     gba.Video.VBlankStarted += () => frame++;
@@ -1821,6 +1855,7 @@ static int DumpFrame(GbaSystem gba, string[] args)
     var wallClockLimit = StartWallClockLimit(options);
     var hitWallClockLimit = false;
     var writtenFrameDumps = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    var lastDiagnosticFrame = -1;
     for (long step = 0; step < options.MaxSteps; step++)
     {
         currentStep = step;
@@ -1848,6 +1883,12 @@ static int DumpFrame(GbaSystem gba, string[] args)
             ApplyFrameHashEvents(gba, options, inputState, step, frame);
             ApplyMemoryTriggerEvents(gba, options, inputState, step, frame);
             WriteSnapshotIfNeeded(gba, options, snapshots, frame);
+            if (frame != lastDiagnosticFrame && frame % 300 == 0)
+            {
+                lastDiagnosticFrame = frame;
+                CliDiagnostics.Write($"dump-frame progress frame={frame} step={step} pc=0x{gba.Cpu.Pc:X8} cycles={gba.Scheduler.Now}");
+            }
+
             foreach (var frameDump in frameDumps)
             {
                 if (frameDump.Frame != frame)
@@ -1865,6 +1906,7 @@ static int DumpFrame(GbaSystem gba, string[] args)
         }
         catch (Exception ex)
         {
+            CliDiagnostics.WriteException($"dump-frame execution exception step={step} frame={frame} pc=0x{gba.Cpu.Pc:X8}", ex);
             return ReportExecutionException(gba, options, traceTail, ex, step, frame);
         }
 
@@ -1875,6 +1917,7 @@ static int DumpFrame(GbaSystem gba, string[] args)
     }
 
     WritePpm(outputPath, GetOutputFramebuffer(gba, options));
+    CliDiagnostics.Write($"dump-frame wrote-output frame={frame} pc=0x{gba.Cpu.Pc:X8} cycles={gba.Scheduler.Now} output={Path.GetFullPath(outputPath)}");
     if (!string.IsNullOrWhiteSpace(debugLayerDir))
     {
         WriteDebugLayerPpms(gba, debugLayerDir);
@@ -5482,6 +5525,78 @@ internal sealed record RunOptions(
     int AudioSampleRate,
     double AudioGain,
     bool AudioPadFromStart);
+
+internal static class CliDiagnostics
+{
+    private static readonly object Gate = new();
+    private static string? path;
+    private static bool configured;
+
+    public static void Configure(string? diagnosticLog, IReadOnlyList<string> originalArgs)
+    {
+        if (configured)
+        {
+            return;
+        }
+
+        configured = true;
+        path = string.IsNullOrWhiteSpace(diagnosticLog) ? null : diagnosticLog;
+        if (path is null)
+        {
+            return;
+        }
+
+        Write("diagnostics-start");
+        Write($"pid={Environment.ProcessId} cwd={Environment.CurrentDirectory}");
+        Write($"args={string.Join(" ", originalArgs.Select(QuoteArgument))}");
+        AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+        {
+            Write($"unhandled-exception terminating={e.IsTerminating}");
+            if (e.ExceptionObject is Exception ex)
+            {
+                WriteException("unhandled-exception", ex);
+            }
+            else
+            {
+                Write($"unhandled-object={e.ExceptionObject}");
+            }
+        };
+        TaskScheduler.UnobservedTaskException += (_, e) => WriteException("unobserved-task-exception", e.Exception);
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => Write("process-exit");
+    }
+
+    public static void Write(string message)
+    {
+        if (path is null)
+        {
+            return;
+        }
+
+        lock (Gate)
+        {
+            var directory = Path.GetDirectoryName(path);
+            if (!string.IsNullOrWhiteSpace(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            File.AppendAllText(path, $"[{DateTimeOffset.Now:O}] {message}{Environment.NewLine}");
+        }
+    }
+
+    public static void WriteException(string context, Exception exception)
+    {
+        Write($"{context}: {exception.GetType().FullName}: {exception.Message}");
+        Write(exception.ToString());
+    }
+
+    private static string QuoteArgument(string value)
+    {
+        return value.Any(char.IsWhiteSpace)
+            ? "\"" + value.Replace("\"", "\\\"", StringComparison.Ordinal) + "\""
+            : value;
+    }
+}
 
 internal sealed class InstructionTraceTail
 {
