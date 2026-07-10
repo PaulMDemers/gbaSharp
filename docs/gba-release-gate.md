@@ -112,6 +112,15 @@ It passes all 4 required suites: Release build/tests, 3/3 critical visual
 routes as strict `pass, match`, 8/8 save-assisted gameplay routes as strict
 `pass, match`, and 11/11 audio smoke rows with 0 signal expectation mismatches.
 
+The first five routes of the broader standard deep-gameplay gate were rerun
+one process at a time at
+`artifacts\release-gate-standard-20260710-175507-419`. Doom, Doom II, GTA,
+Sonic Advance, and Mario Kart are 5/5 strict `pass, match`, with no
+low-diversity warnings or abnormal exits. The diagnostic logs show every route
+reaching its exact target frame and writing its output before a managed process
+exit. Doom and GTA are therefore restored to the release-critical manifest;
+the next candidate run is expected to contain five critical visual routes.
+
 The release-candidate critical deep manifest intentionally excludes the older
 fresh-start `metroid-fusion-gameplay`, `castlevania-aria-gameplay`, and
 `castlevania-harmony-gameplay` routes while their intermittent hard-abort
@@ -119,11 +128,8 @@ behavior is being triaged. Metroid remains covered by the save-assisted route,
 and Castlevania remains covered by audio smoke while broader fresh-start visual
 coverage stays in the full suite.
 
-After additional one-route checks, the candidate deep manifest was narrowed to
-the strict visual routes that are currently reliable inside repeated gate runs
-on this host: Doom II, Sonic Advance, and Mario Kart. Doom and GTA both have
-focused `pass, match` follow-ups, but still intermittently hard-abort inside
-suite execution, so they stay in `standard`/`full` rather than the fast
-candidate line. Broader visual diversity remains in `standard`/`full`;
-`candidate` is intentionally the fast release line paired with save-assisted
-gameplay and audio smoke.
+The candidate deep manifest now contains five strict visual routes that are
+reliable inside the suite wrapper on this host: Doom, Doom II, GTA, Sonic
+Advance, and Mario Kart. Broader visual diversity remains in `standard`/`full`;
+`candidate` is the fast release line paired with save-assisted gameplay and
+audio smoke.

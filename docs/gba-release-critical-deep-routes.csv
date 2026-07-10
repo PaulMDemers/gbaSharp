@@ -1,4 +1,6 @@
 label,index,romPath,inputScript,stopFrame,maxSteps,maxSeconds,snapshotFrames,saveFile,saveReadOnly,targetScene,baselineRequired,minDistinctPcs,expectedScene,notes
+doom-gameplay,1,,scripts\visual-input\doom-gameplay.input,9000,4500000000,900,900,,,gameplay,true,8,Doom first-person gameplay,Release-candidate FPS and generated-code stability anchor
 doomii-gameplay,2,,scripts\visual-input\doom-gameplay.input,6000,3000000000,600,600,,,gameplay,true,8,Doom II first-person gameplay,Release-candidate FPS route after stable local baseline refresh
+gta-gameplay,4,,scripts\visual-input\gta-gameplay.input,12000,6000000000,1500,1200,,,gameplay,true,7,On-foot GTA gameplay in Chinatown,Release-candidate DMA and generated-code crash regression anchor
 sonic-advance-default,125,,scripts\visual-input\sonic-advance-scripted.input,3600,1800000000,600,300,,,gameplay,true,7,Sonic Advance beach gameplay,Release-candidate scanline/HBlank scrolling anchor
 mario-kart-race,119,,scripts\visual-input\mario-kart-race.input,7200,3600000000,900,600,,,gameplay,true,,Mario Kart active race scene,Release-candidate affine racing anchor
