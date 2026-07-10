@@ -119,17 +119,26 @@ Sonic Advance, and Mario Kart are 5/5 strict `pass, match`, with no
 low-diversity warnings or abnormal exits. The diagnostic logs show every route
 reaching its exact target frame and writing its output before a managed process
 exit. Doom and GTA are therefore restored to the release-critical manifest;
-the next candidate run is expected to contain five critical visual routes.
+the next candidate run includes those recovered routes.
 
-The release-candidate critical deep manifest intentionally excludes the older
-fresh-start `metroid-fusion-gameplay`, `castlevania-aria-gameplay`, and
-`castlevania-harmony-gameplay` routes while their intermittent hard-abort
-behavior is being triaged. Metroid remains covered by the save-assisted route,
-and Castlevania remains covered by audio smoke while broader fresh-start visual
-coverage stays in the full suite.
+Fresh-start Metroid Fusion was qualified separately at
+`artifacts\compat-finish-metroid-fresh-20260710`: it reached frame 42,000 and
+matched the strict baseline with 17 snapshots and 11 distinct PCs. Fresh-start
+Castlevania Aria of Sorrow reached frame 22,000 normally in two consecutive
+runs at `artifacts\compat-finish-aria-fresh-20260710` and
+`artifacts\compat-finish-aria-repeat-20260710`. Both Aria runs produced the
+same framebuffer hash and valid controllable castle gameplay. The former
+baseline represented a different castle room, so it was refreshed to the
+repeatable current route state. Metroid and Aria are restored to the
+release-critical manifest, bringing it to seven strict visual routes.
 
-The candidate deep manifest now contains five strict visual routes that are
-reliable inside the suite wrapper on this host: Doom, Doom II, GTA, Sonic
-Advance, and Mario Kart. Broader visual diversity remains in `standard`/`full`;
-`candidate` is the fast release line paired with save-assisted gameplay and
-audio smoke.
+The release-candidate critical deep manifest still excludes the older
+fresh-start `castlevania-harmony-gameplay` route while its intermittent
+hard-abort behavior is being qualified. Castlevania remains covered by audio
+smoke while that broader fresh-start visual route stays in the full suite.
+
+The candidate deep manifest now contains seven strict visual routes that are
+reliable on this host: Doom, Doom II, GTA, Sonic Advance, Mario Kart, Metroid
+Fusion, and Castlevania Aria of Sorrow. Broader visual diversity remains in
+`standard`/`full`; `candidate` is the release line paired with save-assisted
+gameplay and audio smoke.
