@@ -132,13 +132,15 @@ baseline represented a different castle room, so it was refreshed to the
 repeatable current route state. Metroid and Aria are restored to the
 release-critical manifest, bringing it to seven strict visual routes.
 
-The release-candidate critical deep manifest still excludes the older
-fresh-start `castlevania-harmony-gameplay` route while its intermittent
-hard-abort behavior is being qualified. Castlevania remains covered by audio
-smoke while that broader fresh-start visual route stays in the full suite.
+Fresh-start Castlevania Harmony of Dissonance was then qualified at
+`artifacts\compat-finish-harmony-fresh-20260710`. It reached frame 30,000,
+matched its strict baseline, recorded 20 snapshots with 8 distinct PCs, and
+exited normally after more than 8.5 billion emulated cycles. Harmony is restored
+to the release-critical manifest. This closes the former fresh-start hard-abort
+exclusion cluster.
 
-The candidate deep manifest now contains seven strict visual routes that are
+The candidate deep manifest now contains eight strict visual routes that are
 reliable on this host: Doom, Doom II, GTA, Sonic Advance, Mario Kart, Metroid
-Fusion, and Castlevania Aria of Sorrow. Broader visual diversity remains in
-`standard`/`full`; `candidate` is the release line paired with save-assisted
-gameplay and audio smoke.
+Fusion, Castlevania Aria of Sorrow, and Castlevania Harmony of Dissonance.
+Broader visual diversity remains in `standard`/`full`; `candidate` is the
+release line paired with save-assisted gameplay and audio smoke.
