@@ -107,10 +107,12 @@ With those logs enabled, the candidate save-assisted suite passed at
 8/8 rows are strict `pass, match` with 0 low-diversity warnings.
 
 The current full candidate gate is
-`artifacts\release-gate-candidate-20260704-165847-342\release-gate-summary.md`.
-It passes all 4 required suites: Release build/tests, 3/3 critical visual
-routes as strict `pass, match`, 8/8 save-assisted gameplay routes as strict
-`pass, match`, and 11/11 audio smoke rows with 0 signal expectation mismatches.
+`artifacts\release-gate-candidate-expanded-20260710\release-gate-summary.md`.
+It passes all 4 required suites: Release build/tests with 295/295 tests, 8/8
+critical visual routes as strict `pass, match`, 8/8 save-assisted gameplay
+routes as strict `pass, match`, and 11/11 audio smoke rows with matching signal
+expectations. The complete expanded gate ran for 6,688 seconds with no required
+failures.
 
 The first five routes of the broader standard deep-gameplay gate were rerun
 one process at a time at
