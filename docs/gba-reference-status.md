@@ -110,6 +110,16 @@ The current strict longplay manifest has valid 240x160 PNG captures at these pat
 | `fzero-maximum-longplay` | `reference-captures/mgba/longplay/fzero-maximum-longplay.png` |
 | `warioware-longplay` | `reference-captures/mgba/longplay/warioware-longplay.png` |
 
+The current external-oracle rerun is
+`artifacts/compat-finish-strict-reference-retimed-20260711`. Capture validation
+finds all 17 required mGBA images valid, and frame comparison passes 17/17.
+Mario Kart's no-input anchor is explicitly aligned as gbaSharp frame 420 to
+mGBA frame 435. A bounded 7,080-7,320 F-Zero Maximum search found gbaSharp
+frame 7,197 as the closest current-build match to the mGBA target: 55 differing
+pixels and SSIM 0.992718, down from 1,523 pixels at frame 7,200. Both retimed
+local routes were independently rerun with exact local baseline matches before
+the external suite was accepted.
+
 ## Useful Commands
 
 Generate the current checklist:

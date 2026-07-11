@@ -423,3 +423,11 @@ localized animation/timer phases in the same intended scenes, not missing
 layers or route divergence. Stable route-specific diversity thresholds are now
 6 PCs for the deterministic Ruby room checkpoint, 7 for Tony Hawk 2's tutorial
 loop, and 3 for WarioWare's repeated active-microgame loop.
+
+The follow-up independent oracle initially caught two local/external phase
+mismatches instead of allowing the local suite to become self-consistent:
+Mario Kart's short anchor had drifted from its documented gbaSharp frame 420 to
+435, and F-Zero Maximum's frame 7,200 was 1,523 pixels from mGBA. Restoring
+Mario Kart to frame 420 and retiming F-Zero Maximum to the window-matched frame
+7,197 leaves the local gate at 24/24 exact matches and the mGBA suite at 17/17
+passes. The F-Zero match is within 55 pixels of mGBA with SSIM 0.992718.

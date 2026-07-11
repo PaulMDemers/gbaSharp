@@ -169,3 +169,10 @@ active-scene baseline was visually reviewed and required a second
 byte-identical focused run before promotion. Together with the expanded
 candidate gate and the 55/55 standard gameplay rollup, all compatibility
 layers required by the release checklist now have current passing evidence.
+
+The independent strict mGBA oracle was rerun after the local longplay refresh.
+`artifacts\compat-finish-strict-reference-retimed-20260711` validates all 17
+required captures and passes 17/17 frame comparisons. Its first pass caught
+Mario Kart and F-Zero Maximum phase offsets; those routes were retimed through
+documented frame alignment and bounded window matching, then independently
+reverified locally before the 17/17 external result was accepted.
