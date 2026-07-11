@@ -1,6 +1,7 @@
 param(
     [string]$Manifest = "docs\gba-longplay-routes.csv",
     [string]$RomRoot = "curated_official_gba",
+    [string]$BaselineDir = "visual-baselines\longplay",
     [string]$OutputRoot = "",
     [int]$ChunkSize = 4,
     [int]$StartChunk = 0,
@@ -30,6 +31,7 @@ try {
     $params = @{
         Manifest = $Manifest
         RomRoot = $RomRoot
+        BaselineDir = $BaselineDir
         OutputRoot = $OutputRoot
         ChunkSize = $ChunkSize
         StartChunk = $StartChunk
