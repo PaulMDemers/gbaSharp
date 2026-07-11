@@ -161,3 +161,11 @@ same repeated-input script reached the same complete Goku card-hand scene.
 The refreshed local baseline then passed an independent strict rerun at
 `artifacts\compat-finish-dbz-current-verify-20260711`. This was route-state
 drift in the old baseline, not a bitmap renderer regression.
+
+The full-profile longplay requirement is now green at
+`artifacts\compat-finish-longplay-24-20260711`: 24/24 strict routes are
+`pass, match`, with 0 failures and 0 low-diversity warnings. Every changed
+active-scene baseline was visually reviewed and required a second
+byte-identical focused run before promotion. Together with the expanded
+candidate gate and the 55/55 standard gameplay rollup, all compatibility
+layers required by the release checklist now have current passing evidence.

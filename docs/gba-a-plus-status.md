@@ -65,6 +65,15 @@ Madden NFL 2004, and Baldur's Gate. Dragon Ball Z CCG was independently aligned
 with mGBA before its stale local portrait-state baseline was refreshed and
 strictly reverified.
 
+The matching compatibility-finish longplay run is
+`artifacts/compat-finish-longplay-24-20260711`. All 24 strict soak and external
+anchor rows pass with exact current baselines, 0 failures, and 0 diversity
+warnings. Long routes include 56,000-frame Metroid Fusion, 52,000-frame Golden
+Sun, 48,000-frame Mario & Luigi, 36,000-frame Fire Emblem, both long
+Castlevanias, Doom/GTA soaks, affine racers, save-assisted checkpoints, and the
+active WarioWare microgame. The current standard, candidate, save-assisted,
+audio-signal, and longplay compatibility evidence is therefore green.
+
 The post-audio 30-route rollup is documented in `docs/gba-post-audio-deep-gameplay-rollup.md` and generated under `artifacts/deep-gameplay-refresh-audio-pivot-rollup`. It covers 30/30 manifest routes with 30/30 `pass, match` rows, 0 missing routes, 0 failing rows, and 0 low-diversity warnings after route-specific thresholds. The rollup also fills the late-discovered route 6-8 gap with fresh Zelda Minish Cap, Golden Sun, and Advance Wars evidence.
 
 Longer gameplay soak coverage now starts in `docs/gba-longplay-routes.csv`, with status tracked in `docs/gba-longplay-status.md` and a wrapper at `scripts/run-longplay-suite.ps1`. The current full-suite artifact `artifacts/longplay-suite-full17-20260605` verifies all 17 longplay routes with 17/17 pass rows, 0 failures, 0 low-diversity warnings, and contact-sheet-confirmed scenes. It covers Sonic Advance, Mario Kart, Metroid Fusion, Tony Hawk Pro Skater 2, Castlevania Aria, Castlevania Harmony, Pokemon Ruby, Doom, GTA, Golden Sun, Mario & Luigi, Mega Man Battle Network, Wario Land 4, F-Zero GP Legend, F-Zero Maximum Velocity, Fire Emblem, and WarioWare. The F-Zero rows were retuned to shorter active-race final frames after candidate sweeps showed the longer windows ended in failure/loss states, GTA was retuned from a story-dialogue final frame to an active top-down gameplay frame, Mario & Luigi was retuned from the find-Mario prompt to a clean room scene, and Mega Man Battle Network was retuned from PET dialogue to a clean room scene. Fire Emblem verifies a tactical map/grid scene at frame 36,000, and WarioWare verifies a fast microgame state at frame 18,000. The longplay runner supports resumable suite completion and route child-process timeout cleanup after interrupted runs. Strict longplay coverage now lives in `docs/gba-longplay-strict-routes.csv`: all 17 broad longplay rows have been promoted from the full-17 artifact into local exact baselines under `visual-baselines/longplay` with `scripts/promote-deep-gameplay-baselines.ps1`. The combined strict rollup `artifacts/longplay-strict-rollup-20260606` merges the three tranche verifications and reports 17/17 `pass, match` rows, 0 failures, and 0 low-diversity warnings.

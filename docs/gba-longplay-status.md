@@ -397,3 +397,29 @@ baseline matches.
   refreshing any more local baselines.
 - Revisit F-Zero driving inputs later if we want longer race windows than the current active-frame retune.
 - Deepen or replace any remaining final scenes that are representative but not ideal gameplay evidence.
+
+## 2026-07-11 Compatibility-Finish Gate
+
+The current strict longplay gate is
+`artifacts/compat-finish-longplay-24-20260711`. It covers all 24 rows in
+`docs/gba-longplay-strict-routes.csv` with 24/24 `pass, match`, 0 failing rows,
+and 0 low-diversity warnings. The suite ran sequentially at below-normal
+priority and produced a reviewed contact sheet spanning longer platforming,
+FPS, racing, RPG, tactics, sports, save-assisted, and microgame scenes.
+
+The first attempt exposed a wrapper defect: `run-longplay-suite.ps1` did not
+forward the dedicated `visual-baselines/longplay` directory and therefore
+looked for strict frames under the deep-gameplay baseline root. The wrapper now
+accepts and forwards `BaselineDir`, defaulting to the strict longplay baseline
+directory. Sonic's already completed 30,000-frame output matched its correct
+baseline byte-for-byte, so the resumable suite continued without duplicating
+that work.
+
+Eight current-build frame changes were promoted only after visual review and a
+second byte-identical focused run: Metroid Fusion, Wario Land 4, Fire Emblem,
+the short Mario Kart external anchor, Golden Sun, the short Pokemon Ruby
+external anchor, F-Zero Maximum Velocity, and WarioWare. Their differences were
+localized animation/timer phases in the same intended scenes, not missing
+layers or route divergence. Stable route-specific diversity thresholds are now
+6 PCs for the deterministic Ruby room checkpoint, 7 for Tony Hawk 2's tutorial
+loop, and 3 for WarioWare's repeated active-microgame loop.
