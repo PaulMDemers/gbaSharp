@@ -31,6 +31,10 @@ external emulator captures from tools such as mGBA or no$gba.
   wrapper: it can capture mGBA references, validate them, compare direct frames,
   run bounded gbaSharp window matching, and optionally refresh the local
   save-assisted gameplay baselines.
+- `scripts/run-mgba-reference-captures.ps1` translates the same `at`, `tap`,
+  `press`, `release`, `repeat`, and `wait` input commands accepted by
+  `Gba.Cli` into mGBA Lua events. Absolute commands update the relative cursor
+  in both parsers, so mixed absolute/relative scripts stay frame-aligned.
 - Reference images should be placed under `reference-captures/<source>/`.
   These images are local artifacts and are intentionally ignored by git.
 - `docs/gba-reference-status.md` records the latest capture intake status.
@@ -70,10 +74,10 @@ The first strict longplay set covers longer exact-match scenes:
 
 ## Current Status
 
-As of 2026-06-16, the dashboard tooling is ready. The save-assisted set has 8/8
+As of 2026-07-11, the dashboard tooling is ready. The save-assisted set has 8/8
 valid mGBA PNG captures, and the local save-assisted deep gameplay rollup is
 8/8 `pass, match` with no low-diversity warnings. The broader deep gameplay
-suite is 40/40 `pass, match`. The strict longplay external set has 17 valid
+suite is 55/55 `pass, match`. The strict longplay external set has 17 valid
 captures and 17/17 passing bounded pixel comparisons. See
 `docs/gba-reference-status.md` and `docs/gba-post-audio-deep-gameplay-rollup.md`
 for the current capture/status commands.
@@ -115,6 +119,10 @@ manifest save fixture as soon as the Lua script initializes and resets once
 after the load. This makes save-backed routes behave like gbaSharp's
 pre-boot `--save-file` path instead of loading the save after the game has
 already initialized its SRAM/Flash state.
+
+The mGBA adapter validates input command arity and positive/nonnegative frame
+arguments before launching the reference emulator. Keep route inputs in the
+shared command format rather than maintaining emulator-specific copies.
 
 Long local gameplay soaks are not always good external pixel targets. If an
 active route diverges by player position, timer, or simulation state, keep the

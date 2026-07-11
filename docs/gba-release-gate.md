@@ -146,3 +146,18 @@ reliable on this host: Doom, Doom II, GTA, Sonic Advance, Mario Kart, Metroid
 Fusion, Castlevania Aria of Sorrow, and Castlevania Harmony of Dissonance.
 Broader visual diversity remains in `standard`/`full`; `candidate` is the
 release line paired with save-assisted gameplay and audio smoke.
+
+The current standard deep-gameplay audit is consolidated at
+`artifacts\compat-finish-standard-55-rollup-20260711`. It covers all 55
+manifest routes with 55/55 strict `pass, match` rows, 0 missing routes, 0
+failures, and 0 low-diversity warnings. The audit was run in small sequential
+bands and then merged in manifest order to keep host load bounded. The final
+band independently verifies Driver 2 Advance, Tomb Raider: The Prophecy,
+Madden NFL 2004, Baldur's Gate: Dark Alliance, and Driv3r.
+
+Dragon Ball Z CCG's old local baseline showed a different portrait state. Two
+current gbaSharp runs were byte-identical, and an mGBA capture driven by the
+same repeated-input script reached the same complete Goku card-hand scene.
+The refreshed local baseline then passed an independent strict rerun at
+`artifacts\compat-finish-dbz-current-verify-20260711`. This was route-state
+drift in the old baseline, not a bitmap renderer regression.

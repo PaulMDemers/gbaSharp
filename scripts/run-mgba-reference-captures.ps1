@@ -81,12 +81,30 @@ function Add-KeyEvent([System.Collections.Generic.List[object]]$Events, [int]$Fr
     $Sequence.Value++
 }
 
+function ConvertTo-NonNegativeInt([string]$Value, [string]$Name) {
+    $parsed = 0
+    if (-not [int]::TryParse($Value, [ref]$parsed) -or $parsed -lt 0) {
+        throw "$Name must be a non-negative integer."
+    }
+    return $parsed
+}
+
+function ConvertTo-PositiveInt([string]$Value, [string]$Name) {
+    $parsed = ConvertTo-NonNegativeInt $Value $Name
+    if ($parsed -eq 0) {
+        throw "$Name must be a positive integer."
+    }
+    return $parsed
+}
+
 function Read-InputEvents([string]$Path) {
     $events = [System.Collections.Generic.List[object]]::new()
     $cursor = 0
     $sequence = 0
 
+    $lineNumber = 0
     foreach ($rawLine in Get-Content -LiteralPath $Path) {
+        $lineNumber++
         $line = ($rawLine -replace "#.*$", "").Trim()
         if ([string]::IsNullOrWhiteSpace($line)) {
             continue
@@ -95,50 +113,72 @@ function Read-InputEvents([string]$Path) {
         $parts = $line -split "\s+"
         $command = $parts[0].ToLowerInvariant()
 
-        switch ($command) {
-            "at" {
-                if ($parts.Count -lt 3) { throw "Invalid input line '$line' in $Path." }
-                $frame = [int]$parts[1]
-                $keys = Get-KeyMask $parts[2]
-                $duration = if ($parts.Count -ge 4) { [int]$parts[3] } else { 1 }
-                Add-KeyEvent $events $frame $keys ([ref]$sequence)
-                if ($duration -gt 0) {
+        try {
+            switch ($command) {
+                "at" {
+                    if ($parts.Count -lt 3 -or $parts.Count -gt 4) { throw "Expected at FRAME KEYS [DURATION]." }
+                    $cursor = ConvertTo-NonNegativeInt $parts[1] "frame"
+                    $keys = Get-KeyMask $parts[2]
+                    $duration = if ($parts.Count -eq 4) { ConvertTo-PositiveInt $parts[3] "duration" } else { 1 }
+                    Add-KeyEvent $events $cursor $keys ([ref]$sequence)
+                    Add-KeyEvent $events ($cursor + $duration) 0 ([ref]$sequence)
+                }
+                "tap" {
+                    if ($parts.Count -lt 2 -or $parts.Count -gt 4) { throw "Expected tap [FRAME] KEYS [DURATION]." }
+                    $parsedFrame = 0
+                    $firstIsFrame = [int]::TryParse($parts[1], [ref]$parsedFrame)
+                    if ($firstIsFrame) {
+                        if ($parts.Count -lt 3) { throw "Expected tap FRAME KEYS [DURATION]." }
+                        $cursor = ConvertTo-NonNegativeInt $parts[1] "frame"
+                        $keysText = $parts[2]
+                        $duration = if ($parts.Count -eq 4) { ConvertTo-PositiveInt $parts[3] "duration" } else { 4 }
+                        $frame = $cursor
+                    } else {
+                        if ($parts.Count -gt 3) { throw "Expected tap KEYS [DURATION]." }
+                        $frame = $cursor
+                        $keysText = $parts[1]
+                        $duration = if ($parts.Count -eq 3) { ConvertTo-PositiveInt $parts[2] "duration" } else { 4 }
+                        $cursor += $duration
+                    }
+                    Add-KeyEvent $events $frame (Get-KeyMask $keysText) ([ref]$sequence)
                     Add-KeyEvent $events ($frame + $duration) 0 ([ref]$sequence)
                 }
-            }
-            "tap" {
-                if ($parts.Count -lt 2) { throw "Invalid input line '$line' in $Path." }
-                $parsedFrame = 0
-                $firstIsFrame = [int]::TryParse($parts[1], [ref]$parsedFrame)
-                if ($firstIsFrame) {
-                    if ($parts.Count -lt 3) { throw "Invalid input line '$line' in $Path." }
-                    $frame = $parsedFrame
-                    $keysText = $parts[2]
-                    $duration = if ($parts.Count -ge 4) { [int]$parts[3] } else { 4 }
-                } else {
-                    $frame = $cursor
-                    $keysText = $parts[1]
-                    $duration = if ($parts.Count -ge 3) { [int]$parts[2] } else { 4 }
-                    $cursor += $duration
+                "press" {
+                    if ($parts.Count -ne 3) { throw "Expected press FRAME KEYS." }
+                    $cursor = ConvertTo-NonNegativeInt $parts[1] "frame"
+                    Add-KeyEvent $events $cursor (Get-KeyMask $parts[2]) ([ref]$sequence)
                 }
-                Add-KeyEvent $events $frame (Get-KeyMask $keysText) ([ref]$sequence)
-                Add-KeyEvent $events ($frame + $duration) 0 ([ref]$sequence)
+                "release" {
+                    if ($parts.Count -ne 2) { throw "Expected release FRAME." }
+                    $cursor = ConvertTo-NonNegativeInt $parts[1] "frame"
+                    Add-KeyEvent $events $cursor 0 ([ref]$sequence)
+                }
+                "repeat" {
+                    if ($parts.Count -ne 6) { throw "Expected repeat KEYS FIRST_FRAME INTERVAL_FRAMES COUNT DURATION." }
+                    $keys = Get-KeyMask $parts[1]
+                    $firstFrame = ConvertTo-NonNegativeInt $parts[2] "first frame"
+                    $intervalFrames = ConvertTo-PositiveInt $parts[3] "interval"
+                    $count = ConvertTo-NonNegativeInt $parts[4] "count"
+                    $durationFrames = ConvertTo-PositiveInt $parts[5] "duration"
+                    for ($repeatIndex = 0; $repeatIndex -lt $count; $repeatIndex++) {
+                        $frame = $firstFrame + ($repeatIndex * $intervalFrames)
+                        Add-KeyEvent $events $frame $keys ([ref]$sequence)
+                        Add-KeyEvent $events ($frame + $durationFrames) 0 ([ref]$sequence)
+                    }
+
+                    $cursor = $firstFrame + ([Math]::Max(0, $count - 1) * $intervalFrames)
+                }
+                "wait" {
+                    if ($parts.Count -ne 2) { throw "Expected wait FRAMES." }
+                    $cursor += ConvertTo-PositiveInt $parts[1] "frames"
+                }
+                default {
+                    throw "Unknown input command '$($parts[0])'."
+                }
             }
-            "press" {
-                if ($parts.Count -lt 3) { throw "Invalid input line '$line' in $Path." }
-                Add-KeyEvent $events ([int]$parts[1]) (Get-KeyMask $parts[2]) ([ref]$sequence)
-            }
-            "release" {
-                if ($parts.Count -lt 2) { throw "Invalid input line '$line' in $Path." }
-                Add-KeyEvent $events ([int]$parts[1]) 0 ([ref]$sequence)
-            }
-            "wait" {
-                if ($parts.Count -lt 2) { throw "Invalid input line '$line' in $Path." }
-                $cursor += [int]$parts[1]
-            }
-            default {
-                throw "Unknown input command '$($parts[0])' in $Path."
-            }
+        }
+        catch {
+            throw "${Path}:${lineNumber}: $($_.Exception.Message)"
         }
     }
 
