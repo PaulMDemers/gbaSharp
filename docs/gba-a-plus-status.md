@@ -416,12 +416,12 @@ Probe compatibility is not the same as perfect gameplay. Next milestones:
 
 - Keep the generated failure queue current after each broad sweep, and prioritize any new high-priority official/revision crash rows before lower-signal archive buckets. The current queue has no active high-priority real-BIOS crash target.
 - Keep an eye on step-budget/performance rows as the sweep expands, but the current former timeout trio (`Wolfenstein 3D`, `Scooby-Doo`, and `Scooby-Doo Cyber Chase`) is cleared by the high-budget retry.
-- Grow the 30-route deep gameplay suite with more high-signal scenes, but shift the next milestone from raw count to quality: deepen or replace routes with low snapshot diversity, add save-assisted variants, and keep targeting RPG/dialogue-heavy games like Mario & Luigi and Mega Man Battle Network 2 with bespoke navigation.
+- Keep the 55-route deep gameplay and 24-route strict longplay gates current, but shift any further expansion from raw count to quality: deepen optional route-followups such as CIMA, DemiKids, and Tomb Raider Legend, and prefer save-assisted or game-specific navigation over generic dialogue tapping.
 - Continue broad real-BIOS gameplay validation outside the Pokemon cluster, especially racing, sports, and late-era titles that stress DMA, affine backgrounds, and save backends.
 - Add focused performance profiling for slow long-input cases: `Boktai 2`, `Need for Speed - Most Wanted`, `F-Zero GP Legend`, and any queue rows that remain progressful but near the max-step cap.
 - Deepen `Pokemon Ruby` gameplay scripting from Littleroot into the neighbor/rival setup and Professor Birch rescue flow.
 - Deepen `Mario Kart` and `Golden Sun` save scripts if they remain desired as representative Flash64K fixtures.
-- Deepen the scripted visual snapshots with true save-assisted gameplay scenes and external mGBA/no$gba reference captures.
+- Maintain the 17/17 strict mGBA oracle and 8-route save-assisted reference set; add new external captures only when a new route exercises a materially different renderer, save backend, peripheral, or timing behavior.
 - Add frontend controls for solar, gyro/tilt, and rumble state.
 - Audit audio timing and DMA/FIFO behavior with longer gameplay captures.
 
