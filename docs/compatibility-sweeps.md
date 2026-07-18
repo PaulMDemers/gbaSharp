@@ -386,6 +386,19 @@ boundary even while the rendered scene is changing. Raw PC and frame counts
 remain in the report for diagnosis, and old reports without frame hashes still
 fall back to PC diversity.
 
+The next PPU edge-case pass corrects OBJ mosaic sampling to use display-grid
+blocks, including partial leading blocks on offset, flipped, and affine
+sprites. OBJ-window sprites now ignore their OBJ mosaic bit, and OBJ-window
+masks are generated only when both DISPCNT OBJ and OBJ-window enables are set.
+These rules are backed by focused renderer tests and cross-checked against
+GBATEK, mGBA, and NanoBoyAdvance. The strict retail regression artifact
+`artifacts/ppu-obj-mosaic-regression-20260718` remains 4/4 `pass, match` for
+Sonic Advance, Mario Kart, Zelda Minish Cap, and Powerpuff Girls.
+
+This pass does not claim complete cycle-level mosaic behavior. Interactions
+between overlapping mosaic sprites, priority latching, and mid-scanline MOSAIC
+register writes remain explicit follow-up targets.
+
 ## Save Probes
 
 `save-probe` exercises the detected save backend for each ROM and verifies that exported save data can be loaded into a fresh bus:

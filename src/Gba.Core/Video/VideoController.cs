@@ -512,7 +512,7 @@ public sealed class VideoController
         Array.Fill(_secondFramebuffer, backdrop);
         Array.Clear(_objectWindow);
         Array.Clear(_semiTransparentObject);
-        if ((_bus.DisplayControl & (1 << 15)) != 0)
+        if (IsObjectWindowEnabled())
         {
             RenderObjectWindow();
         }
@@ -567,7 +567,7 @@ public sealed class VideoController
         _secondFramebuffer.AsSpan(rowOffset, Width).Fill(backdrop);
         Array.Clear(_objectWindow, rowOffset, Width);
         Array.Clear(_semiTransparentObject, rowOffset, Width);
-        if ((_bus.DisplayControl & (1 << 15)) != 0)
+        if (IsObjectWindowEnabled())
         {
             RenderObjectWindowScanline(y);
         }
@@ -630,7 +630,7 @@ public sealed class VideoController
         _secondFramebuffer.AsSpan(rowOffset, Width).Fill(backdrop);
         Array.Clear(_objectWindow, rowOffset, Width);
         Array.Clear(_semiTransparentObject, rowOffset, Width);
-        if ((_bus.DisplayControl & (1 << 15)) != 0)
+        if (IsObjectWindowEnabled())
         {
             var start = Stopwatch.GetTimestamp();
             RenderObjectWindowScanline(y);
@@ -703,7 +703,7 @@ public sealed class VideoController
         _secondFramebuffer.AsSpan(rowOffset, Width).Fill(backdrop);
         Array.Clear(_objectWindow, rowOffset, Width);
         Array.Clear(_semiTransparentObject, rowOffset, Width);
-        if ((_bus.DisplayControl & (1 << 15)) != 0)
+        if (IsObjectWindowEnabled())
         {
             RenderObjectWindowScanline(y);
         }
@@ -748,7 +748,7 @@ public sealed class VideoController
         _secondFramebuffer.AsSpan(rowOffset, Width).Fill(backdrop);
         Array.Clear(_objectWindow, rowOffset, Width);
         Array.Clear(_semiTransparentObject, rowOffset, Width);
-        if ((_bus.DisplayControl & (1 << 15)) != 0)
+        if (IsObjectWindowEnabled())
         {
             var start = Stopwatch.GetTimestamp();
             RenderObjectWindowScanline(y);
@@ -1191,6 +1191,8 @@ public sealed class VideoController
                     var (sourceX, sourceY) = GetObjectSourcePixel(
                         sx,
                         sy,
+                        x,
+                        y,
                         displayWidth,
                         displayHeight,
                         spriteWidth,
@@ -1292,6 +1294,8 @@ public sealed class VideoController
                 var (sourceX, sourceY) = GetObjectSourcePixel(
                     sx,
                     sy,
+                    x,
+                    y,
                     displayWidth,
                     displayHeight,
                     spriteWidth,
@@ -2115,7 +2119,6 @@ public sealed class VideoController
             var pb = affine ? ReadObjectAffineParameter(matrixIndex, 1) : 0;
             var pc = affine ? ReadObjectAffineParameter(matrixIndex, 2) : 0;
             var pd = affine ? ReadObjectAffineParameter(matrixIndex, 3) : 0;
-            var mosaic = IsObjectMosaicEnabled(attr0);
 
             for (var sy = 0; sy < displayHeight; sy++)
             {
@@ -2136,6 +2139,8 @@ public sealed class VideoController
                     var (sourceX, sourceY) = GetObjectSourcePixel(
                         sx,
                         sy,
+                        x,
+                        y,
                         displayWidth,
                         displayHeight,
                         spriteWidth,
@@ -2143,7 +2148,7 @@ public sealed class VideoController
                         affine,
                         hflip,
                         vflip,
-                        mosaic,
+                        false,
                         pa,
                         pb,
                         pc,
@@ -2215,7 +2220,6 @@ public sealed class VideoController
             var pb = affine ? ReadObjectAffineParameter(matrixIndex, 1) : 0;
             var pc = affine ? ReadObjectAffineParameter(matrixIndex, 2) : 0;
             var pd = affine ? ReadObjectAffineParameter(matrixIndex, 3) : 0;
-            var mosaic = IsObjectMosaicEnabled(attr0);
 
             for (var sx = 0; sx < displayWidth; sx++)
             {
@@ -2228,6 +2232,8 @@ public sealed class VideoController
                 var (sourceX, sourceY) = GetObjectSourcePixel(
                     sx,
                     sy,
+                    x,
+                    y,
                     displayWidth,
                     displayHeight,
                     spriteWidth,
@@ -2235,7 +2241,7 @@ public sealed class VideoController
                     affine,
                     hflip,
                     vflip,
-                    mosaic,
+                    false,
                     pa,
                     pb,
                     pc,
@@ -2265,6 +2271,8 @@ public sealed class VideoController
     private (int X, int Y) GetObjectSourcePixel(
         int x,
         int y,
+        int objectX,
+        int objectY,
         int displayWidth,
         int displayHeight,
         int spriteWidth,
@@ -2280,14 +2288,24 @@ public sealed class VideoController
     {
         if (mosaic)
         {
-            x -= x % GetObjectMosaicHorizontalSize();
-            y -= y % GetObjectMosaicVerticalSize();
+            x = GetObjectMosaicCoordinate(objectX, x, displayWidth, GetObjectMosaicHorizontalSize());
+            y = GetObjectMosaicCoordinate(objectY, y, displayHeight, GetObjectMosaicVerticalSize());
         }
 
         return affine
             ? TransformObjectPixel(x, y, displayWidth, displayHeight, spriteWidth, spriteHeight, pa, pb, pc, pd)
             : (hflip ? spriteWidth - 1 - x : x, vflip ? spriteHeight - 1 - y : y);
     }
+
+    private static int GetObjectMosaicCoordinate(int objectPosition, int localCoordinate, int extent, int mosaicSize)
+    {
+        var screenCoordinate = objectPosition + localCoordinate;
+        var blockOffset = ((screenCoordinate % mosaicSize) + mosaicSize) % mosaicSize;
+        return Math.Clamp(localCoordinate - blockOffset, 0, extent - 1);
+    }
+
+    private bool IsObjectWindowEnabled()
+        => (_bus.DisplayControl & ((1 << 12) | (1 << 15))) == ((1 << 12) | (1 << 15));
 
     private static bool IsObjectMosaicEnabled(ushort attr0) => (attr0 & (1 << 12)) != 0;
 

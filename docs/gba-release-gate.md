@@ -194,3 +194,12 @@ CSVs therefore include `frameHash`; deep-gameplay reports retain
 `artifacts\haltcnt-activity-rollup-selected-20260718` has zero warnings while
 still showing Sonic's expected 1-PC BIOS sleep loop and 11 distinct rendered
 frames.
+
+The follow-up OBJ mosaic/window pass aligns sprite mosaic blocks to the display
+grid instead of restarting them at each sprite origin. It also models the
+hardware rule that OBJ-window sprites ignore OBJ mosaic and require both OBJ
+and OBJ-window master enables. Five focused tests cover offset, flipped, and
+affine sprites plus both OBJ-window cases, bringing the suite to 306/306.
+`artifacts\ppu-obj-mosaic-regression-20260718` verifies Sonic Advance, Mario
+Kart, Zelda Minish Cap, and Powerpuff Girls at their active gameplay checkpoints
+with 4/4 exact baseline matches.
