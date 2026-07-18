@@ -395,6 +395,14 @@ GBATEK, mGBA, and NanoBoyAdvance. The strict retail regression artifact
 `artifacts/ppu-obj-mosaic-regression-20260718` remains 4/4 `pass, match` for
 Sonic Advance, Mario Kart, Zelda Minish Cap, and Powerpuff Girls.
 
+OBJ special-effect composition now isolates the top-most sprite pixel before
+selecting blend targets, matching the documented GBA OBJ-layer behavior. This
+prevents semi-transparent sprites from blending with hidden sprites while
+preserving the underlying BG or backdrop target. Two exact-pixel regressions
+cover both cases, and `artifacts/ppu-obj-blend-regression-20260718` keeps the
+same four retail graphics routes at 4/4 `pass, match` with activity diversity
+of 11, 12, 14, and 13.
+
 This pass does not claim complete cycle-level mosaic behavior. Interactions
 between overlapping mosaic sprites, priority latching, and mid-scanline MOSAIC
 register writes remain explicit follow-up targets.

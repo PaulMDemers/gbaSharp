@@ -754,6 +754,66 @@ public sealed class VideoControllerTests
     }
 
     [Fact]
+    public void SemiTransparentObjectDoesNotBlendWithAnotherObject()
+    {
+        var gba = new GbaSystem();
+        gba.Bus.DisplayControl = (ushort)((1 << 12) | (1 << 6)); // OBJ, 1D OBJ mapping
+        gba.Bus.Write16(GbaMemoryMap.PaletteStart + 0x200 + 2, 0x001F);
+        gba.Bus.Write16(GbaMemoryMap.PaletteStart + 0x200 + 4, 0x03E0);
+        WriteVideoByte(gba.Bus, GbaMemoryMap.VramStart + 0x10000, 0x11);
+        WriteVideoByte(gba.Bus, GbaMemoryMap.VramStart + 0x10020, 0x22);
+        for (var sprite = 2; sprite < 128; sprite++)
+        {
+            gba.Bus.Write16(GbaMemoryMap.OamStart + (uint)(sprite * 8), 160);
+        }
+
+        gba.Bus.Write16(GbaMemoryMap.OamStart, 1 << 10); // top, semi-transparent OBJ 0
+        gba.Bus.Write16(GbaMemoryMap.OamStart + 2, 0);
+        gba.Bus.Write16(GbaMemoryMap.OamStart + 4, 0);
+        gba.Bus.Write16(GbaMemoryMap.OamStart + 8, 0); // normal OBJ 1 behind OBJ 0
+        gba.Bus.Write16(GbaMemoryMap.OamStart + 10, 0);
+        gba.Bus.Write16(GbaMemoryMap.OamStart + 12, 1);
+        gba.Bus.Write16(IoRegisters.BLDCNT, 1 << 12); // OBJ second target only
+        gba.Bus.Write16(IoRegisters.BLDALPHA, 8 | (8 << 8));
+
+        AdvanceToVBlank(gba);
+
+        Assert.Equal(0xFFFF_0000u, gba.Video.Framebuffer[0]);
+    }
+
+    [Fact]
+    public void SemiTransparentObjectBlendsWithBackgroundBehindAnotherObject()
+    {
+        var gba = new GbaSystem();
+        gba.Bus.DisplayControl = (ushort)((1 << 8) | (1 << 12) | (1 << 6)); // BG0/OBJ, 1D OBJ mapping
+        gba.Bus.Write16(IoRegisters.BG0CNT, (ushort)((1 << 0) | (1 << 8))); // priority 1, screen block 1
+        gba.Bus.Write16(GbaMemoryMap.PaletteStart + 2, 0x7C00);
+        gba.Bus.Write16(GbaMemoryMap.PaletteStart + 0x200 + 2, 0x001F);
+        gba.Bus.Write16(GbaMemoryMap.PaletteStart + 0x200 + 4, 0x03E0);
+        WriteVideoByte(gba.Bus, GbaMemoryMap.VramStart, 0x11);
+        gba.Bus.Write16(GbaMemoryMap.VramStart + 0x800, 0);
+        WriteVideoByte(gba.Bus, GbaMemoryMap.VramStart + 0x10000, 0x11);
+        WriteVideoByte(gba.Bus, GbaMemoryMap.VramStart + 0x10020, 0x22);
+        for (var sprite = 2; sprite < 128; sprite++)
+        {
+            gba.Bus.Write16(GbaMemoryMap.OamStart + (uint)(sprite * 8), 160);
+        }
+
+        gba.Bus.Write16(GbaMemoryMap.OamStart, 1 << 10); // top, semi-transparent OBJ 0
+        gba.Bus.Write16(GbaMemoryMap.OamStart + 2, 0);
+        gba.Bus.Write16(GbaMemoryMap.OamStart + 4, 0);
+        gba.Bus.Write16(GbaMemoryMap.OamStart + 8, 0); // normal OBJ 1 behind OBJ 0
+        gba.Bus.Write16(GbaMemoryMap.OamStart + 10, 0);
+        gba.Bus.Write16(GbaMemoryMap.OamStart + 12, 1);
+        gba.Bus.Write16(IoRegisters.BLDCNT, 1 << 8); // BG0 second target only
+        gba.Bus.Write16(IoRegisters.BLDALPHA, 8 | (8 << 8));
+
+        AdvanceToVBlank(gba);
+
+        Assert.Equal(0xFF7F_007Fu, gba.Video.Framebuffer[0]);
+    }
+
+    [Fact]
     public void SemiTransparentObjectBlendsWhenSpecialEffectIsDisabled()
     {
         var gba = new GbaSystem();

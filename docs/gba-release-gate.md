@@ -203,3 +203,11 @@ affine sprites plus both OBJ-window cases, bringing the suite to 306/306.
 `artifacts\ppu-obj-mosaic-regression-20260718` verifies Sonic Advance, Mario
 Kart, Zelda Minish Cap, and Powerpuff Girls at their active gameplay checkpoints
 with 4/4 exact baseline matches.
+
+The follow-up OBJ composition pass implements the hardware rule that special
+effects see only the top-most OBJ pixel. A sprite replacing another sprite no
+longer promotes the hidden sprite into the second-target slot, so OBJ-to-OBJ
+alpha blending cannot occur and the selected background remains available for
+valid OBJ-to-BG blending. Two focused overlap tests bring the suite to 308/308.
+The same four strict retail checkpoints remain 4/4 exact matches in
+`artifacts\ppu-obj-blend-regression-20260718`.

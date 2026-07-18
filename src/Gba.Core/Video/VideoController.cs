@@ -1806,8 +1806,12 @@ public sealed class VideoController
         Span<byte> secondLayers,
         bool semiTransparentObject = false)
     {
-        _secondFramebuffer[pixel] = _framebuffer[pixel];
-        secondLayers[pixel] = layers[pixel];
+        if (layer != 4 || layers[pixel] != 4)
+        {
+            _secondFramebuffer[pixel] = _framebuffer[pixel];
+            secondLayers[pixel] = layers[pixel];
+        }
+
         priorities[pixel] = priority;
         layers[pixel] = layer;
         _framebuffer[pixel] = color;
@@ -1830,8 +1834,12 @@ public sealed class VideoController
         Span<byte> secondLayers,
         bool semiTransparentObject = false)
     {
-        _secondFramebuffer[pixel] = _framebuffer[pixel];
-        secondLayers[rowPixel] = layers[rowPixel];
+        if (layer != 4 || layers[rowPixel] != 4)
+        {
+            _secondFramebuffer[pixel] = _framebuffer[pixel];
+            secondLayers[rowPixel] = layers[rowPixel];
+        }
+
         priorities[rowPixel] = priority;
         layers[rowPixel] = layer;
         _framebuffer[pixel] = color;

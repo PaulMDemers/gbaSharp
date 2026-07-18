@@ -10,7 +10,7 @@ with real-BIOS and no-BIOS execution paths.
 
 Current release evidence:
 
-- 306/306 unit tests pass.
+- 308/308 unit tests pass.
 - The curated official real-BIOS set has no active high-priority crash target.
 - 55/55 standard gameplay routes match strict local baselines.
 - 24/24 strict longplay routes match local baselines.
@@ -40,8 +40,10 @@ Before publishing `0.1.0`:
 - Expand video edge-case coverage for windows, affine backgrounds, object
   composition, and scanline timing. OBJ mosaic is now display-grid aligned for
   regular, flipped, and affine sprites, and OBJ-window mosaic/master-enable
-  behavior is covered; overlapping-sprite mosaic latching and mid-scanline
-  register changes remain focused accuracy targets.
+  behavior is covered. OBJ composition now resolves one top-most sprite before
+  special effects, preventing invalid OBJ-to-OBJ alpha blending while retaining
+  the background as the second target. Overlapping-sprite mosaic latching and
+  mid-scanline register changes remain focused accuracy targets.
 - Continue the Ruby title-audio timing comparison against MAME or hardware.
 - Audit Game Pak prefetch, bus contention, RTC behavior, and remaining open-bus
   approximations when a focused test or retail route exposes a discrepancy.
