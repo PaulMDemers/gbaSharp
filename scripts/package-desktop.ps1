@@ -2,6 +2,7 @@ param(
     [string]$Configuration = "Release",
     [string]$Runtime = "win-x64",
     [string]$OutputRoot = "",
+    [string]$Version = "",
     [switch]$SelfContained,
     [switch]$NoRestore,
     [switch]$NoZip
@@ -24,6 +25,15 @@ function Invoke-Checked {
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 Push-Location $repoRoot
 try {
+    if ([string]::IsNullOrWhiteSpace($Version)) {
+        [xml]$buildProps = Get-Content -LiteralPath "Directory.Build.props"
+        $Version = [string]$buildProps.Project.PropertyGroup.VersionPrefix
+    }
+
+    if ([string]::IsNullOrWhiteSpace($Version)) {
+        throw "Unable to determine the package version. Pass -Version explicitly or set VersionPrefix in Directory.Build.props."
+    }
+
     if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
         $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
         $OutputRoot = "artifacts\desktop-package-$stamp"
@@ -48,10 +58,20 @@ try {
     Invoke-Checked -Description "Desktop publish" -Arguments $publishArgs
 
     $resolvedPublishDir = (Resolve-Path $publishDir).Path
+    Copy-Item -LiteralPath "README.md" -Destination $publishDir
+    Copy-Item -LiteralPath "LICENSE" -Destination $publishDir
+
+    @(
+        "gbaSharp $Version",
+        "Runtime: $Runtime",
+        "Configuration: $Configuration",
+        "Self-contained: $($SelfContained.IsPresent)"
+    ) | Set-Content -LiteralPath (Join-Path $publishDir "release-info.txt") -Encoding UTF8
+
     Write-Host "Desktop publish folder: $resolvedPublishDir"
 
     if (-not $NoZip) {
-        $zipPath = Join-Path $OutputRoot "gbaSharp-desktop-$Runtime.zip"
+        $zipPath = Join-Path $OutputRoot "gbaSharp-$Version-desktop-$Runtime.zip"
         if (Test-Path -LiteralPath $zipPath) {
             Remove-Item -LiteralPath $zipPath -Force
         }

@@ -6,18 +6,20 @@ frontend for hands-on testing.
 
 ## Current Status
 
-- Core tests: 281 passing.
+- Current release line: `0.1.0` preview under the MIT license.
+- Core tests: 295 passing.
 - Curated official boot sweep: 300/300 titles boot in the best-known aligned
   real-BIOS pass.
-- Targeted input slice: 84/84 boot/start/input probes pass in the best-known
-  overlay.
-- Deep gameplay confidence is strongest around the Pokemon, Sonic Advance, Mario
-  Kart, Metroid, Castlevania, Wario, Golden Sun, and Advance Wars routes already
-  covered by the route and reference tooling.
+- Standard deep gameplay gate: 55/55 strict baseline matches.
+- Strict longplay gate: 24/24 baseline matches.
+- Independent mGBA visual oracle: 17/17 passing comparisons.
+- Release candidate gate: 8/8 critical gameplay routes, 8/8 save-assisted
+  routes, and 11/11 audio signal checks pass.
 
-See [docs/compatibility-sweeps.md](docs/compatibility-sweeps.md) and
-[docs/gba-longplay-status.md](docs/gba-longplay-status.md) for the detailed
-compatibility history and current caveats.
+This evidence supports a broadly compatible preview, not a claim of perfect or
+cycle-accurate emulation. See [ROADMAP.md](ROADMAP.md) and
+[docs/gba-release-gate.md](docs/gba-release-gate.md) for current caveats and
+release criteria.
 
 ## Requirements
 
@@ -48,6 +50,10 @@ Create a desktop publish folder and zip under `artifacts`:
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\package-desktop.ps1
 ```
+
+The versioned package includes the executable, runtime files, README, and MIT
+license. Pass `-SelfContained` to build a package that does not require a
+separate .NET runtime installation.
 
 Run the mGBA-first audio route suite:
 
@@ -127,7 +133,9 @@ local soaks.
 
 ## Documentation Map
 
+- [Current roadmap](ROADMAP.md)
 - [Implementation plan](docs/implementation-plan.md)
+- [Release gate](docs/gba-release-gate.md)
 - [Compatibility sweeps](docs/compatibility-sweeps.md)
 - [Audio accuracy workflow](docs/audio-accuracy-workflow.md)
 - [Reference capture workflow](docs/reference-capture-workflow.md)

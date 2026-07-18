@@ -1,8 +1,16 @@
 <Project>
   <PropertyGroup>
     <AnalysisLevel>latest</AnalysisLevel>
+    <Authors>Paul Demers</Authors>
+    <Company>gbaSharp</Company>
+    <Copyright>Copyright (c) 2026 Paul Demers</Copyright>
+    <Description>A Game Boy Advance emulator written in C#.</Description>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Product>gbaSharp</Product>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/PaulMDemers/gbaSharp</RepositoryUrl>
+    <VersionPrefix>0.1.0</VersionPrefix>
   </PropertyGroup>
 </Project>
-

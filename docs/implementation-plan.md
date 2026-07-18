@@ -226,57 +226,24 @@ Exit criteria:
 - BIOS distribution is legally sensitive; only support user-provided BIOS or clean-room/open alternatives.
 - Cycle accuracy can fight performance in C# if the bus abstraction is too object-heavy; profile before locking APIs.
 
-## Recommended first implementation slice
-
-Start with:
-
-1. Solution/project skeleton.
-2. Cartridge header parser.
-3. Memory bus with region arrays and read/write tests.
-4. CPU state plus a tiny ARM/Thumb execution loop.
-5. CLI test-runner scaffolding.
-
-This gives us a vertical path into test ROMs without needing a UI, audio, or full PPU yet.
-
 ## Current implementation status
 
-Completed first slice:
+The original implementation phases are substantially complete. The repository
+now contains a deterministic ARM7TDMI core, real-BIOS and no-BIOS startup paths,
+scanline video renderer, DMA/timer/IRQ scheduling, PSG and Direct Sound audio,
+SRAM/Flash/EEPROM saves, RTC and neutral cartridge-peripheral behavior, a
+WinForms frontend, and extensive CLI compatibility tooling.
 
-- .NET solution with `Gba.Core`, `Gba.Cli`, and `Gba.Tests`.
-- Cartridge loading and GBA header parsing, including fixed-value and complement-check validation.
-- Memory bus with BIOS, EWRAM, IWRAM, I/O, palette, VRAM, OAM, Game Pak ROM, and SRAM regions.
-- Region mirroring for EWRAM, IWRAM, palette, VRAM, OAM, SRAM, and ROM.
-- 8/16/32-bit memory access with unaligned word-read rotation.
-- Deterministic cycle scheduler with insertion-order handling for same-cycle events.
-- Initial ARM7TDMI state/reset/fetch model.
-- Growing ARM/Thumb execution layer: ARM branch/BL/BX, multiply/MLA, data-processing operations with immediate and shifted-register operands, single/halfword/signed/block data transfers, SWI entry, Thumb ALU/immediate ops, branches/BL, high-register ops, stack ops, load/store, signed loads, load/store multiple, and SWI entry.
-- Basic exception entry for SWI and pending IRQ, with initial `IE`/`IF`/`IME` register plumbing.
-- Named I/O register properties for `DISPCNT`, `DISPSTAT`, `VCOUNT`, `IE`, `IF`, and `IME`.
-- Banked SP/LR storage for privileged modes, with Supervisor/IRQ mode switching.
-- ARM PSR transfer support: `MRS`, `MSR CPSR`, `MSR SPSR`.
-- Initial exception-return behavior for data-processing instructions that write PC with the `S` bit in privileged modes.
-- Minimal video timing unit with 228 scanlines, 1232 cycles per line, HDraw/HBlank phases, `VCOUNT`, `DISPSTAT` VBlank/HBlank/VCount flags, and VBlank/HBlank/VCount interrupt requests.
-- Interrupt flag acknowledgement behavior for `IF` writes.
-- `GbaSystem` now owns `VideoController` and advances scheduled video events during CPU steps.
-- Timer unit for `TM0-TM3` with reload values, enable control, prescalers, overflow reload, cascade mode, timer IRQ requests, and visible counter synchronization on register reads.
-- Bus I/O read/write observers for hardware units that need to react to memory-mapped register access.
-- DMA controller for channels 0-3 with source/destination/count/control registers, immediate/VBlank/HBlank start timing, halfword/word transfers, address control modes, repeat handling, enable clearing, and DMA IRQ requests.
-- Video timing now notifies DMA at VBlank and HBlank start.
-- CLI `test-rom` command with `--max-steps`, `--trace`, `--success-pc`, and `--failure-pc`.
-- Framebuffer output for bitmap display modes 3, 4, and 5, rendered at VBlank start into a 240x160 RGBA8888 buffer.
-- Mode 4 and 5 frame-page selection support.
-- Keypad input controller with active-low `KEYINPUT`, `KEYCNT` OR/AND interrupt modes, and keypad IRQ requests.
-- CLI `dump-frame` command that runs a ROM for a fixed number of steps and writes the current framebuffer as a binary PPM image.
-- Local Armwrestler smoke testing now reaches and renders the ROM menu. Fixes made while bringing it up: Thumb `BIC`, Thumb PC-relative literal/address pipeline correction, Thumb `BL` return link correction, and `DISPSTAT` read-only status bit preservation.
-- CLI scripted input support via repeated `--key-event STEP:KEYS` arguments, for example `--key-event 500000:A --key-event 510000:none`.
-- CLI that loads a ROM and prints cartridge metadata plus initial CPU PC.
-- CLI `run` mode with optional instruction trace and max-step limit.
-- Unit tests for cartridge headers, bus behavior, scheduler behavior, and initial CPU execution.
+The `0.1.0` preview release line is backed by 295 unit tests, 55 strict standard
+gameplay routes, 24 strict longplay routes, 8 save-assisted routes, 11 audio
+signal routes, and 17 independent mGBA visual comparisons. Current evidence and
+remaining work are maintained in `ROADMAP.md` and `docs/gba-release-gate.md`.
 
-Next implementation slice:
+The major remaining phases are accuracy and product depth rather than initial
+hardware bring-up:
 
-1. Add real test-ROM fixtures/configuration for ARMWrestler/gba-suite conventions.
-2. Investigate Armwrestler menu input polling; scripted key pulses are delivered, but the current ROM still stays on the menu.
-3. Start tiled background rendering for modes 0/1/2.
-4. Add sprite/OAM rendering basics.
-5. Improve DMA edge cases: special timing, FIFO DMA, bus timing, prohibited regions, and exact count/address behavior.
+1. HALT/STOP, bus prefetch/contention, open-bus, RTC, and audio timing audits.
+2. Frontend controls and gameplay validation for cartridge peripherals.
+3. Deeper game-specific progression where it adds distinct hardware coverage.
+4. Versioned save states, configurable input, and optional debugger UI.
+5. Repeatable packaging and release publication.

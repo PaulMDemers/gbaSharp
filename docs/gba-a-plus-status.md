@@ -1,6 +1,6 @@
 # GBA A+ Milestone Status
 
-Last updated: 2026-06-25
+Last updated: 2026-07-18
 
 ## Current Compatibility Notes
 

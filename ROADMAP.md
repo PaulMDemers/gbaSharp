@@ -1,0 +1,65 @@
+# gbaSharp Roadmap
+
+Last updated: 2026-07-18
+
+## Current Release Line
+
+gbaSharp `0.1.0` is a Windows preview release candidate. The deterministic core,
+CLI tooling, and WinForms frontend support broad single-player retail testing
+with real-BIOS and no-BIOS execution paths.
+
+Current release evidence:
+
+- 295/295 unit tests pass.
+- The curated official real-BIOS set has no active high-priority crash target.
+- 55/55 standard gameplay routes match strict local baselines.
+- 24/24 strict longplay routes match local baselines.
+- 17/17 independent mGBA visual comparisons pass within reviewed tolerances.
+- 8/8 release-critical and 8/8 save-assisted gameplay routes pass.
+- 11/11 audio smoke routes meet their expected signal classifications.
+
+These gates establish broad compatibility and regression confidence. They do
+not prove cycle-perfect behavior, complete peripheral support, link play, or
+perfect audio against hardware.
+
+## Release Milestone
+
+Before publishing `0.1.0`:
+
+- Build and smoke-test the versioned Windows package.
+- Run the full release gate against the release commit.
+- Confirm the package contains no ROM, BIOS, save, or generated test artifacts.
+- Publish the committed MIT license and current compatibility caveats.
+
+## Accuracy Milestone
+
+- Implement and test accurate `HALTCNT` HALT/STOP behavior.
+- Expand video edge-case coverage for windows, affine backgrounds, mosaic,
+  object composition, and scanline timing.
+- Continue the Ruby title-audio timing comparison against MAME or hardware.
+- Audit Game Pak prefetch, bus contention, RTC behavior, and remaining open-bus
+  approximations when a focused test or retail route exposes a discrepancy.
+
+## Peripheral Milestone
+
+- Add desktop controls for solar, gyro, tilt, and rumble state.
+- Add dedicated Boktai, WarioWare Twisted, Yoshi Topsy-Turvy, and Drill Dozer
+  gameplay routes.
+- Treat peer link-cable and wireless play as unsupported until multi-instance
+  communication has its own deterministic tests and user-facing transport.
+
+## Gameplay Depth Milestone
+
+- Deepen optional CIMA, DemiKids, and Tomb Raider Legend routes.
+- Prefer routes that add new hardware, save, renderer, or timing coverage over
+  increasing the manifest count with equivalent scenes.
+- Keep the current 55-route, 24-route, and 17-capture gates green as the core
+  changes.
+
+## Product Milestone
+
+- Add versioned save states and configurable input mapping.
+- Decide whether debugger, memory viewer, and trace UI belong in the desktop
+  application or remain CLI-first development tools.
+- Add automated packaging and release artifacts to CI after the preview format
+  is stable.
