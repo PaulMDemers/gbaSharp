@@ -7,6 +7,41 @@ namespace Gba.Tests;
 public sealed class MemoryBusTests
 {
     [Fact]
+    public void HaltControlRequestsPowerDownOnlyFromPostBootBiosContext()
+    {
+        var bios = new byte[GbaMemoryMap.BiosSize];
+        bios[0] = 1;
+        var bus = new MemoryBus(bios);
+        var requests = new List<bool>();
+        bus.PowerDownRequested += requests.Add;
+        bus.PostFlag = 1;
+
+        bus.Write8(IoRegisters.HALTCNT, 0x00);
+        Assert.Empty(requests);
+
+        bus.SetBiosAccessible(true);
+        bus.Write8(IoRegisters.HALTCNT, 0x00);
+        bus.Write8(IoRegisters.HALTCNT, 0x80);
+
+        Assert.Equal([false, true], requests);
+    }
+
+    [Fact]
+    public void HaltControlIgnoresBiosWriteBeforePostBootFlag()
+    {
+        var bios = new byte[GbaMemoryMap.BiosSize];
+        bios[0] = 1;
+        var bus = new MemoryBus(bios);
+        var requested = false;
+        bus.PowerDownRequested += _ => requested = true;
+        bus.SetBiosAccessible(true);
+
+        bus.Write8(IoRegisters.HALTCNT, 0x00);
+
+        Assert.False(requested);
+    }
+
+    [Fact]
     public void EwramMirrorsAcrossRegion()
     {
         var bus = new MemoryBus();

@@ -22,6 +22,8 @@ public sealed class Arm7Tdmi
     private readonly Stack<NoBiosIrqContext> _noBiosIrqStack = new();
     private bool _hleInterruptWaitActive;
     private ushort _hleInterruptWaitFlags;
+    private bool _halted;
+    private bool _stopped;
     private uint _lastInstructionFetchEnd = uint.MaxValue;
     private int _lastInstructionFetchCyclesExtra;
     private bool _armPrefetchValid;
@@ -34,6 +36,7 @@ public sealed class Arm7Tdmi
     public Arm7Tdmi(MemoryBus bus)
     {
         _bus = bus;
+        _bus.PowerDownRequested += EnterPowerDown;
         Reset(useBios: false);
     }
 
@@ -54,6 +57,10 @@ public sealed class Arm7Tdmi
     public Func<int>? VBlankWaitCycleProvider { get; set; }
 
     public Func<int>? InterruptWaitCycleProvider { get; set; }
+
+    public bool IsHalted => _halted;
+
+    public bool IsStopped => _stopped;
 
     public bool NegativeFlag { get; private set; }
 
@@ -102,6 +109,8 @@ public sealed class Arm7Tdmi
         _noBiosIrqStack.Clear();
         _hleInterruptWaitActive = false;
         _hleInterruptWaitFlags = 0;
+        _halted = false;
+        _stopped = false;
         InvalidateInstructionPrefetch();
         Mode = CpuMode.System;
         ThumbState = false;
@@ -136,6 +145,14 @@ public sealed class Arm7Tdmi
 
     public int Step()
     {
+        if (_halted || _stopped)
+        {
+            if (!TryWakeFromPowerDown())
+            {
+                return _stopped ? 1 : GetHleInterruptWaitCycles();
+            }
+        }
+
         if (_hleInterruptWaitActive && !_noBiosIrqActive)
         {
             if (TryCompleteHleInterruptWait())
@@ -1745,8 +1762,12 @@ public sealed class Arm7Tdmi
                 return 3;
 
             case 0x02: // Halt
+                EnterPowerDown(stop: false);
+                return 3;
+
             case 0x03: // Stop
-                return 1024;
+                EnterPowerDown(stop: true);
+                return 3;
 
             case 0x04: // IntrWait
                 return HleIntrWait(_registers[0] != 0, (ushort)_registers[1]);
@@ -2093,6 +2114,33 @@ public sealed class Arm7Tdmi
         }
 
         return Math.Min(cycles, maxWaitChunkCycles);
+    }
+
+    private void EnterPowerDown(bool stop)
+    {
+        _halted = !stop;
+        _stopped = stop;
+    }
+
+    private bool TryWakeFromPowerDown()
+    {
+        var pendingInterrupts = (ushort)(_bus.InterruptEnable & _bus.InterruptFlags);
+        if (_stopped)
+        {
+            const ushort stopWakeInterrupts = IoRegisters.InterruptSerial
+                | IoRegisters.InterruptKeypad
+                | IoRegisters.InterruptGamePak;
+            pendingInterrupts &= stopWakeInterrupts;
+        }
+
+        if (pendingInterrupts == 0)
+        {
+            return false;
+        }
+
+        _halted = false;
+        _stopped = false;
+        return true;
     }
 
     private void HleBgAffineSet()

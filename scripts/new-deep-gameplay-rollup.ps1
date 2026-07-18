@@ -49,6 +49,16 @@ function Get-RouteThreshold {
     return $DefaultThreshold
 }
 
+function Get-ActivityDiversity {
+    param([object]$Row)
+
+    if ($Row.PSObject.Properties.Name -contains "activityDiversity" -and -not [string]::IsNullOrWhiteSpace($Row.activityDiversity)) {
+        return [int]$Row.activityDiversity
+    }
+
+    return Get-IntOrDefault $Row.distinctPcs
+}
+
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 Push-Location $repoRoot
 try {
@@ -111,8 +121,8 @@ try {
         Export-Csv -LiteralPath (Join-Path $OutputRoot "summary-status-baseline.csv") -NoTypeInformation
 
     $combinedRows |
-        Sort-Object @{ Expression = { Get-IntOrDefault $_.distinctPcs }; Ascending = $true }, label |
-        Select-Object label, status, baselineStatus, distinctPcs, minDistinctPcs, snapshotRows, expectedScene, sourceReport |
+        Sort-Object @{ Expression = { Get-ActivityDiversity $_ }; Ascending = $true }, label |
+        Select-Object label, status, baselineStatus, activityDiversity, distinctPcs, distinctFrames, minDistinctPcs, snapshotRows, expectedScene, sourceReport |
         Export-Csv -LiteralPath (Join-Path $OutputRoot "summary-low-diversity.csv") -NoTypeInformation
 
     $badRows = @($combinedRows | Where-Object { $_.status -ne "pass" -or -not (Test-BaselineOk $_) })
@@ -120,7 +130,7 @@ try {
     if ($LowDiversityWarningThreshold -gt 0) {
         $lowDiversityRows = @($combinedRows | Where-Object {
             $threshold = Get-RouteThreshold -Row $_ -DefaultThreshold $LowDiversityWarningThreshold
-            (Get-IntOrDefault $_.distinctPcs) -lt $threshold
+            (Get-ActivityDiversity $_) -lt $threshold
         })
     }
 
@@ -135,7 +145,7 @@ try {
         "- Covered routes: $($combinedRows.Count)",
         "- Missing routes: $($missingLabels.Count)",
         "- Failing rows: $($badRows.Count)",
-        "- Low-diversity warning threshold: $LowDiversityWarningThreshold distinct PCs",
+        "- Low-activity warning threshold: $LowDiversityWarningThreshold distinct PCs or frames",
         "- Low-diversity warnings: $($lowDiversityRows.Count)",
         "",
         "## Status",
@@ -146,11 +156,11 @@ try {
         "- $($_.Name): $($_.Count)"
     })
 
-    $lines += @("", "## Lowest Distinct PC Counts", "")
-    $lines += ($combinedRows | Sort-Object @{ Expression = { Get-IntOrDefault $_.distinctPcs }; Ascending = $true }, label | Select-Object -First 12 | ForEach-Object {
+    $lines += @("", "## Lowest Activity Diversity", "")
+    $lines += ($combinedRows | Sort-Object @{ Expression = { Get-ActivityDiversity $_ }; Ascending = $true }, label | Select-Object -First 12 | ForEach-Object {
         $threshold = Get-RouteThreshold -Row $_ -DefaultThreshold $LowDiversityWarningThreshold
 
-        "- $($_.label): distinctPcs=$($_.distinctPcs), threshold=$threshold, snapshots=$($_.snapshotRows), baseline=$($_.baselineStatus)"
+        "- $($_.label): activity=$(Get-ActivityDiversity $_), distinctPcs=$($_.distinctPcs), distinctFrames=$($_.distinctFrames), threshold=$threshold, snapshots=$($_.snapshotRows), baseline=$($_.baselineStatus)"
     })
 
     if ($missingLabels.Count -gt 0) {
@@ -160,10 +170,10 @@ try {
 
     if ($lowDiversityRows.Count -gt 0) {
         $lines += @("", "## Low-Diversity Warnings", "")
-        $lines += ($lowDiversityRows | Sort-Object @{ Expression = { Get-IntOrDefault $_.distinctPcs }; Ascending = $true }, label | ForEach-Object {
+        $lines += ($lowDiversityRows | Sort-Object @{ Expression = { Get-ActivityDiversity $_ }; Ascending = $true }, label | ForEach-Object {
             $threshold = Get-RouteThreshold -Row $_ -DefaultThreshold $LowDiversityWarningThreshold
 
-            "- $($_.label): distinctPcs=$($_.distinctPcs), threshold=$threshold, snapshots=$($_.snapshotRows), scene=$($_.expectedScene)"
+            "- $($_.label): activity=$(Get-ActivityDiversity $_), distinctPcs=$($_.distinctPcs), distinctFrames=$($_.distinctFrames), threshold=$threshold, snapshots=$($_.snapshotRows), scene=$($_.expectedScene)"
         })
     }
 

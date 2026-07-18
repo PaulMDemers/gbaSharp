@@ -370,6 +370,22 @@ For the curated A+ milestone manifest, use the milestone runner. Small chunks an
 
 `-ProcessTimeoutSeconds` guards each child `dotnet` run and kills its process tree if it exceeds the limit. This is useful when a desktop sweep is interrupted or a very slow ROM phase risks leaving an emulator process running in the background.
 
+The 2026-07-18 HALTCNT pass replaces the former fixed-cycle no-op behavior with
+CPU HALT and STOP states. HALT leaves the scheduler and hardware clocks active
+and wakes on any enabled pending interrupt even when IME is clear. STOP freezes
+system clocks and accepts only serial, keypad, and Game Pak wake interrupts.
+Focused real-BIOS GTA and Sonic routes remain exact baseline matches in
+`artifacts/haltcnt-activity-evidence-20260718`. The no-BIOS action slice in
+`artifacts/haltcnt-nobios-retail-5-20260718`, plus the bounded Metal Slug retry,
+completes all 20 gameplay-suite phases without crashes or static failures.
+
+Periodic snapshot evidence now records a framebuffer hash. Compatibility
+reports use `activityDiversity = max(distinctPcs, distinctFrames)` because an
+accurately halted real-BIOS game often samples the same BIOS PC at every frame
+boundary even while the rendered scene is changing. Raw PC and frame counts
+remain in the report for diagnosis, and old reports without frame hashes still
+fall back to PC diversity.
+
 ## Save Probes
 
 `save-probe` exercises the detected save backend for each ROM and verifies that exported save data can be loaded into a fresh bus:

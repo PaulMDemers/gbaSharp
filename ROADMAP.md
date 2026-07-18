@@ -10,7 +10,7 @@ with real-BIOS and no-BIOS execution paths.
 
 Current release evidence:
 
-- 295/295 unit tests pass.
+- 301/301 unit tests pass.
 - The curated official real-BIOS set has no active high-priority crash target.
 - 55/55 standard gameplay routes match strict local baselines.
 - 24/24 strict longplay routes match local baselines.
@@ -33,7 +33,10 @@ Before publishing `0.1.0`:
 
 ## Accuracy Milestone
 
-- Implement and test accurate `HALTCNT` HALT/STOP behavior.
+- Keep the new `HALTCNT` HALT/STOP implementation covered as timing work
+  evolves. HALT advances hardware while the CPU sleeps and wakes on any enabled
+  interrupt; STOP freezes system clocks and accepts the documented serial,
+  keypad, and Game Pak wake sources.
 - Expand video edge-case coverage for windows, affine backgrounds, mosaic,
   object composition, and scanline timing.
 - Continue the Ruby title-audio timing comparison against MAME or hardware.

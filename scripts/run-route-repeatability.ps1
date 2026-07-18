@@ -144,6 +144,8 @@ try {
                     saveFile = [string]$route.saveFile
                     snapshotRows = ""
                     distinctPcs = ""
+                    distinctFrames = ""
+                    activityDiversity = ""
                     finalPpm = ""
                     baselinePpm = ""
                     snapshotCsv = ""

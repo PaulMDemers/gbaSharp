@@ -969,6 +969,57 @@ public sealed class Arm7TdmiTests
     }
 
     [Fact]
+    public void HaltWaitsWithoutExecutingAndWakesOnEnabledInterruptWhenImeIsClear()
+    {
+        var bus = new MemoryBus();
+        bus.Write32(GbaMemoryMap.EwramStart, 0xEF02_0000); // swi Halt
+        bus.Write32(GbaMemoryMap.EwramStart + 4, 0xE3A0_002A); // mov r0, #42
+        bus.InterruptEnable = IoRegisters.InterruptVBlank;
+        bus.InterruptMasterEnable = false;
+        var cpu = new Arm7Tdmi(bus)
+        {
+            [15] = GbaMemoryMap.EwramStart
+        };
+
+        cpu.Step();
+
+        Assert.True(cpu.IsHalted);
+        Assert.Equal(GbaMemoryMap.EwramStart + 4, cpu.Pc);
+
+        cpu.Step();
+
+        Assert.True(cpu.IsHalted);
+        Assert.Equal(GbaMemoryMap.EwramStart + 4, cpu.Pc);
+        Assert.Equal(0u, cpu[0]);
+
+        bus.RequestInterrupt(IoRegisters.InterruptVBlank);
+        cpu.Step();
+
+        Assert.False(cpu.IsHalted);
+        Assert.Equal(42u, cpu[0]);
+        Assert.Equal(GbaMemoryMap.EwramStart + 8, cpu.Pc);
+    }
+
+    [Fact]
+    public void HaltDoesNotWakeForRequestedButDisabledInterrupt()
+    {
+        var bus = new MemoryBus();
+        bus.Write32(GbaMemoryMap.EwramStart, 0xEF02_0000); // swi Halt
+        bus.InterruptEnable = IoRegisters.InterruptHBlank;
+        var cpu = new Arm7Tdmi(bus)
+        {
+            [15] = GbaMemoryMap.EwramStart
+        };
+
+        cpu.Step();
+        bus.RequestInterrupt(IoRegisters.InterruptVBlank);
+        cpu.Step();
+
+        Assert.True(cpu.IsHalted);
+        Assert.Equal(GbaMemoryMap.EwramStart + 4, cpu.Pc);
+    }
+
+    [Fact]
     public void SoftwareInterruptWithoutBiosHandlesArcTan()
     {
         var bus = new MemoryBus();

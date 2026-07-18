@@ -49,7 +49,7 @@ when you explicitly want a broad audit that keeps collecting failures.
 A release candidate should pass:
 
 - Release CLI and desktop builds.
-- 295/295 unit tests or newer full test count.
+- 301/301 unit tests or newer full test count.
 - Current strict deep-gameplay suite with no failures and exact baseline matches.
 - Save-assisted strict gameplay suite with no failures and exact baseline matches.
 - Audio smoke with no unexpected signal mismatches.
@@ -176,3 +176,21 @@ required captures and passes 17/17 frame comparisons. Its first pass caught
 Mario Kart and F-Zero Maximum phase offsets; those routes were retimed through
 documented frame alignment and bounded window matching, then independently
 reverified locally before the 17/17 external result was accepted.
+
+The 2026-07-18 HALTCNT accuracy pass adds real CPU sleep states for both BIOS
+`HALTCNT` writes and no-BIOS `Halt`/`Stop` SWIs. HALT keeps video, audio,
+timers, DMA, and the scheduler running until an enabled interrupt is pending,
+independent of IME; STOP freezes emulated system clocks and wakes only for
+enabled serial, keypad, or Game Pak interrupts. The full suite is now 301/301.
+Focused real-BIOS GTA and Sonic routes remain exact baseline matches at
+`artifacts\haltcnt-activity-evidence-20260718`, and a five-game no-BIOS action
+slice completes 20/20 phases after the bounded Metal Slug retry.
+
+Because real BIOS code normally sleeps at `0x00000348` between frames, periodic
+frame-boundary snapshots can now legitimately report one distinct PC. Snapshot
+CSVs therefore include `frameHash`; deep-gameplay reports retain
+`distinctPcs`, add `distinctFrames`, and use the larger value as
+`activityDiversity`. The focused rollup at
+`artifacts\haltcnt-activity-rollup-selected-20260718` has zero warnings while
+still showing Sonic's expected 1-PC BIOS sleep loop and 11 distinct rendered
+frames.

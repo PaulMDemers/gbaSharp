@@ -280,9 +280,29 @@ try {
         return
     }
 
+    $reportColumns = @(
+        "label", "status", "baselineStatus", "targetScene", "baselineRequired", "minDistinctPcs", "exitCode", "index", "romPath",
+        "stopFrame", "observedFrame", "lastSnapshotFrame", "lastSnapshotPc", "maxSteps", "maxSeconds", "inputScript", "saveFile",
+        "snapshotRows", "distinctPcs", "distinctFrames", "activityDiversity", "finalPpm", "baselinePpm", "snapshotCsv", "actualHash",
+        "baselineHash", "expectedScene", "message"
+    )
     $reportPath = Join-Path $OutputDir "deep-gameplay.csv"
     if (-not (($Resume -or $Append) -and (Test-Path $reportPath))) {
-        "label,status,baselineStatus,targetScene,baselineRequired,minDistinctPcs,exitCode,index,romPath,stopFrame,observedFrame,lastSnapshotFrame,lastSnapshotPc,maxSteps,maxSeconds,inputScript,saveFile,snapshotRows,distinctPcs,finalPpm,baselinePpm,snapshotCsv,actualHash,baselineHash,expectedScene,message" | Set-Content -LiteralPath $reportPath -Encoding UTF8
+        ($reportColumns -join ",") | Set-Content -LiteralPath $reportPath -Encoding UTF8
+    }
+    elseif ((Get-Content -LiteralPath $reportPath -TotalCount 1) -notmatch '(^|,)activityDiversity(,|$)') {
+        $existingRows = @(Import-Csv -LiteralPath $reportPath)
+        foreach ($row in $existingRows) {
+            $row | Add-Member -NotePropertyName distinctFrames -NotePropertyValue "" -Force
+            $row | Add-Member -NotePropertyName activityDiversity -NotePropertyValue $row.distinctPcs -Force
+        }
+
+        if ($existingRows.Count -gt 0) {
+            $existingRows | Select-Object $reportColumns | Export-Csv -LiteralPath $reportPath -NoTypeInformation
+        }
+        else {
+            ($reportColumns -join ",") | Set-Content -LiteralPath $reportPath -Encoding UTF8
+        }
     }
 
     foreach ($item in $items) {
@@ -378,12 +398,18 @@ try {
         $observedFrame = Get-FrameFromOutput $message
         $snapshotRows = 0
         $distinctPcs = 0
+        $distinctFrames = 0
+        $activityDiversity = 0
         $lastSnapshotFrame = ""
         $lastSnapshotPc = ""
         if (Test-Path -LiteralPath $snapshotCsv) {
             $snapshots = @(Import-Csv -LiteralPath $snapshotCsv)
             $snapshotRows = $snapshots.Count
             $distinctPcs = @($snapshots | Select-Object -ExpandProperty pc -Unique).Count
+            if ($snapshotRows -gt 0 -and $snapshots[0].PSObject.Properties.Name -contains "frameHash") {
+                $distinctFrames = @($snapshots | Select-Object -ExpandProperty frameHash -Unique).Count
+            }
+            $activityDiversity = [Math]::Max($distinctPcs, $distinctFrames)
             if ($snapshotRows -gt 0) {
                 $lastSnapshot = $snapshots[-1]
                 $lastSnapshotFrame = $lastSnapshot.frame
@@ -450,6 +476,8 @@ try {
             saveFile = $item.saveFile
             snapshotRows = $snapshotRows
             distinctPcs = $distinctPcs
+            distinctFrames = $distinctFrames
+            activityDiversity = $activityDiversity
             finalPpm = $finalPpm
             baselinePpm = $baselinePpm
             snapshotCsv = $snapshotCsv
@@ -459,7 +487,7 @@ try {
             message = $message
         } | Export-Csv -LiteralPath $reportPath -NoTypeInformation -Append
 
-        Write-Host "  $status baseline=$baselineStatus frame=$observedFrame snapshots=$snapshotRows distinctPcs=$distinctPcs"
+        Write-Host "  $status baseline=$baselineStatus frame=$observedFrame snapshots=$snapshotRows activity=$activityDiversity (pcs=$distinctPcs frames=$distinctFrames)"
     }
 
     $rows = @(Import-Csv -LiteralPath $reportPath)

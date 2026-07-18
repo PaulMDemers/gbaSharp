@@ -82,7 +82,13 @@ public sealed class GbaSystem
 
     public int Step()
     {
+        var wasStopped = Cpu.IsStopped;
         var cycles = Cpu.Step();
+        if (wasStopped && Cpu.IsStopped)
+        {
+            return cycles;
+        }
+
         Bus.Advance(cycles);
         Scheduler.Advance(cycles);
         Audio.Advance(cycles, Scheduler.Now);
@@ -93,8 +99,16 @@ public sealed class GbaSystem
     public int Step(ref GbaStepProfile profile)
     {
         var start = Stopwatch.GetTimestamp();
+        var wasStopped = Cpu.IsStopped;
         var cycles = Cpu.Step();
         var afterCpu = Stopwatch.GetTimestamp();
+        if (wasStopped && Cpu.IsStopped)
+        {
+            profile.Steps++;
+            profile.CpuTicks += afterCpu - start;
+            return cycles;
+        }
+
         Bus.Advance(cycles);
         var afterBus = Stopwatch.GetTimestamp();
         Scheduler.Advance(cycles);

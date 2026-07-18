@@ -21,6 +21,7 @@ public static class IoRegisters
     public const ushort InterruptDma2 = 1 << 10;
     public const ushort InterruptDma3 = 1 << 11;
     public const ushort InterruptKeypad = 1 << 12;
+    public const ushort InterruptGamePak = 1 << 13;
 
     public const ushort TimerPrescalerMask = 0x0003;
     public const ushort TimerCascade = 1 << 2;
@@ -128,4 +129,5 @@ public static class IoRegisters
     public const uint WAITCNT = GbaMemoryMap.IoStart + 0x0204;
     public const uint IME = GbaMemoryMap.IoStart + 0x0208;
     public const uint POSTFLG = GbaMemoryMap.IoStart + 0x0300;
+    public const uint HALTCNT = GbaMemoryMap.IoStart + 0x0301;
 }

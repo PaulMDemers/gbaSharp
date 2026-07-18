@@ -3756,7 +3756,7 @@ static SnapshotWriter? OpenSnapshotWriter(RunOptions options)
     }
 
     var writer = new StreamWriter(fullPath, append: false, System.Text.Encoding.ASCII);
-    writer.WriteLine("frame,cycles,pc,cpsr,thumb,keyInput,pressedKeys,mainCallback,sonicState1100,sonicState1140,sonicState1144,sonicState1148,sonicState1150,sonicKey98,sonicKey9A,sonicKey9C,sonicKey9E,sonicKeyA0,rubyTaskCallback,rubyTask28,rubyTask2A,rubyTask2E,rubyTask30,rubyBgmStatus,rubySaveX,rubySaveY,rubySaveMapGroup,rubySaveMapNum,rubyVarLittlerootState,rubyVarRoute101State,rubyVarLittlerootHousesState,rubyVarLittlerootHousesState2,rubyVarLittlerootRivalState,rubyVarLittlerootIntroState,taskSlots,firstTask,rubyMovingNpcId,rubyMovingNpcMapGroup,rubyMovingNpcMapNum,rubyMovementTaskId,rubyMovementTaskFlags,rubyMovementObjects,rubyPlayerObject,rubyObjectEvents,dispcnt,dispstat,vcount,ie,if,ime,bg0cnt,bg1cnt,bg2cnt,bg3cnt,bg0hofs,bg0vofs,bg1hofs,bg1vofs,bg2hofs,bg2vofs,bg3hofs,bg3vofs,bg2pa,bg2pb,bg2pc,bg2pd,bg2x,bg2y,bg3pa,bg3pb,bg3pc,bg3pd,bg3x,bg3y,win0h,win1h,win0v,win1v,winin,winout,mosaic,bldcnt,bldalpha,bldy,soundcntL,soundcntH,soundcntX,dma0cnt,dma1cnt,dma2cnt,dma3cnt,activeObjects,hiddenObjects,firstActiveObject");
+    writer.WriteLine("frame,cycles,frameHash,pc,cpsr,thumb,keyInput,pressedKeys,mainCallback,sonicState1100,sonicState1140,sonicState1144,sonicState1148,sonicState1150,sonicKey98,sonicKey9A,sonicKey9C,sonicKey9E,sonicKeyA0,rubyTaskCallback,rubyTask28,rubyTask2A,rubyTask2E,rubyTask30,rubyBgmStatus,rubySaveX,rubySaveY,rubySaveMapGroup,rubySaveMapNum,rubyVarLittlerootState,rubyVarRoute101State,rubyVarLittlerootHousesState,rubyVarLittlerootHousesState2,rubyVarLittlerootRivalState,rubyVarLittlerootIntroState,taskSlots,firstTask,rubyMovingNpcId,rubyMovingNpcMapGroup,rubyMovingNpcMapNum,rubyMovementTaskId,rubyMovementTaskFlags,rubyMovementObjects,rubyPlayerObject,rubyObjectEvents,dispcnt,dispstat,vcount,ie,if,ime,bg0cnt,bg1cnt,bg2cnt,bg3cnt,bg0hofs,bg0vofs,bg1hofs,bg1vofs,bg2hofs,bg2vofs,bg3hofs,bg3vofs,bg2pa,bg2pb,bg2pc,bg2pd,bg2x,bg2y,bg3pa,bg3pb,bg3pc,bg3pd,bg3x,bg3y,win0h,win1h,win0v,win1v,winin,winout,mosaic,bldcnt,bldalpha,bldy,soundcntL,soundcntH,soundcntX,dma0cnt,dma1cnt,dma2cnt,dma3cnt,activeObjects,hiddenObjects,firstActiveObject");
     return new SnapshotWriter(writer);
 }
 
@@ -4029,6 +4029,8 @@ static void WriteSnapshotIfNeeded(GbaSystem gba, RunOptions options, SnapshotWri
     snapshots.Writer.Write(frame);
     snapshots.Writer.Write(',');
     snapshots.Writer.Write(gba.Scheduler.Now);
+    snapshots.Writer.Write(',');
+    snapshots.Writer.Write($"0x{HashFramebuffer(gba.Video.Framebuffer):X16}");
     snapshots.Writer.Write(',');
     WriteHex32(snapshots.Writer, gba.Cpu.Pc);
     snapshots.Writer.Write(',');

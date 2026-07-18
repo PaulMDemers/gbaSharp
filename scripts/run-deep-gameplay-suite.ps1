@@ -23,6 +23,16 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+function Get-ActivityDiversity {
+    param([object]$Row)
+
+    if ($Row.PSObject.Properties.Name -contains "activityDiversity" -and -not [string]::IsNullOrWhiteSpace($Row.activityDiversity)) {
+        return [int]$Row.activityDiversity
+    }
+
+    return [int]$Row.distinctPcs
+}
+
 if ($ChunkSize -le 0) {
     throw "ChunkSize must be greater than zero."
 }
@@ -128,8 +138,8 @@ try {
         Export-Csv -LiteralPath (Join-Path $OutputRoot "summary-status-baseline.csv") -NoTypeInformation
 
     $chunkRows |
-        Sort-Object {[int]$_.distinctPcs}, label |
-        Select-Object label, status, baselineStatus, distinctPcs, snapshotRows, expectedScene, chunk |
+        Sort-Object {Get-ActivityDiversity $_}, label |
+        Select-Object label, status, baselineStatus, activityDiversity, distinctPcs, distinctFrames, snapshotRows, expectedScene, chunk |
         Export-Csv -LiteralPath (Join-Path $OutputRoot "summary-low-diversity.csv") -NoTypeInformation
 
     $badRows = @($chunkRows | Where-Object { $_.status -ne "pass" -or ($_.baselineRequired -ne "False" -and $_.baselineStatus -notin @("match", "updated")) })
@@ -141,7 +151,7 @@ try {
                 $threshold = [int]$_.minDistinctPcs
             }
 
-            [int]$_.distinctPcs -lt $threshold
+            (Get-ActivityDiversity $_) -lt $threshold
         })
     }
     $summaryPath = Join-Path $OutputRoot "summary.md"
@@ -155,7 +165,7 @@ try {
         "- Chunks: $firstChunk-$lastChunk of $totalChunks",
         "- Route max-seconds cap: $RouteMaxSecondsCap",
         "- Failing rows: $($badRows.Count)",
-        "- Low-diversity warning threshold: $LowDiversityWarningThreshold distinct PCs",
+        "- Low-activity warning threshold: $LowDiversityWarningThreshold distinct PCs or frames",
         "- Low-diversity warnings: $($lowDiversityRows.Count)",
         "",
         "## Status",
@@ -166,20 +176,20 @@ try {
         "- $($_.Name): $($_.Count)"
     })
 
-    $lines += @("", "## Lowest Distinct PC Counts", "")
-    $lines += ($chunkRows | Sort-Object {[int]$_.distinctPcs}, label | Select-Object -First 10 | ForEach-Object {
-        "- $($_.label): distinctPcs=$($_.distinctPcs), snapshots=$($_.snapshotRows), status=$($_.status), baseline=$($_.baselineStatus)"
+    $lines += @("", "## Lowest Activity Diversity", "")
+    $lines += ($chunkRows | Sort-Object {Get-ActivityDiversity $_}, label | Select-Object -First 10 | ForEach-Object {
+        "- $($_.label): activity=$(Get-ActivityDiversity $_), distinctPcs=$($_.distinctPcs), distinctFrames=$($_.distinctFrames), snapshots=$($_.snapshotRows), status=$($_.status), baseline=$($_.baselineStatus)"
     })
 
     if ($lowDiversityRows.Count -gt 0) {
         $lines += @("", "## Low-Diversity Warnings", "")
-        $lines += ($lowDiversityRows | Sort-Object {[int]$_.distinctPcs}, label | ForEach-Object {
+        $lines += ($lowDiversityRows | Sort-Object {Get-ActivityDiversity $_}, label | ForEach-Object {
             $threshold = $LowDiversityWarningThreshold
             if ($_.PSObject.Properties.Name -contains "minDistinctPcs" -and -not [string]::IsNullOrWhiteSpace($_.minDistinctPcs)) {
                 $threshold = [int]$_.minDistinctPcs
             }
 
-            "- $($_.label): distinctPcs=$($_.distinctPcs), threshold=$threshold, snapshots=$($_.snapshotRows), scene=$($_.expectedScene)"
+            "- $($_.label): activity=$(Get-ActivityDiversity $_), distinctPcs=$($_.distinctPcs), distinctFrames=$($_.distinctFrames), threshold=$threshold, snapshots=$($_.snapshotRows), scene=$($_.expectedScene)"
         })
     }
 

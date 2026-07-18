@@ -101,6 +101,8 @@ public sealed class MemoryBus
 
     public event Action<ushort, ushort>? InterruptRequested;
 
+    public event Action<bool>? PowerDownRequested;
+
     public event Action? SoundIoReset;
 
     public Func<ushort>? SoundStatusProvider { get; set; }
@@ -1021,6 +1023,16 @@ public sealed class MemoryBus
 
     private void WriteIo8(uint address, byte value)
     {
+        if (address == IoRegisters.HALTCNT)
+        {
+            if (BiosAccessible && PostFlag != 0)
+            {
+                PowerDownRequested?.Invoke((value & 0x80) != 0);
+            }
+
+            return;
+        }
+
         var aligned = address & ~1u;
         if (aligned is not (IoRegisters.SIOCNT or IoRegisters.RCNT or IoRegisters.JOYCNT or IoRegisters.SOUNDCNT_X))
         {
