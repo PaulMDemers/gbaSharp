@@ -211,3 +211,15 @@ alpha blending cannot occur and the selected background remains available for
 valid OBJ-to-BG blending. Two focused overlap tests bring the suite to 308/308.
 The same four strict retail checkpoints remain 4/4 exact matches in
 `artifacts\ppu-obj-blend-regression-20260718`.
+
+OBJ rendering now resolves OAM into one scanline plane before composition.
+Vertical mosaic is applied while sampling sprites; horizontal mosaic uses the
+hardware-style screen-wide latch over that resolved plane. The latch retains a
+higher-priority pixel when a lower-priority mosaic sprite enters mid-block,
+updates immediately for a higher-priority sprite, and carries opaque pixels
+across transparent mosaic texels. Three focused tests bring the suite to
+311/311. `artifacts\ppu-obj-latch-regression-20260718` keeps Sonic Advance,
+Mario Kart, Zelda Minish Cap, and Powerpuff Girls at 4/4 exact matches.
+The separate bitmap-mode anchor in
+`artifacts\ppu-obj-latch-doom-regression-20260718` keeps Doom at an exact
+frame-9,000 gameplay match with activity diversity 10.

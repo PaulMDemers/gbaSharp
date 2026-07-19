@@ -7,7 +7,7 @@ frontend for hands-on testing.
 ## Current Status
 
 - Current release line: `0.1.0` preview under the MIT license.
-- Core tests: 308 passing.
+- Core tests: 311 passing.
 - Curated official boot sweep: 300/300 titles boot in the best-known aligned
   real-BIOS pass.
 - Standard deep gameplay gate: 55/55 strict baseline matches.

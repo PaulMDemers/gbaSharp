@@ -364,6 +364,28 @@ public sealed class VideoControllerTests
     }
 
     [Fact]
+    public void ObjectMosaicLatchCarriesAcrossTransparentPixels()
+    {
+        var gba = new GbaSystem();
+        gba.Bus.DisplayControl = (ushort)((1 << 12) | (1 << 6));
+        gba.Bus.Write16(IoRegisters.MOSAIC, 0x0300); // 4-pixel OBJ mosaic width
+        gba.Bus.Write16(GbaMemoryMap.PaletteStart + 0x202, 0x001F);
+        WriteVideoByte(gba.Bus, GbaMemoryMap.VramStart + 0x10000, 0x01);
+        HideObjectsExceptFirst(gba.Bus);
+        gba.Bus.Write16(GbaMemoryMap.OamStart, 1 << 12);
+        gba.Bus.Write16(GbaMemoryMap.OamStart + 2, 0);
+        gba.Bus.Write16(GbaMemoryMap.OamStart + 4, 0);
+
+        AdvanceToVBlank(gba);
+
+        Assert.Equal(0xFFFF_0000u, gba.Video.Framebuffer[0]);
+        Assert.Equal(0xFFFF_0000u, gba.Video.Framebuffer[1]);
+        Assert.Equal(0xFFFF_0000u, gba.Video.Framebuffer[2]);
+        Assert.Equal(0xFFFF_0000u, gba.Video.Framebuffer[3]);
+        Assert.Equal(0xFF00_0000u, gba.Video.Framebuffer[4]);
+    }
+
+    [Fact]
     public void ObjectMosaicUsesDisplayAlignedBlocksForOffsetSprite()
     {
         var gba = new GbaSystem();
@@ -426,6 +448,67 @@ public sealed class VideoControllerTests
 
         Assert.Equal(0xFFFF_0000u, gba.Video.Framebuffer[1]);
         Assert.Equal(0xFF00_FF00u, gba.Video.Framebuffer[2]);
+    }
+
+    [Fact]
+    public void LowerPriorityObjectDoesNotReplaceMosaicLatchMidBlock()
+    {
+        var gba = new GbaSystem();
+        gba.Bus.DisplayControl = (ushort)((1 << 12) | (1 << 6));
+        gba.Bus.Write16(IoRegisters.MOSAIC, 0x0300); // 4-pixel OBJ mosaic width
+        gba.Bus.Write16(GbaMemoryMap.PaletteStart + 0x202, 0x001F);
+        gba.Bus.Write16(GbaMemoryMap.PaletteStart + 0x204, 0x03E0);
+        FillObjectTile(gba.Bus, 0, 0x11);
+        FillObjectTile(gba.Bus, 1, 0x22);
+        for (var sprite = 2; sprite < 128; sprite++)
+        {
+            gba.Bus.Write16(GbaMemoryMap.OamStart + (uint)(sprite * 8), 160);
+        }
+
+        gba.Bus.Write16(GbaMemoryMap.OamStart, 1 << 12); // priority 0 mosaic OBJ, visible at x 0-1
+        gba.Bus.Write16(GbaMemoryMap.OamStart + 2, 506); // x = -6
+        gba.Bus.Write16(GbaMemoryMap.OamStart + 4, 0);
+        gba.Bus.Write16(GbaMemoryMap.OamStart + 8, 1 << 12); // priority 1 mosaic OBJ behind it
+        gba.Bus.Write16(GbaMemoryMap.OamStart + 10, 0);
+        gba.Bus.Write16(GbaMemoryMap.OamStart + 12, (ushort)(1 | (1 << 10)));
+
+        AdvanceToVBlank(gba);
+
+        Assert.Equal(0xFFFF_0000u, gba.Video.Framebuffer[0]);
+        Assert.Equal(0xFFFF_0000u, gba.Video.Framebuffer[1]);
+        Assert.Equal(0xFFFF_0000u, gba.Video.Framebuffer[2]);
+        Assert.Equal(0xFFFF_0000u, gba.Video.Framebuffer[3]);
+        Assert.Equal(0xFF00_FF00u, gba.Video.Framebuffer[4]);
+    }
+
+    [Fact]
+    public void HigherPriorityObjectReplacesMosaicLatchMidBlock()
+    {
+        var gba = new GbaSystem();
+        gba.Bus.DisplayControl = (ushort)((1 << 12) | (1 << 6));
+        gba.Bus.Write16(IoRegisters.MOSAIC, 0x0300); // 4-pixel OBJ mosaic width
+        gba.Bus.Write16(GbaMemoryMap.PaletteStart + 0x202, 0x001F);
+        gba.Bus.Write16(GbaMemoryMap.PaletteStart + 0x204, 0x03E0);
+        FillObjectTile(gba.Bus, 0, 0x11);
+        FillObjectTile(gba.Bus, 1, 0x22);
+        for (var sprite = 2; sprite < 128; sprite++)
+        {
+            gba.Bus.Write16(GbaMemoryMap.OamStart + (uint)(sprite * 8), 160);
+        }
+
+        gba.Bus.Write16(GbaMemoryMap.OamStart, 1 << 12); // priority 0 mosaic OBJ starts at x 2
+        gba.Bus.Write16(GbaMemoryMap.OamStart + 2, 2);
+        gba.Bus.Write16(GbaMemoryMap.OamStart + 4, 0);
+        gba.Bus.Write16(GbaMemoryMap.OamStart + 8, 1 << 12); // priority 1 mosaic OBJ
+        gba.Bus.Write16(GbaMemoryMap.OamStart + 10, 0);
+        gba.Bus.Write16(GbaMemoryMap.OamStart + 12, (ushort)(1 | (1 << 10)));
+
+        AdvanceToVBlank(gba);
+
+        Assert.Equal(0xFF00_FF00u, gba.Video.Framebuffer[0]);
+        Assert.Equal(0xFF00_FF00u, gba.Video.Framebuffer[1]);
+        Assert.Equal(0xFFFF_0000u, gba.Video.Framebuffer[2]);
+        Assert.Equal(0xFFFF_0000u, gba.Video.Framebuffer[3]);
     }
 
     [Fact]
@@ -1008,6 +1091,15 @@ public sealed class VideoControllerTests
         for (var sprite = 1; sprite < 128; sprite++)
         {
             bus.Write16(GbaMemoryMap.OamStart + (uint)(sprite * 8), 160);
+        }
+    }
+
+    private static void FillObjectTile(MemoryBus bus, int tile, byte packedColor)
+    {
+        var start = GbaMemoryMap.VramStart + 0x10000u + (uint)(tile * 32);
+        for (uint offset = 0; offset < 32; offset++)
+        {
+            WriteVideoByte(bus, start + offset, packedColor);
         }
     }
 

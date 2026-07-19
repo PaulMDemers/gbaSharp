@@ -19,6 +19,7 @@ public sealed class VideoController
     private readonly Scheduler _scheduler;
     private readonly uint[] _framebuffer = new uint[Pixels];
     private readonly uint[] _secondFramebuffer = new uint[Pixels];
+    private readonly ObjectPixel[] _objectPixels = new ObjectPixel[Pixels];
     private readonly uint[] _debugPreBlendFramebuffer = new uint[Pixels];
     private readonly uint[] _debugSecondTargetFramebuffer = new uint[Pixels];
     private readonly uint[][] _debugLayerFramebuffers =
@@ -517,6 +518,12 @@ public sealed class VideoController
             RenderObjectWindow();
         }
 
+        var objectsEnabled = (_bus.DisplayControl & (1 << 12)) != 0;
+        if (objectsEnabled)
+        {
+            PrepareObjectFrame();
+        }
+
         for (var priority = 3; priority >= 0; priority--)
         {
             for (var bg = 3; bg >= 0; bg--)
@@ -542,9 +549,9 @@ public sealed class VideoController
                 }
             }
 
-            if ((_bus.DisplayControl & (1 << 12)) != 0)
+            if (objectsEnabled)
             {
-                RenderSpritesForPriority(priority, priorities, layers, secondLayers);
+                RenderObjectPixelsForPriority(priority, _objectPixels, priorities, layers, secondLayers);
             }
         }
 
@@ -570,6 +577,13 @@ public sealed class VideoController
         if (IsObjectWindowEnabled())
         {
             RenderObjectWindowScanline(y);
+        }
+
+        var objectPixels = _objectPixels.AsSpan(rowOffset, Width);
+        var renderObjects = (_bus.DisplayControl & (1 << 12)) != 0 && debugLayer is null or 4;
+        if (renderObjects)
+        {
+            PrepareObjectScanline(y, objectPixels);
         }
 
         for (var priority = 3; priority >= 0; priority--)
@@ -602,9 +616,9 @@ public sealed class VideoController
                 }
             }
 
-            if ((_bus.DisplayControl & (1 << 12)) != 0 && debugLayer is null or 4)
+            if (renderObjects)
             {
-                RenderSpritesForPriorityScanline(priority, y, priorities, layers, secondLayers);
+                RenderObjectPixelsForPriorityScanline(priority, y, objectPixels, priorities, layers, secondLayers);
             }
         }
 
@@ -635,6 +649,15 @@ public sealed class VideoController
             var start = Stopwatch.GetTimestamp();
             RenderObjectWindowScanline(y);
             _renderProfile.ObjectWindowTicks += Stopwatch.GetTimestamp() - start;
+        }
+
+        var objectPixels = _objectPixels.AsSpan(rowOffset, Width);
+        var renderObjects = (_bus.DisplayControl & (1 << 12)) != 0 && debugLayer is null or 4;
+        if (renderObjects)
+        {
+            var start = Stopwatch.GetTimestamp();
+            PrepareObjectScanline(y, objectPixels);
+            _renderProfile.SpriteTicks += Stopwatch.GetTimestamp() - start;
         }
 
         for (var priority = 3; priority >= 0; priority--)
@@ -671,10 +694,10 @@ public sealed class VideoController
                 }
             }
 
-            if ((_bus.DisplayControl & (1 << 12)) != 0 && debugLayer is null or 4)
+            if (renderObjects)
             {
                 var start = Stopwatch.GetTimestamp();
-                RenderSpritesForPriorityScanline(priority, y, priorities, layers, secondLayers);
+                RenderObjectPixelsForPriorityScanline(priority, y, objectPixels, priorities, layers, secondLayers);
                 _renderProfile.SpriteTicks += Stopwatch.GetTimestamp() - start;
             }
         }
@@ -708,6 +731,13 @@ public sealed class VideoController
             RenderObjectWindowScanline(y);
         }
 
+        var objectPixels = _objectPixels.AsSpan(rowOffset, Width);
+        var renderObjects = (_bus.DisplayControl & (1 << 12)) != 0 && debugLayer is null or 4;
+        if (renderObjects)
+        {
+            PrepareObjectScanline(y, objectPixels);
+        }
+
         var bg2Enabled = (_bus.DisplayControl & (1 << 10)) != 0;
         var bg2Control = _bus.PeekIo16(IoRegisters.BG2CNT);
         var bg2Priority = (byte)(bg2Control & 0x3);
@@ -720,9 +750,9 @@ public sealed class VideoController
                 RenderBitmapBackgroundScanline(mode, y, bg2Priority, priorities, layers, secondLayers);
             }
 
-            if ((_bus.DisplayControl & (1 << 12)) != 0 && debugLayer is null or 4)
+            if (renderObjects)
             {
-                RenderSpritesForPriorityScanline(priority, y, priorities, layers, secondLayers);
+                RenderObjectPixelsForPriorityScanline(priority, y, objectPixels, priorities, layers, secondLayers);
             }
         }
 
@@ -755,6 +785,15 @@ public sealed class VideoController
             _renderProfile.ObjectWindowTicks += Stopwatch.GetTimestamp() - start;
         }
 
+        var objectPixels = _objectPixels.AsSpan(rowOffset, Width);
+        var objectsEnabled = (_bus.DisplayControl & (1 << 12)) != 0;
+        if (objectsEnabled)
+        {
+            var start = Stopwatch.GetTimestamp();
+            PrepareObjectScanline(y, objectPixels);
+            _renderProfile.SpriteTicks += Stopwatch.GetTimestamp() - start;
+        }
+
         var bg2Enabled = (_bus.DisplayControl & (1 << 10)) != 0;
         var bg2Control = _bus.PeekIo16(IoRegisters.BG2CNT);
         var bg2Priority = (byte)(bg2Control & 0x3);
@@ -767,10 +806,10 @@ public sealed class VideoController
                 _renderProfile.BitmapTicks += Stopwatch.GetTimestamp() - start;
             }
 
-            if ((_bus.DisplayControl & (1 << 12)) != 0)
+            if (objectsEnabled)
             {
                 var start = Stopwatch.GetTimestamp();
-                RenderSpritesForPriorityScanline(priority, y, priorities, layers, secondLayers);
+                RenderObjectPixelsForPriorityScanline(priority, y, objectPixels, priorities, layers, secondLayers);
                 _renderProfile.SpriteTicks += Stopwatch.GetTimestamp() - start;
             }
         }
@@ -1119,121 +1158,28 @@ public sealed class VideoController
         }
     }
 
-    private void RenderSpritesForPriority(int priority, Span<byte> priorities, Span<byte> layers, Span<byte> secondLayers)
+    private void PrepareObjectFrame()
     {
-        var oam = _bus.ObjectAttributeMemory;
-        for (var sprite = 127; sprite >= 0; sprite--)
+        Array.Clear(_objectPixels);
+        for (var y = 0; y < Height; y++)
         {
-            var offset = sprite * 8;
-            var attr0 = (ushort)(oam[offset] | (oam[offset + 1] << 8));
-            var attr1 = (ushort)(oam[offset + 2] | (oam[offset + 3] << 8));
-            var attr2 = (ushort)(oam[offset + 4] | (oam[offset + 5] << 8));
-            var affineMode = (attr0 >> 8) & 0x3;
-            var objectMode = (attr0 >> 10) & 0x3;
-            if (affineMode == 2 || objectMode == 2 || ((attr2 >> 10) & 0x3) != priority)
-            {
-                continue;
-            }
-
-            var color256 = (attr0 & (1 << 13)) != 0;
-            var y = attr0 & 0xFF;
-            var x = attr1 & 0x1FF;
-            if (y >= 160)
-            {
-                y -= 256;
-            }
-
-            if (x >= 240)
-            {
-                x -= 512;
-            }
-
-            var shape = (attr0 >> 14) & 0x3;
-            var size = (attr1 >> 14) & 0x3;
-            var (spriteWidth, spriteHeight) = GetSpriteDimensions(shape, size);
-            var tileBase = attr2 & 0x3FF;
-            var paletteBank = (attr2 >> 12) & 0xF;
-            var oneDimensional = (_bus.DisplayControl & (1 << 6)) != 0;
-            var affine = affineMode != 0;
-            var displayWidth = affineMode == 3 ? spriteWidth * 2 : spriteWidth;
-            var displayHeight = affineMode == 3 ? spriteHeight * 2 : spriteHeight;
-            var hflip = !affine && (attr1 & (1 << 12)) != 0;
-            var vflip = !affine && (attr1 & (1 << 13)) != 0;
-            var matrixIndex = (attr1 >> 9) & 0x1F;
-            var pa = affine ? ReadObjectAffineParameter(matrixIndex, 0) : 0;
-            var pb = affine ? ReadObjectAffineParameter(matrixIndex, 1) : 0;
-            var pc = affine ? ReadObjectAffineParameter(matrixIndex, 2) : 0;
-            var pd = affine ? ReadObjectAffineParameter(matrixIndex, 3) : 0;
-            var mosaic = IsObjectMosaicEnabled(attr0);
-
-            for (var sy = 0; sy < displayHeight; sy++)
-            {
-                var screenY = y + sy;
-                if (screenY is < 0 or >= Height)
-                {
-                    continue;
-                }
-
-                for (var sx = 0; sx < displayWidth; sx++)
-                {
-                    var screenX = x + sx;
-                    if (screenX is < 0 or >= Width)
-                    {
-                        continue;
-                    }
-
-                    var pixel = screenY * Width + screenX;
-                    if (priority > priorities[pixel])
-                    {
-                        continue;
-                    }
-
-                    var (sourceX, sourceY) = GetObjectSourcePixel(
-                        sx,
-                        sy,
-                        x,
-                        y,
-                        displayWidth,
-                        displayHeight,
-                        spriteWidth,
-                        spriteHeight,
-                        affine,
-                        hflip,
-                        vflip,
-                        mosaic,
-                        pa,
-                        pb,
-                        pc,
-                        pd);
-                    if (sourceX < 0 || sourceY < 0 || sourceX >= spriteWidth || sourceY >= spriteHeight)
-                    {
-                        continue;
-                    }
-
-                    var paletteIndex = GetSpritePaletteIndex(tileBase, sourceX, sourceY, spriteWidth, color256, oneDimensional, paletteBank);
-                    if (paletteIndex == 0 || !IsLayerVisibleAtPixel(4, screenX, screenY))
-                    {
-                        continue;
-                    }
-
-                    SetLayerPixel(
-                        pixel,
-                        (byte)priority,
-                        4,
-                        ReadPaletteColor(0x100 + paletteIndex),
-                        priorities,
-                        layers,
-                        secondLayers,
-                        objectMode == 1);
-                }
-            }
+            var row = _objectPixels.AsSpan(y * Width, Width);
+            BuildObjectScanline(y, row);
+            ApplyObjectMosaicLatch(row);
         }
     }
 
-    private void RenderSpritesForPriorityScanline(int priority, int scanline, Span<byte> priorities, Span<byte> layers, Span<byte> secondLayers)
+    private void PrepareObjectScanline(int scanline, Span<ObjectPixel> objectPixels)
+    {
+        objectPixels.Clear();
+        BuildObjectScanline(scanline, objectPixels);
+        ApplyObjectMosaicLatch(objectPixels);
+    }
+
+    private void BuildObjectScanline(int scanline, Span<ObjectPixel> objectPixels)
     {
         var oam = _bus.ObjectAttributeMemory;
-        for (var sprite = 127; sprite >= 0; sprite--)
+        for (var sprite = 0; sprite < 128; sprite++)
         {
             var offset = sprite * 8;
             var attr0 = (ushort)(oam[offset] | (oam[offset + 1] << 8));
@@ -1241,35 +1187,36 @@ public sealed class VideoController
             var attr2 = (ushort)(oam[offset + 4] | (oam[offset + 5] << 8));
             var affineMode = (attr0 >> 8) & 0x3;
             var objectMode = (attr0 >> 10) & 0x3;
-            if (affineMode == 2 || objectMode == 2 || ((attr2 >> 10) & 0x3) != priority)
+            if (affineMode == 2)
             {
                 continue;
             }
 
             var color256 = (attr0 & (1 << 13)) != 0;
-            var y = attr0 & 0xFF;
-            var x = attr1 & 0x1FF;
-            if (y >= 160)
+            var objectY = attr0 & 0xFF;
+            var objectX = attr1 & 0x1FF;
+            if (objectY >= 160)
             {
-                y -= 256;
+                objectY -= 256;
             }
 
-            if (x >= 240)
+            if (objectX >= 240)
             {
-                x -= 512;
+                objectX -= 512;
             }
 
             var shape = (attr0 >> 14) & 0x3;
             var size = (attr1 >> 14) & 0x3;
             var (spriteWidth, spriteHeight) = GetSpriteDimensions(shape, size);
             var tileBase = attr2 & 0x3FF;
+            var priority = (byte)((attr2 >> 10) & 0x3);
             var paletteBank = (attr2 >> 12) & 0xF;
             var oneDimensional = (_bus.DisplayControl & (1 << 6)) != 0;
             var affine = affineMode != 0;
             var displayWidth = affineMode == 3 ? spriteWidth * 2 : spriteWidth;
             var displayHeight = affineMode == 3 ? spriteHeight * 2 : spriteHeight;
-            var sy = scanline - y;
-            if (sy < 0 || sy >= displayHeight)
+            var localY = scanline - objectY;
+            if (localY < 0 || localY >= displayHeight)
             {
                 continue;
             }
@@ -1282,20 +1229,22 @@ public sealed class VideoController
             var pc = affine ? ReadObjectAffineParameter(matrixIndex, 2) : 0;
             var pd = affine ? ReadObjectAffineParameter(matrixIndex, 3) : 0;
             var mosaic = IsObjectMosaicEnabled(attr0);
-
-            for (var sx = 0; sx < displayWidth; sx++)
+            if (mosaic)
             {
-                var screenX = x + sx;
-                if (screenX is < 0 or >= Width || priority > priorities[screenX])
+                localY = GetObjectMosaicCoordinate(objectY, localY, displayHeight, GetObjectMosaicVerticalSize());
+            }
+
+            for (var localX = 0; localX < displayWidth; localX++)
+            {
+                var screenX = objectX + localX;
+                if (screenX is < 0 or >= Width)
                 {
                     continue;
                 }
 
                 var (sourceX, sourceY) = GetObjectSourcePixel(
-                    sx,
-                    sy,
-                    x,
-                    y,
+                    localX,
+                    localY,
                     displayWidth,
                     displayHeight,
                     spriteWidth,
@@ -1303,7 +1252,6 @@ public sealed class VideoController
                     affine,
                     hflip,
                     vflip,
-                    mosaic,
                     pa,
                     pb,
                     pc,
@@ -1313,23 +1261,121 @@ public sealed class VideoController
                     continue;
                 }
 
-                var paletteIndex = GetSpritePaletteIndex(tileBase, sourceX, sourceY, spriteWidth, color256, oneDimensional, paletteBank);
-                if (paletteIndex == 0 || !IsLayerVisibleAtPixel(4, screenX, scanline))
+                var paletteIndex = GetSpritePaletteIndex(
+                    tileBase,
+                    sourceX,
+                    sourceY,
+                    spriteWidth,
+                    color256,
+                    oneDimensional,
+                    paletteBank);
+                var opaque = paletteIndex != 0;
+                if (objectMode == 2 && opaque)
                 {
                     continue;
                 }
 
-                SetLayerPixel(
-                    scanline * Width + screenX,
-                    screenX,
-                    (byte)priority,
-                    4,
-                    ReadPaletteColor(0x100 + paletteIndex),
-                    priorities,
-                    layers,
-                    secondLayers,
-                    objectMode == 1);
+                ref var current = ref objectPixels[screenX];
+                if (priority >= current.Priority && current.Color != 0)
+                {
+                    continue;
+                }
+
+                if (opaque)
+                {
+                    current.Color = ReadPaletteColor(0x100 + paletteIndex);
+                    current.SemiTransparent = objectMode == 1;
+                }
+
+                current.Priority = priority;
+                current.Mosaic = mosaic;
             }
+        }
+    }
+
+    private void ApplyObjectMosaicLatch(Span<ObjectPixel> objectPixels)
+    {
+        var mosaicWidth = GetObjectMosaicHorizontalSize();
+        var latch = default(ObjectPixel);
+        for (var x = 0; x < objectPixels.Length; x++)
+        {
+            var current = objectPixels[x];
+            if (!current.Mosaic
+                || !latch.Mosaic
+                || current.Priority < latch.Priority
+                || x % mosaicWidth == 0)
+            {
+                latch = current;
+            }
+
+            objectPixels[x] = latch;
+        }
+    }
+
+    private void RenderObjectPixelsForPriority(
+        int priority,
+        ReadOnlySpan<ObjectPixel> objectPixels,
+        Span<byte> priorities,
+        Span<byte> layers,
+        Span<byte> secondLayers)
+    {
+        for (var pixel = 0; pixel < objectPixels.Length; pixel++)
+        {
+            var current = objectPixels[pixel];
+            if (current.Color == 0 || current.Priority != priority || priority > priorities[pixel])
+            {
+                continue;
+            }
+
+            var x = pixel % Width;
+            var y = pixel / Width;
+            if (!IsLayerVisibleAtPixel(4, x, y))
+            {
+                continue;
+            }
+
+            SetLayerPixel(
+                pixel,
+                current.Priority,
+                4,
+                current.Color,
+                priorities,
+                layers,
+                secondLayers,
+                current.SemiTransparent);
+        }
+    }
+
+    private void RenderObjectPixelsForPriorityScanline(
+        int priority,
+        int scanline,
+        ReadOnlySpan<ObjectPixel> objectPixels,
+        Span<byte> priorities,
+        Span<byte> layers,
+        Span<byte> secondLayers)
+    {
+        var rowOffset = scanline * Width;
+        for (var x = 0; x < objectPixels.Length; x++)
+        {
+            var current = objectPixels[x];
+            if (current.Color == 0
+                || current.Priority != priority
+                || priority > priorities[x]
+                || !IsLayerVisibleAtPixel(4, x, scanline))
+            {
+                continue;
+            }
+
+            SetLayerPixel(
+                rowOffset + x,
+                x,
+                current.Priority,
+                4,
+                current.Color,
+                priorities,
+                layers,
+                secondLayers,
+                current.SemiTransparent);
         }
     }
 
@@ -2147,8 +2193,6 @@ public sealed class VideoController
                     var (sourceX, sourceY) = GetObjectSourcePixel(
                         sx,
                         sy,
-                        x,
-                        y,
                         displayWidth,
                         displayHeight,
                         spriteWidth,
@@ -2156,7 +2200,6 @@ public sealed class VideoController
                         affine,
                         hflip,
                         vflip,
-                        false,
                         pa,
                         pb,
                         pc,
@@ -2240,8 +2283,6 @@ public sealed class VideoController
                 var (sourceX, sourceY) = GetObjectSourcePixel(
                     sx,
                     sy,
-                    x,
-                    y,
                     displayWidth,
                     displayHeight,
                     spriteWidth,
@@ -2249,7 +2290,6 @@ public sealed class VideoController
                     affine,
                     hflip,
                     vflip,
-                    false,
                     pa,
                     pb,
                     pc,
@@ -2279,8 +2319,6 @@ public sealed class VideoController
     private (int X, int Y) GetObjectSourcePixel(
         int x,
         int y,
-        int objectX,
-        int objectY,
         int displayWidth,
         int displayHeight,
         int spriteWidth,
@@ -2288,18 +2326,11 @@ public sealed class VideoController
         bool affine,
         bool hflip,
         bool vflip,
-        bool mosaic,
         int pa,
         int pb,
         int pc,
         int pd)
     {
-        if (mosaic)
-        {
-            x = GetObjectMosaicCoordinate(objectX, x, displayWidth, GetObjectMosaicHorizontalSize());
-            y = GetObjectMosaicCoordinate(objectY, y, displayHeight, GetObjectMosaicVerticalSize());
-        }
-
         return affine
             ? TransformObjectPixel(x, y, displayWidth, displayHeight, spriteWidth, spriteHeight, pa, pb, pc, pd)
             : (hflip ? spriteWidth - 1 - x : x, vflip ? spriteHeight - 1 - y : y);
@@ -2414,6 +2445,14 @@ public sealed class VideoController
             (2, 3) => (32, 64),
             _ => (8, 8)
         };
+
+    private struct ObjectPixel
+    {
+        public uint Color;
+        public byte Priority;
+        public bool Mosaic;
+        public bool SemiTransparent;
+    }
 }
 
 public readonly record struct AffineDebugSample(
