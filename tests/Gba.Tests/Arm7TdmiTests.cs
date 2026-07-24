@@ -2085,6 +2085,26 @@ public sealed class Arm7TdmiTests
     }
 
     [Fact]
+    public void ArmPipelineKeepsFetchStageInstructionAfterMemoryWrite()
+    {
+        var bus = new MemoryBus();
+        bus.Write32(GbaMemoryMap.EwramStart, 0xE1A0_0000);     // nop
+        bus.Write32(GbaMemoryMap.EwramStart + 4, 0xE1A0_0000); // nop
+        bus.Write32(GbaMemoryMap.EwramStart + 8, 0xE3A0_0001); // mov r0, #1
+        var cpu = new Arm7Tdmi(bus)
+        {
+            [15] = GbaMemoryMap.EwramStart
+        };
+
+        cpu.Step();
+        bus.Write32(GbaMemoryMap.EwramStart + 8, 0xE3A0_0002); // mov r0, #2
+        cpu.Step();
+        cpu.Step();
+
+        Assert.Equal(1u, cpu[0]);
+    }
+
+    [Fact]
     public void ArmTestOpcodeWithPcDestinationRestoresCpsrWithoutBranching()
     {
         var bus = new MemoryBus();

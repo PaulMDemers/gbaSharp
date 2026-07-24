@@ -280,3 +280,10 @@ while ignoring writes. Three focused regressions bring the maintained suite to
 2/2 exact in `artifacts\save-bus-retail-regression-20260724`; the full
 eight-route export/reload smoke completes in
 `artifacts\save-bus-roundtrip-smoke-20260724`.
+
+The external NES-derived ARM pipeline and STM/DMA ordering group now reports
+`All tests passed`. Separate decode and fetch-stage slots preserve both
+prefetched instructions across self-modifying VRAM writes. One focused
+regression brings the maintained suite to 330/330; the generated-code GTA
+route remains an exact frame-12,000 match in
+`artifacts\pipeline-fetch-stage-gta-20260724`.

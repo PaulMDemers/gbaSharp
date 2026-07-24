@@ -495,6 +495,15 @@ frame 6,000. The eight-route export/reload smoke in
 produce non-erased progress and three short creation scripts retain erased
 data while still validating save size and reload behavior.
 
+The external NES-derived group now reports `All tests passed`. ARM and Thumb
+instruction prefetch track both decode and fetch stages, so self-modifying code
+does not replace either instruction already in the two-stage pipeline. The
+same group also retains the expected decrementing STM/DMA register order. One
+focused self-modifying-code regression brings the maintained suite to 330/330.
+ARM, Thumb, and real-BIOS conformance remain green, and GTA's generated-code
+route remains an exact frame-12,000 match in
+`artifacts\pipeline-fetch-stage-gta-20260724`.
+
 ## Save Probes
 
 `save-probe` exercises the detected save backend for each ROM and verifies that exported save data can be loaded into a fresh bus:

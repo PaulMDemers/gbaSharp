@@ -7,13 +7,15 @@ frontend for hands-on testing.
 ## Current Status
 
 - Current release line: `0.1.0` preview under the MIT license.
-- Core tests: 329 passing.
+- Core tests: 330 passing.
 - ARM and Thumb CPU conformance groups from the MIT-licensed jsmolka
   `gba-tests` suite report `All tests passed`.
 - The same suite's BIOS protection group reports `All tests passed` with the
   standard real GBA BIOS.
 - Its memory mirror and video byte-write group reports `All tests passed`.
 - Its no-save, SRAM, Flash64, and Flash128 save groups report `All tests
+  passed`.
+- Its NES-derived ARM pipeline and STM/DMA ordering group reports `All tests
   passed`.
 - Curated official boot sweep: 300/300 titles boot in the best-known aligned
   real-BIOS pass.

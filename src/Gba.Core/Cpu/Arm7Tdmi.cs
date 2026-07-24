@@ -31,9 +31,15 @@ public sealed class Arm7Tdmi
     private bool _armPrefetchValid;
     private uint _armPrefetchAddress;
     private uint _armPrefetchInstruction;
+    private bool _armFetchValid;
+    private uint _armFetchAddress;
+    private uint _armFetchInstruction;
     private bool _thumbPrefetchValid;
     private uint _thumbPrefetchAddress;
     private ushort _thumbPrefetchInstruction;
+    private bool _thumbFetchValid;
+    private uint _thumbFetchAddress;
+    private ushort _thumbFetchInstruction;
 
     public Arm7Tdmi(MemoryBus bus)
     {
@@ -1499,15 +1505,20 @@ public sealed class Arm7Tdmi
         var biosFetch = address < GbaMemoryMap.BiosSize;
         _bus.SetBiosAccessible(biosFetch);
         _armPrefetchAddress = address;
-        _armPrefetchInstruction = _bus.Read32(address);
-        var pipelineAddress = address + 4;
-        if (biosFetch && pipelineAddress < GbaMemoryMap.BiosSize)
+        _armPrefetchInstruction = _armFetchValid && _armFetchAddress == address
+            ? _armFetchInstruction
+            : _bus.Read32(address);
+        _armFetchAddress = address + 4;
+        _armFetchInstruction = _bus.Read32(_armFetchAddress);
+        if (biosFetch && _armFetchAddress < GbaMemoryMap.BiosSize)
         {
-            _bus.SetBiosOpenBus(_bus.Read32(pipelineAddress));
+            _bus.SetBiosOpenBus(_armFetchInstruction);
         }
 
         _armPrefetchValid = true;
+        _armFetchValid = true;
         _thumbPrefetchValid = false;
+        _thumbFetchValid = false;
     }
 
     private void PrefetchThumbInstruction(uint address)
@@ -1515,15 +1526,23 @@ public sealed class Arm7Tdmi
         var biosFetch = address < GbaMemoryMap.BiosSize;
         _bus.SetBiosAccessible(biosFetch);
         _thumbPrefetchAddress = address;
-        _thumbPrefetchInstruction = _bus.Read16(address);
+        _thumbPrefetchInstruction = _thumbFetchValid && _thumbFetchAddress == address
+            ? _thumbFetchInstruction
+            : _bus.Read16(address);
+        _thumbFetchAddress = address + 2;
+        _thumbFetchInstruction = _bus.Read16(_thumbFetchAddress);
         _thumbPrefetchValid = true;
+        _thumbFetchValid = true;
         _armPrefetchValid = false;
+        _armFetchValid = false;
     }
 
     private void InvalidateInstructionPrefetch()
     {
         _armPrefetchValid = false;
+        _armFetchValid = false;
         _thumbPrefetchValid = false;
+        _thumbFetchValid = false;
         _lastInstructionFetchEnd = uint.MaxValue;
         _lastInstructionFetchCyclesExtra = 0;
     }
