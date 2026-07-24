@@ -358,6 +358,17 @@ public sealed class VideoControllerTests
     }
 
     [Fact]
+    public void HBlankFreeObjectFetchBudgetCompletesTerminalSprite()
+    {
+        var gba = CreateObjectFetchBudgetScene(targetIndex: 14, hblankFree: true);
+
+        AdvanceToVBlank(gba);
+
+        Assert.Equal(0xFF00_FF00u, gba.Video.Framebuffer[0]);
+        Assert.Equal(0xFF00_FF00u, gba.Video.Framebuffer[63]);
+    }
+
+    [Fact]
     public void AffineObjectsConsumeAdditionalFetchCycles()
     {
         var normal = CreateObjectFetchBudgetScene(targetIndex: 9);
@@ -1141,7 +1152,10 @@ public sealed class VideoControllerTests
         var gba = new GbaSystem();
         gba.Bus.DisplayControl = (ushort)((1 << 12) | (1 << 6) | (hblankFree ? 1 << 5 : 0));
         gba.Bus.Write16(GbaMemoryMap.PaletteStart + 0x202, 0x03E0);
-        FillObjectTile(gba.Bus, 1, 0x11);
+        for (var tile = 1; tile <= 64; tile++)
+        {
+            FillObjectTile(gba.Bus, tile, 0x11);
+        }
 
         for (var sprite = 0; sprite < 128; sprite++)
         {

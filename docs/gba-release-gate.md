@@ -227,9 +227,15 @@ frame-9,000 gameplay match with activity diversity 10.
 The OBJ overload pass adds per-scanline fetch exhaustion in OAM order. Normal
 lines receive 1,210 OBJ cycles; DISPCNT HBlank-free mode receives 954. OAM
 scanning, normal and affine width costs, and left clipping all contribute to
-the budget. Four focused overload tests bring the suite to 315/315.
+the budget. Five focused overload tests bring the suite to 316/316.
 `artifacts\ppu-obj-budget-regression-20260724` keeps Sonic Advance, Mario Kart,
 Zelda Minish Cap, and Powerpuff Girls at 4/4 exact matches with activity
 diversity 11, 12, 14, and 13. The independent bitmap-mode route in
 `artifacts\ppu-obj-budget-doom-regression-20260724` keeps Doom at an exact
 frame-9,000 match with activity diversity 10.
+
+The source-built diagnostic pair under
+`tests\TestRoms\ObjFetchOverload` isolates the fetch boundary. gbaSharp and
+mGBA both render the complete index-14 terminal OBJ and omit index 15. MAME
+0.288 renders both variants, so it is not used as an oracle for this specific
+limit. The far edge of the terminal OBJ is now unit-covered.

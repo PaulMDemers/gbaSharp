@@ -420,15 +420,21 @@ diversity 10.
 The OBJ overload pass enforces the documented per-scanline rendering limits:
 1,210 cycles normally and 954 when DISPCNT enables HBlank OAM access. Budget
 use follows OAM order and includes scan cost, normal versus affine width cost,
-and clipped objects. Four exact-pixel tests cover the normal cutoff, the
-reduced HBlank-free cutoff, affine overload, and fully left-clipped overload.
+and clipped objects. Five exact-pixel tests cover the normal cutoff, the
+reduced HBlank-free cutoff, terminal-OBJ completion, affine overload, and fully
+left-clipped overload.
 `artifacts/ppu-obj-budget-regression-20260724` verifies Sonic Advance, Mario
 Kart, Zelda Minish Cap, and Powerpuff Girls at 4/4 `pass, match`, with activity
 diversity 11, 12, 14, and 13.
 `artifacts/ppu-obj-budget-doom-regression-20260724` separately keeps Doom at
-1/1 `pass, match` at frame 9,000 with activity diversity 10. The scanline
-renderer still completes a sprite whose fetch began before exhaustion; exact
-partial rendering of that final sprite remains a narrower accuracy target.
+1/1 `pass, match` at frame 9,000 with activity diversity 10.
+
+The source-built pair in `tests/TestRoms/ObjFetchOverload` makes the boundary
+observable as eight colored tile columns. gbaSharp and mGBA both render the
+complete index-14 strip, including its rightmost pixel, and both omit the
+index-15 strip. MAME 0.288 renders both and therefore is not treated as an OBJ
+budget timing oracle. This evidence retires the speculative partial-terminal
+sprite follow-up; mid-scanline register changes remain separate timing work.
 
 ## Save Probes
 

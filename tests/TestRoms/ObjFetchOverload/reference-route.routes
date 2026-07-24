@@ -1,0 +1,3 @@
+label,index,romPath,inputScript,stopFrame
+obj-fetch-overload,0,tests\TestRoms\ObjFetchOverload\obj-fetch-overload.gba,tests\TestRoms\ObjFetchOverload\no-input.input,60
+obj-fetch-overload-late,0,tests\TestRoms\ObjFetchOverload\obj-fetch-overload-late.gba,tests\TestRoms\ObjFetchOverload\no-input.input,60

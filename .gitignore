@@ -9,6 +9,8 @@ __pycache__/
 *.suo
 *.nupkg
 *.snupkg
+*.elf
+*.map
 
 # IDE/editor state
 .vs/
