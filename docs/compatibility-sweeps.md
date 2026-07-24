@@ -480,6 +480,21 @@ retail graphics blast radius remains 5/5 exact in
 `artifacts\memory-vram-byte-regression-4-20260724` and
 `artifacts\memory-vram-byte-doom-20260724`.
 
+The external no-save, SRAM, Flash64, and Flash128 groups now all report `All
+tests passed`. Game Pak save memory is modeled as an 8-bit bus: halfword and
+word reads repeat the addressed byte, while wide writes transfer only the byte
+lane selected by the address. Missing SRAM/Flash hardware returns `0xFF` and
+ignores writes. Three focused regressions bring the maintained suite to
+329/329.
+
+The strict non-erased retail fixtures remain exact in
+`artifacts\save-bus-retail-regression-20260724`: Sonic Advance's 64 KiB SRAM
+save matches at frame 9,600 and Pokemon Ruby's 128 KiB Flash save matches at
+frame 6,000. The eight-route export/reload smoke in
+`artifacts\save-bus-roundtrip-smoke-20260724` also completes; five routes
+produce non-erased progress and three short creation scripts retain erased
+data while still validating save size and reload behavior.
+
 ## Save Probes
 
 `save-probe` exercises the detected save backend for each ROM and verifies that exported save data can be loaded into a fresh bus:

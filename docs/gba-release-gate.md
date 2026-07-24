@@ -271,3 +271,12 @@ byte writes remain ignored. The split regression brings the maintained suite
 to 326/326. Strict retail graphics remain 5/5 exact in
 `artifacts\memory-vram-byte-regression-4-20260724` and
 `artifacts\memory-vram-byte-doom-20260724`.
+
+The external no-save, SRAM, Flash64, and Flash128 groups now report `All tests
+passed`. Game Pak save halfword/word reads repeat one byte, wide writes select
+one byte lane from the original address, and missing hardware returns `0xFF`
+while ignoring writes. Three focused regressions bring the maintained suite to
+329/329. The non-erased Sonic SRAM and Pokemon Ruby Flash128K fixtures remain
+2/2 exact in `artifacts\save-bus-retail-regression-20260724`; the full
+eight-route export/reload smoke completes in
+`artifacts\save-bus-roundtrip-smoke-20260724`.

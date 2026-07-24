@@ -403,14 +403,20 @@ public sealed class MemoryBus
             return ReadTiltSensor(address);
         }
 
-        if (GetRegion(address) == MemoryRegion.GamePakSram && IsFlashSave)
+        var region = GetRegion(address);
+        if (region == MemoryRegion.GamePakSram && _saveType is SaveType.None or SaveType.Eeprom)
+        {
+            return 0xFF;
+        }
+
+        if (region == MemoryRegion.GamePakSram && IsFlashSave)
         {
             var flashValue = ReadFlash(address);
             NotifyMemoryRead(address, 1, flashValue);
             return flashValue;
         }
 
-        if (GetRegion(address) == MemoryRegion.Io)
+        if (region == MemoryRegion.Io)
         {
             NotifyIoRead(address, 1);
             if (IsWaveRamAddress(address))
@@ -465,6 +471,12 @@ public sealed class MemoryBus
 
     public ushort Read16(uint address)
     {
+        if (GetRegion(address) == MemoryRegion.GamePakSram)
+        {
+            var saveByte = Read8(address);
+            return (ushort)(saveByte | (saveByte << 8));
+        }
+
         var aligned = address & ~1u;
         if (aligned < GbaMemoryMap.BiosSize && (!HasBios || !BiosAccessible))
         {
@@ -520,6 +532,12 @@ public sealed class MemoryBus
 
     public uint Read32(uint address)
     {
+        if (GetRegion(address) == MemoryRegion.GamePakSram)
+        {
+            var saveByte = Read8(address);
+            return saveByte * 0x0101_0101u;
+        }
+
         var aligned = address & ~3u;
         if (aligned < GbaMemoryMap.BiosSize && (!HasBios || !BiosAccessible))
         {
@@ -632,6 +650,11 @@ public sealed class MemoryBus
         }
 
         var mapping = Map(address);
+        if (mapping.Region == MemoryRegion.GamePakSram && _saveType is SaveType.None or SaveType.Eeprom)
+        {
+            return;
+        }
+
         if (mapping.Region == MemoryRegion.GamePakSram && IsFlashSave)
         {
             WriteFlash(address, value);
@@ -693,6 +716,12 @@ public sealed class MemoryBus
 
     public void Write16(uint address, ushort value)
     {
+        if (GetRegion(address) == MemoryRegion.GamePakSram)
+        {
+            Write8(address, (byte)(value >> (int)((address & 1) * 8)));
+            return;
+        }
+
         if (IsEepromAddress(address & ~1u))
         {
             WriteEepromBit(value & 1);
@@ -753,6 +782,12 @@ public sealed class MemoryBus
 
     public void Write32(uint address, uint value)
     {
+        if (GetRegion(address) == MemoryRegion.GamePakSram)
+        {
+            Write8(address, (byte)(value >> (int)((address & 3) * 8)));
+            return;
+        }
+
         var aligned = address & ~3u;
         if (GetRegion(aligned) == MemoryRegion.Io)
         {

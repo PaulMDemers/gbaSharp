@@ -248,11 +248,63 @@ public sealed class MemoryBusTests
     [Fact]
     public void SramMirrorsAndIsWritable()
     {
+        var rom = new byte[Cartridge.HeaderLength + 32];
+        rom[Cartridge.FixedValueOffset] = 0x96;
+        WriteAscii(rom, Cartridge.HeaderLength, "SRAM_V");
         var bus = new MemoryBus();
+        bus.LoadCartridge(Cartridge.Load(rom));
 
         bus.Write8(0x0E00_0000, 0x5A);
 
         Assert.Equal(0x5A, bus.Read8(0x0E01_0000));
+    }
+
+    [Fact]
+    public void SramWideReadsRepeatTheAddressedByte()
+    {
+        var rom = new byte[Cartridge.HeaderLength + 32];
+        rom[Cartridge.FixedValueOffset] = 0x96;
+        WriteAscii(rom, Cartridge.HeaderLength, "SRAM_V");
+        var bus = new MemoryBus();
+        bus.LoadCartridge(Cartridge.Load(rom));
+        bus.Write8(GbaMemoryMap.GamePakSramStart + 1, 0x5A);
+
+        Assert.Equal(0x5A5A, bus.Read16(GbaMemoryMap.GamePakSramStart + 1));
+        Assert.Equal(0x5A5A_5A5Au, bus.Read32(GbaMemoryMap.GamePakSramStart + 1));
+    }
+
+    [Fact]
+    public void SramWideWritesUseOnlyTheAddressSelectedByteLane()
+    {
+        var rom = new byte[Cartridge.HeaderLength + 32];
+        rom[Cartridge.FixedValueOffset] = 0x96;
+        WriteAscii(rom, Cartridge.HeaderLength, "SRAM_V");
+        var bus = new MemoryBus();
+        bus.LoadCartridge(Cartridge.Load(rom));
+
+        bus.Write16(GbaMemoryMap.GamePakSramStart + 1, 0xAABB);
+        bus.Write32(GbaMemoryMap.GamePakSramStart + 6, 0x1122_3344);
+
+        Assert.Equal(0xAA, bus.Read8(GbaMemoryMap.GamePakSramStart + 1));
+        Assert.Equal(0x22, bus.Read8(GbaMemoryMap.GamePakSramStart + 6));
+        Assert.Equal(0xFF, bus.Read8(GbaMemoryMap.GamePakSramStart + 2));
+        Assert.Equal(0xFF, bus.Read8(GbaMemoryMap.GamePakSramStart + 7));
+    }
+
+    [Fact]
+    public void MissingSaveDeviceReturnsErasedBusAndIgnoresWrites()
+    {
+        var rom = new byte[Cartridge.HeaderLength + 4];
+        rom[Cartridge.FixedValueOffset] = 0x96;
+        var bus = new MemoryBus();
+        bus.LoadCartridge(Cartridge.Load(rom));
+
+        bus.Write8(GbaMemoryMap.GamePakSramStart, 0x12);
+        bus.Write32(GbaMemoryMap.GamePakSramStart + 1, 0x1234_5678);
+
+        Assert.Equal(0xFF, bus.Read8(GbaMemoryMap.GamePakSramStart));
+        Assert.Equal(0xFFFF, bus.Read16(GbaMemoryMap.GamePakSramStart));
+        Assert.Equal(0xFFFF_FFFFu, bus.Read32(GbaMemoryMap.GamePakSramStart + 1));
     }
 
     [Fact]
