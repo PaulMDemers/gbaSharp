@@ -255,3 +255,11 @@ blast-radius run remains 5/5 exact: four routes in
 `artifacts\cpu-architecture-regression-20260724`. Other external `gba-tests`
 groups remain independently classified rather than being included in this CPU
 conformance claim.
+
+The external suite's BIOS protection group now also reports `All tests passed`
+with the standard 16 KiB World BIOS. ARM prefetch now latches the protected
+read word from the pipeline fetch stage at `current instruction + 8`, covering
+startup, SWI, IRQ-handler, and post-IRQ behavior. One focused regression brings
+the maintained suite to 325/325. The real-BIOS retail blast-radius gate remains
+5/5 exact in `artifacts\cpu-bios-latch-regression-5-20260724` and
+`artifacts\cpu-bios-latch-doom-20260724`.

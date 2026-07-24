@@ -462,6 +462,15 @@ memory, save, NES, and unsafe-access groups are tracked separately because they
 depend on BIOS selection, save-backend configuration, or open-bus/environment
 behavior; this result does not claim those groups pass.
 
+The real-BIOS follow-up corrects the protected BIOS read latch to expose the
+ARM pipeline's fetched word at `current instruction + 8`, rather than the word
+currently executing. With the standard 16 KiB World BIOS, all four startup,
+SWI, IRQ-handler, and post-IRQ cases in the external suite's BIOS group now
+report `All tests passed`. A focused exit-from-BIOS regression brings the
+maintained suite to 325/325. The real-BIOS retail blast-radius evidence remains
+5/5 exact in `artifacts\cpu-bios-latch-regression-5-20260724` and
+`artifacts\cpu-bios-latch-doom-20260724`.
+
 ## Save Probes
 
 `save-probe` exercises the detected save backend for each ROM and verifies that exported save data can be loaded into a fresh bus:

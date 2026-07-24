@@ -2065,6 +2065,26 @@ public sealed class Arm7TdmiTests
     }
 
     [Fact]
+    public void ArmBiosPrefetchLatchesPipelineWordForProtectedReads()
+    {
+        var bios = new byte[GbaMemoryMap.BiosSize];
+        BitConverter.GetBytes(0xE12F_FF1Eu).CopyTo(bios, 0xDC); // bx lr
+        BitConverter.GetBytes(0xE3A0_00D3u).CopyTo(bios, 0xE0);
+        BitConverter.GetBytes(0xE129_F000u).CopyTo(bios, 0xE4);
+        var bus = new MemoryBus(bios);
+        var cpu = new Arm7Tdmi(bus)
+        {
+            [14] = GbaMemoryMap.EwramStart,
+            [15] = 0xDC
+        };
+
+        cpu.Step();
+        cpu.Fetch32();
+
+        Assert.Equal(0xE129_F000u, bus.Read32(0));
+    }
+
+    [Fact]
     public void ArmTestOpcodeWithPcDestinationRestoresCpsrWithoutBranching()
     {
         var bus = new MemoryBus();

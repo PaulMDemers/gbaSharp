@@ -1500,6 +1500,12 @@ public sealed class Arm7Tdmi
         _bus.SetBiosAccessible(biosFetch);
         _armPrefetchAddress = address;
         _armPrefetchInstruction = _bus.Read32(address);
+        var pipelineAddress = address + 4;
+        if (biosFetch && pipelineAddress < GbaMemoryMap.BiosSize)
+        {
+            _bus.SetBiosOpenBus(_bus.Read32(pipelineAddress));
+        }
+
         _armPrefetchValid = true;
         _thumbPrefetchValid = false;
     }
