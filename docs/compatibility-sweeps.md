@@ -436,6 +436,13 @@ index-15 strip. MAME 0.288 renders both and therefore is not treated as an OBJ
 budget timing oracle. This evidence retires the speculative partial-terminal
 sprite follow-up; mid-scanline register changes remain separate timing work.
 
+The source-built pair in `tests/TestRoms/DispcntLayerLatch` isolates DISPCNT
+BG0-enable writes at the HDraw/HBlank boundary. gbaSharp, mGBA, and MAME 0.288
+all render rows 79-118 when the writes occur just after HDraw begins, and rows
+80-119 when they occur during HBlank. Two scheduler-level exact-pixel tests
+lock the current-line and following-line cases without requiring a renderer
+change.
+
 ## Save Probes
 
 `save-probe` exercises the detected save backend for each ROM and verifies that exported save data can be loaded into a fresh bus:

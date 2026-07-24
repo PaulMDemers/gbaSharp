@@ -1,0 +1,3 @@
+label,index,romPath,inputScript,stopFrame
+dispcnt-layer-latch,0,tests\TestRoms\DispcntLayerLatch\dispcnt-layer-latch.gba,tests\TestRoms\DispcntLayerLatch\no-input.input,60
+dispcnt-layer-latch-hdraw,0,tests\TestRoms\DispcntLayerLatch\dispcnt-layer-latch-hdraw.gba,tests\TestRoms\DispcntLayerLatch\no-input.input,60

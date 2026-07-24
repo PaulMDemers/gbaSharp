@@ -239,3 +239,8 @@ The source-built diagnostic pair under
 mGBA both render the complete index-14 terminal OBJ and omit index 15. MAME
 0.288 renders both variants, so it is not used as an oracle for this specific
 limit. The far edge of the terminal OBJ is now unit-covered.
+
+The source-built `tests\TestRoms\DispcntLayerLatch` pair confirms DISPCNT BG0
+enable timing at scanline boundaries. gbaSharp, mGBA, and MAME 0.288 agree on
+rows 79-118 for early-HDraw writes and rows 80-119 for HBlank writes. Two
+exact-pixel timing tests bring the suite to 318/318.

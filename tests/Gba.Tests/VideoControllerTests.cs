@@ -319,6 +319,32 @@ public sealed class VideoControllerTests
     }
 
     [Fact]
+    public void BackgroundEnabledDuringHDrawAffectsCurrentScanline()
+    {
+        var gba = CreateSolidBackgroundScene();
+        const int writeCycle = 100;
+        gba.Scheduler.Advance(writeCycle);
+
+        gba.Bus.Write16(IoRegisters.DISPCNT, 1 << 8);
+        gba.Scheduler.Advance(VideoController.HDrawCycles - writeCycle);
+
+        Assert.Equal(0xFF00_FF00u, gba.Video.Framebuffer[0]);
+    }
+
+    [Fact]
+    public void BackgroundEnabledDuringHBlankAffectsFollowingScanline()
+    {
+        var gba = CreateSolidBackgroundScene();
+        gba.Scheduler.Advance(VideoController.HDrawCycles);
+
+        gba.Bus.Write16(IoRegisters.DISPCNT, 1 << 8);
+        gba.Scheduler.Advance(VideoController.HBlankCycles + VideoController.HDrawCycles);
+
+        Assert.Equal(0xFF00_0000u, gba.Video.Framebuffer[0]);
+        Assert.Equal(0xFF00_FF00u, gba.Video.Framebuffer[VideoController.Width]);
+    }
+
+    [Fact]
     public void Mode0RendersBasicObject()
     {
         var gba = new GbaSystem();
@@ -1142,6 +1168,19 @@ public sealed class VideoControllerTests
 
     private static void AdvanceToVBlank(GbaSystem gba)
         => gba.Scheduler.Advance(VideoController.CyclesPerScanline * VideoController.VisibleLines);
+
+    private static GbaSystem CreateSolidBackgroundScene()
+    {
+        var gba = new GbaSystem();
+        gba.Bus.Write16(IoRegisters.BG0CNT, 1 << 8);
+        gba.Bus.Write16(GbaMemoryMap.PaletteStart + 2, 0x03E0);
+        for (uint offset = 0; offset < 32; offset++)
+        {
+            WriteVideoByte(gba.Bus, GbaMemoryMap.VramStart + offset, 0x11);
+        }
+
+        return gba;
+    }
 
     private static GbaSystem CreateObjectFetchBudgetScene(
         int targetIndex,

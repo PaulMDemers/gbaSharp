@@ -10,7 +10,7 @@ with real-BIOS and no-BIOS execution paths.
 
 Current release evidence:
 
-- 316/316 unit tests pass.
+- 318/318 unit tests pass.
 - The curated official real-BIOS set has no active high-priority crash target.
 - 55/55 standard gameplay routes match strict local baselines.
 - 24/24 strict longplay routes match local baselines.
@@ -47,8 +47,10 @@ Before publishing `0.1.0`:
   Per-scanline OBJ fetch limits now follow OAM order with the documented 1,210
   cycle budget, the 954-cycle HBlank-free budget, affine cost, and clipped OBJ
   cost. A source-built overload pair and mGBA captures confirm that the terminal
-  OBJ completes while the next OAM entry is omitted. Mid-scanline register
-  changes remain a focused accuracy target.
+  OBJ completes while the next OAM entry is omitted. A second source-built
+  diagnostic confirms DISPCNT background-enable sampling at HDraw/HBlank
+  boundaries against mGBA and MAME. Other mid-scanline register changes remain
+  focused accuracy targets.
 - Continue the Ruby title-audio timing comparison against MAME or hardware.
 - Audit Game Pak prefetch, bus contention, RTC behavior, and remaining open-bus
   approximations when a focused test or retail route exposes a discrepancy.
