@@ -263,3 +263,11 @@ startup, SWI, IRQ-handler, and post-IRQ behavior. One focused regression brings
 the maintained suite to 325/325. The real-BIOS retail blast-radius gate remains
 5/5 exact in `artifacts\cpu-bios-latch-regression-5-20260724` and
 `artifacts\cpu-bios-latch-doom-20260724`.
+
+The external memory mirror and video byte-write group now reports `All tests
+passed`. BG-VRAM byte writes duplicate across the addressed halfword; tiled
+and bitmap OBJ VRAM retain their mode-dependent exclusion boundaries, and OAM
+byte writes remain ignored. The split regression brings the maintained suite
+to 326/326. Strict retail graphics remain 5/5 exact in
+`artifacts\memory-vram-byte-regression-4-20260724` and
+`artifacts\memory-vram-byte-doom-20260724`.

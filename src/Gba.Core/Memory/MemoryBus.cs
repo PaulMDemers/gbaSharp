@@ -652,7 +652,22 @@ public sealed class MemoryBus
             low.Buffer[low.Offset] = value;
             high.Buffer[high.Offset] = value;
         }
-        else if (mapping.Region is MemoryRegion.Vram or MemoryRegion.Oam)
+        else if (mapping.Region == MemoryRegion.Vram)
+        {
+            var displayMode = PeekIo16(IoRegisters.DISPCNT) & 0x7;
+            var objectVramStart = displayMode is >= 3 and <= 5 ? 0x14000 : 0x10000;
+            if (mapping.Offset >= objectVramStart)
+            {
+                return;
+            }
+
+            var aligned = address & ~1u;
+            var low = Map(aligned);
+            var high = Map(aligned + 1);
+            low.Buffer[low.Offset] = value;
+            high.Buffer[high.Offset] = value;
+        }
+        else if (mapping.Region == MemoryRegion.Oam)
         {
             return;
         }

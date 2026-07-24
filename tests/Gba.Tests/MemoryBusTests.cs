@@ -492,16 +492,30 @@ public sealed class MemoryBusTests
     }
 
     [Fact]
-    public void ByteWritesToVramAndOamAreIgnored()
+    public void ByteWritesToBackgroundVramMirrorAcrossHalfword()
     {
         var bus = new MemoryBus();
-        bus.Write16(GbaMemoryMap.VramStart, 0x1234);
+
+        bus.Write8(GbaMemoryMap.VramStart + 1, 0xAA);
+
+        Assert.Equal(0xAAAA, bus.Read16(GbaMemoryMap.VramStart));
+    }
+
+    [Fact]
+    public void ByteWritesToObjectVramAndOamAreIgnored()
+    {
+        var bus = new MemoryBus();
+        bus.Write16(GbaMemoryMap.VramStart + 0x10000, 0x1234);
+        bus.Write16(GbaMemoryMap.VramStart + 0x14000, 0x9ABC);
         bus.Write16(GbaMemoryMap.OamStart, 0x5678);
 
-        bus.Write8(GbaMemoryMap.VramStart, 0xAA);
+        bus.Write8(GbaMemoryMap.VramStart + 0x10000, 0xAA);
+        bus.Write16(IoRegisters.DISPCNT, 3);
+        bus.Write8(GbaMemoryMap.VramStart + 0x14000, 0xCC);
         bus.Write8(GbaMemoryMap.OamStart + 1, 0xBB);
 
-        Assert.Equal(0x1234, bus.Read16(GbaMemoryMap.VramStart));
+        Assert.Equal(0x1234, bus.Read16(GbaMemoryMap.VramStart + 0x10000));
+        Assert.Equal(0x9ABC, bus.Read16(GbaMemoryMap.VramStart + 0x14000));
         Assert.Equal(0x5678, bus.Read16(GbaMemoryMap.OamStart));
     }
 

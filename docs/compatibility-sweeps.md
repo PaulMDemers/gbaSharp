@@ -471,6 +471,15 @@ maintained suite to 325/325. The real-BIOS retail blast-radius evidence remains
 5/5 exact in `artifacts\cpu-bios-latch-regression-5-20260724` and
 `artifacts\cpu-bios-latch-doom-20260724`.
 
+The external memory group now reports `All tests passed`. CPU byte writes to
+background VRAM duplicate the value across the addressed halfword, matching
+palette behavior, while OBJ VRAM and OAM continue to ignore byte writes. The
+OBJ boundary is `0x06010000` in tiled modes and `0x06014000` in bitmap modes.
+Split BG/OBJ/OAM regressions bring the maintained suite to 326/326. The strict
+retail graphics blast radius remains 5/5 exact in
+`artifacts\memory-vram-byte-regression-4-20260724` and
+`artifacts\memory-vram-byte-doom-20260724`.
+
 ## Save Probes
 
 `save-probe` exercises the detected save backend for each ROM and verifies that exported save data can be loaded into a fresh bus:
