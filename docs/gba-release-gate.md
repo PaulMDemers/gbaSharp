@@ -223,3 +223,13 @@ Mario Kart, Zelda Minish Cap, and Powerpuff Girls at 4/4 exact matches.
 The separate bitmap-mode anchor in
 `artifacts\ppu-obj-latch-doom-regression-20260718` keeps Doom at an exact
 frame-9,000 gameplay match with activity diversity 10.
+
+The OBJ overload pass adds per-scanline fetch exhaustion in OAM order. Normal
+lines receive 1,210 OBJ cycles; DISPCNT HBlank-free mode receives 954. OAM
+scanning, normal and affine width costs, and left clipping all contribute to
+the budget. Four focused overload tests bring the suite to 315/315.
+`artifacts\ppu-obj-budget-regression-20260724` keeps Sonic Advance, Mario Kart,
+Zelda Minish Cap, and Powerpuff Girls at 4/4 exact matches with activity
+diversity 11, 12, 14, and 13. The independent bitmap-mode route in
+`artifacts\ppu-obj-budget-doom-regression-20260724` keeps Doom at an exact
+frame-9,000 match with activity diversity 10.

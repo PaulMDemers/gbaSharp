@@ -404,8 +404,7 @@ same four retail graphics routes at 4/4 `pass, match` with activity diversity
 of 11, 12, 14, and 13.
 
 This pass does not claim complete cycle-level mosaic behavior. Interactions
-with mid-scanline MOSAIC register writes and cycle-budgeted OBJ fetch limits
-remain explicit follow-up targets.
+with mid-scanline MOSAIC register writes remain an explicit follow-up target.
 
 The resolved OBJ-plane pass closes the overlapping-sprite mosaic gap. Vertical
 mosaic is sampled during the OAM/VRAM plane pass, then a screen-wide horizontal
@@ -417,6 +416,19 @@ activity diversity of 11, 12, 14, and 13.
 `artifacts/ppu-obj-latch-doom-regression-20260718` separately verifies the
 bitmap-mode compositor through Doom at frame 9,000: 1/1 `pass, match`, activity
 diversity 10.
+
+The OBJ overload pass enforces the documented per-scanline rendering limits:
+1,210 cycles normally and 954 when DISPCNT enables HBlank OAM access. Budget
+use follows OAM order and includes scan cost, normal versus affine width cost,
+and clipped objects. Four exact-pixel tests cover the normal cutoff, the
+reduced HBlank-free cutoff, affine overload, and fully left-clipped overload.
+`artifacts/ppu-obj-budget-regression-20260724` verifies Sonic Advance, Mario
+Kart, Zelda Minish Cap, and Powerpuff Girls at 4/4 `pass, match`, with activity
+diversity 11, 12, 14, and 13.
+`artifacts/ppu-obj-budget-doom-regression-20260724` separately keeps Doom at
+1/1 `pass, match` at frame 9,000 with activity diversity 10. The scanline
+renderer still completes a sprite whose fetch began before exhaustion; exact
+partial rendering of that final sprite remains a narrower accuracy target.
 
 ## Save Probes
 

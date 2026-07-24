@@ -14,6 +14,8 @@ public sealed class VideoController
     public const int CyclesPerScanline = 1232;
     public const int HDrawCycles = 960;
     public const int HBlankCycles = CyclesPerScanline - HDrawCycles;
+    private const int ObjectCyclesPerScanline = 1210;
+    private const int ObjectCyclesPerScanlineHBlankFree = 954;
 
     private readonly MemoryBus _bus;
     private readonly Scheduler _scheduler;
@@ -1179,6 +1181,10 @@ public sealed class VideoController
     private void BuildObjectScanline(int scanline, Span<ObjectPixel> objectPixels)
     {
         var oam = _bus.ObjectAttributeMemory;
+        var remainingCycles = (_bus.DisplayControl & (1 << 5)) != 0
+            ? ObjectCyclesPerScanlineHBlankFree
+            : ObjectCyclesPerScanline;
+        var previousObjectIndex = 0;
         for (var sprite = 0; sprite < 128; sprite++)
         {
             var offset = sprite * 8;
@@ -1193,28 +1199,42 @@ public sealed class VideoController
             }
 
             var color256 = (attr0 & (1 << 13)) != 0;
-            var objectY = attr0 & 0xFF;
-            var objectX = attr1 & 0x1FF;
+            var rawObjectY = attr0 & 0xFF;
+            var rawObjectX = attr1 & 0x1FF;
+            var shape = (attr0 >> 14) & 0x3;
+            var size = (attr1 >> 14) & 0x3;
+            var (spriteWidth, spriteHeight) = GetSpriteDimensions(shape, size);
+            var affine = affineMode != 0;
+            var displayWidth = affineMode == 3 ? spriteWidth * 2 : spriteWidth;
+            var displayHeight = affineMode == 3 ? spriteHeight * 2 : spriteHeight;
+            if (IsObjectOutsideDisplay(rawObjectX, rawObjectY, displayWidth, displayHeight))
+            {
+                continue;
+            }
+
+            remainingCycles -= 2 * (sprite - previousObjectIndex);
+            previousObjectIndex = sprite;
+            if (remainingCycles <= 0)
+            {
+                break;
+            }
+
+            var objectY = rawObjectY;
+            var objectX = rawObjectX;
             if (objectY >= 160)
             {
                 objectY -= 256;
             }
 
-            if (objectX >= 240)
+            if (objectX >= 256)
             {
                 objectX -= 512;
             }
 
-            var shape = (attr0 >> 14) & 0x3;
-            var size = (attr1 >> 14) & 0x3;
-            var (spriteWidth, spriteHeight) = GetSpriteDimensions(shape, size);
             var tileBase = attr2 & 0x3FF;
             var priority = (byte)((attr2 >> 10) & 0x3);
             var paletteBank = (attr2 >> 12) & 0xF;
             var oneDimensional = (_bus.DisplayControl & (1 << 6)) != 0;
-            var affine = affineMode != 0;
-            var displayWidth = affineMode == 3 ? spriteWidth * 2 : spriteWidth;
-            var displayHeight = affineMode == 3 ? spriteHeight * 2 : spriteHeight;
             var localY = scanline - objectY;
             if (localY < 0 || localY >= displayHeight)
             {
@@ -1290,7 +1310,28 @@ public sealed class VideoController
                 current.Priority = priority;
                 current.Mosaic = mosaic;
             }
+
+            remainingCycles -= GetObjectFetchCycles(affine, objectX, displayWidth);
         }
+    }
+
+    private static bool IsObjectOutsideDisplay(
+        int rawObjectX,
+        int rawObjectY,
+        int displayWidth,
+        int displayHeight)
+        => rawObjectY >= VisibleLines && rawObjectY + displayHeight < TotalLines
+            || rawObjectX >= Width && rawObjectX + displayWidth < 512;
+
+    private static int GetObjectFetchCycles(bool affine, int objectX, int displayWidth)
+    {
+        var cycles = affine ? 8 + displayWidth * 2 : displayWidth - 2;
+        if (objectX >= 0)
+        {
+            return cycles;
+        }
+
+        return cycles + (affine ? objectX : objectX >> 1);
     }
 
     private void ApplyObjectMosaicLatch(Span<ObjectPixel> objectPixels)

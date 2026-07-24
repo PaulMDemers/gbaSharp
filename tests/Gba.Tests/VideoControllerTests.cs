@@ -335,6 +335,52 @@ public sealed class VideoControllerTests
     }
 
     [Fact]
+    public void ObjectFetchBudgetSuppressesLateSpriteOnOverloadedScanline()
+    {
+        var gba = CreateObjectFetchBudgetScene(targetIndex: 19);
+
+        AdvanceToVBlank(gba);
+
+        Assert.Equal(0xFF00_0000u, gba.Video.Framebuffer[0]);
+    }
+
+    [Fact]
+    public void HBlankFreeObjectFetchBudgetSuppressesSpritesEarlier()
+    {
+        var normal = CreateObjectFetchBudgetScene(targetIndex: 15);
+        var hblankFree = CreateObjectFetchBudgetScene(targetIndex: 15, hblankFree: true);
+
+        AdvanceToVBlank(normal);
+        AdvanceToVBlank(hblankFree);
+
+        Assert.Equal(0xFF00_FF00u, normal.Video.Framebuffer[0]);
+        Assert.Equal(0xFF00_0000u, hblankFree.Video.Framebuffer[0]);
+    }
+
+    [Fact]
+    public void AffineObjectsConsumeAdditionalFetchCycles()
+    {
+        var normal = CreateObjectFetchBudgetScene(targetIndex: 9);
+        var affine = CreateObjectFetchBudgetScene(targetIndex: 9, affineFillers: true);
+
+        AdvanceToVBlank(normal);
+        AdvanceToVBlank(affine);
+
+        Assert.Equal(0xFF00_FF00u, normal.Video.Framebuffer[0]);
+        Assert.Equal(0xFF00_0000u, affine.Video.Framebuffer[0]);
+    }
+
+    [Fact]
+    public void LeftClippedObjectsCanExhaustFetchBudget()
+    {
+        var gba = CreateObjectFetchBudgetScene(targetIndex: 38, fillerX: 448);
+
+        AdvanceToVBlank(gba);
+
+        Assert.Equal(0xFF00_0000u, gba.Video.Framebuffer[0]);
+    }
+
+    [Fact]
     public void ObjectMosaicRepeatsBlockOriginPixel()
     {
         var gba = new GbaSystem();
@@ -1085,6 +1131,43 @@ public sealed class VideoControllerTests
 
     private static void AdvanceToVBlank(GbaSystem gba)
         => gba.Scheduler.Advance(VideoController.CyclesPerScanline * VideoController.VisibleLines);
+
+    private static GbaSystem CreateObjectFetchBudgetScene(
+        int targetIndex,
+        bool hblankFree = false,
+        bool affineFillers = false,
+        int fillerX = 0)
+    {
+        var gba = new GbaSystem();
+        gba.Bus.DisplayControl = (ushort)((1 << 12) | (1 << 6) | (hblankFree ? 1 << 5 : 0));
+        gba.Bus.Write16(GbaMemoryMap.PaletteStart + 0x202, 0x03E0);
+        FillObjectTile(gba.Bus, 1, 0x11);
+
+        for (var sprite = 0; sprite < 128; sprite++)
+        {
+            gba.Bus.Write16(GbaMemoryMap.OamStart + (uint)(sprite * 8), 2 << 8);
+        }
+
+        for (var sprite = 0; sprite < targetIndex; sprite++)
+        {
+            var offset = GbaMemoryMap.OamStart + (uint)(sprite * 8);
+            gba.Bus.Write16(offset, (ushort)(affineFillers ? 1 << 8 : 0));
+            gba.Bus.Write16(offset + 2, (ushort)((3 << 14) | fillerX));
+            gba.Bus.Write16(offset + 4, 0);
+        }
+
+        var targetOffset = GbaMemoryMap.OamStart + (uint)(targetIndex * 8);
+        gba.Bus.Write16(targetOffset, 0);
+        gba.Bus.Write16(targetOffset + 2, 3 << 14);
+        gba.Bus.Write16(targetOffset + 4, 1);
+        if (affineFillers)
+        {
+            gba.Bus.Write16(GbaMemoryMap.OamStart + 6, 0x0100);
+            gba.Bus.Write16(GbaMemoryMap.OamStart + 30, 0x0100);
+        }
+
+        return gba;
+    }
 
     private static void HideObjectsExceptFirst(MemoryBus bus)
     {
