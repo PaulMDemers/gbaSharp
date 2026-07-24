@@ -504,6 +504,15 @@ ARM, Thumb, and real-BIOS conformance remain green, and GTA's generated-code
 route remains an exact frame-12,000 match in
 `artifacts\pipeline-fetch-stage-gta-20260724`.
 
+The external `unsafe` group is classified rather than promoted into the gate.
+Its 32 KiB SRAM mirror test now passes, matching gbaSharp's existing 32 KiB
+SRAM export size. The remaining unused-ROM test expects incrementing address
+values past the loaded image, but the suite README records that real hardware
+fails this expectation. gbaSharp continues returning `0xFF` for those reads,
+so the ROM deliberately stops at test `002`. The progressed Sonic Advance SRAM
+fixture remains an exact frame-9,600 match in
+`artifacts\sram-32k-mirror-sonic-20260724`.
+
 ## Save Probes
 
 `save-probe` exercises the detected save backend for each ROM and verifies that exported save data can be loaded into a fresh bus:

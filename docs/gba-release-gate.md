@@ -287,3 +287,10 @@ prefetched instructions across self-modifying VRAM writes. One focused
 regression brings the maintained suite to 330/330; the generated-code GTA
 route remains an exact frame-12,000 match in
 `artifacts\pipeline-fetch-stage-gta-20260724`.
+
+The external unsafe-access ROM is not a release gate. Its 32 KiB SRAM mirror
+check passes after aligning mapping with the existing SRAM export size. Its
+remaining unused-ROM test is intentionally left at `002`: the suite's own
+README says real hardware fails the expected incrementing-value pattern, while
+gbaSharp returns `0xFF` beyond the loaded ROM. The progressed Sonic Advance
+SRAM fixture remains exact in `artifacts\sram-32k-mirror-sonic-20260724`.

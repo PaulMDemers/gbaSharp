@@ -1854,7 +1854,12 @@ public sealed class MemoryBus
 
     private int MapSaveOffset(uint address)
     {
-        var size = _saveType == SaveType.Flash128K ? GbaMemoryMap.SramSize : 64 * 1024;
+        var size = _saveType switch
+        {
+            SaveType.Sram => 32 * 1024,
+            SaveType.Flash128K => GbaMemoryMap.SramSize,
+            _ => 64 * 1024
+        };
         var offset = Mirror(address - GbaMemoryMap.GamePakSramStart, size);
         return _saveType == SaveType.Flash128K ? (_flashBank * 64 * 1024 + (offset & 0xFFFF)) : offset;
     }

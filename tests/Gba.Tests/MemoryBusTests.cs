@@ -256,6 +256,7 @@ public sealed class MemoryBusTests
 
         bus.Write8(0x0E00_0000, 0x5A);
 
+        Assert.Equal(0x5A, bus.Read8(0x0E00_8000));
         Assert.Equal(0x5A, bus.Read8(0x0E01_0000));
     }
 

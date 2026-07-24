@@ -61,9 +61,9 @@ Before publishing `0.1.0`:
 - Continue the Ruby title-audio timing comparison against MAME or hardware.
 - Audit Game Pak prefetch, bus contention, RTC behavior, and remaining open-bus
   approximations when a focused test or retail route exposes a discrepancy.
-- Classify the environment-sensitive jsmolka unsafe-access group independently
-  from the now-green ARM, Thumb, real-BIOS, memory, save, and NES-derived
-  conformance groups.
+- Keep the jsmolka unsafe-access unused-ROM pattern outside release gates: its
+  own documentation says real hardware fails that expectation. The suite's
+  separate 32 KiB SRAM mirror check now passes.
 
 ## Peripheral Milestone
 
