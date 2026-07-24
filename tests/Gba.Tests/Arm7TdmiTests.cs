@@ -564,6 +564,48 @@ public sealed class Arm7TdmiTests
     }
 
     [Fact]
+    public void ThumbStoreMultipleStoresUpdatedBaseWhenBaseIsNotFirst()
+    {
+        var bus = new MemoryBus();
+        bus.Write32(GbaMemoryMap.EwramStart, 0xE12F_FF13); // bx r3
+        bus.Write16(GbaMemoryMap.IwramStart, 0xC103);      // stmia r1!, {r0, r1}
+        var cpu = new Arm7Tdmi(bus)
+        {
+            [0] = 0x1234_5678,
+            [1] = GbaMemoryMap.IwramStart + 0x100,
+            [3] = GbaMemoryMap.IwramStart | 1u,
+            [15] = GbaMemoryMap.EwramStart
+        };
+
+        cpu.Step();
+        cpu.Step();
+
+        Assert.Equal(0x1234_5678u, bus.Read32(GbaMemoryMap.IwramStart + 0x100));
+        Assert.Equal(GbaMemoryMap.IwramStart + 0x108, bus.Read32(GbaMemoryMap.IwramStart + 0x104));
+        Assert.Equal(GbaMemoryMap.IwramStart + 0x108, cpu[1]);
+    }
+
+    [Fact]
+    public void ThumbStoreMultipleWithEmptyListStoresPipelinePcAndAdvancesBase()
+    {
+        var bus = new MemoryBus();
+        bus.Write32(GbaMemoryMap.EwramStart, 0xE12F_FF13); // bx r3
+        bus.Write16(GbaMemoryMap.IwramStart, 0xC000);      // stmia r0!, {}
+        var cpu = new Arm7Tdmi(bus)
+        {
+            [0] = GbaMemoryMap.IwramStart + 0x100,
+            [3] = GbaMemoryMap.IwramStart | 1u,
+            [15] = GbaMemoryMap.EwramStart
+        };
+
+        cpu.Step();
+        cpu.Step();
+
+        Assert.Equal(GbaMemoryMap.IwramStart + 6, bus.Read32(GbaMemoryMap.IwramStart + 0x100));
+        Assert.Equal(GbaMemoryMap.IwramStart + 0x140, cpu[0]);
+    }
+
+    [Fact]
     public void StepExecutesArmHalfwordAndSignedTransfers()
     {
         var bus = new MemoryBus();
@@ -1988,6 +2030,94 @@ public sealed class Arm7TdmiTests
         Assert.Equal(CpuMode.Supervisor, cpu.Mode);
         Assert.Equal(0x1111_0000u, cpu[13]);
         Assert.Equal(0x2222_0000u, cpu[14]);
+    }
+
+    [Fact]
+    public void ArmDataProcessingRegisterShiftReadsPcWithExtraPipelineWord()
+    {
+        var bus = new MemoryBus();
+        bus.Write32(GbaMemoryMap.EwramStart, 0xE08F_0010); // add r0, pc, r0, lsl r0
+        var cpu = new Arm7Tdmi(bus)
+        {
+            [0] = 0,
+            [15] = GbaMemoryMap.EwramStart
+        };
+
+        cpu.Step();
+
+        Assert.Equal(GbaMemoryMap.EwramStart + 12, cpu[0]);
+    }
+
+    [Fact]
+    public void ArmStoreReadsPcOneWordBeyondNormalPipelineValue()
+    {
+        var bus = new MemoryBus();
+        bus.Write32(GbaMemoryMap.EwramStart, 0xE580_F000); // str pc, [r0]
+        var cpu = new Arm7Tdmi(bus)
+        {
+            [0] = GbaMemoryMap.IwramStart,
+            [15] = GbaMemoryMap.EwramStart
+        };
+
+        cpu.Step();
+
+        Assert.Equal(GbaMemoryMap.EwramStart + 12, bus.Read32(GbaMemoryMap.IwramStart));
+    }
+
+    [Fact]
+    public void ArmTestOpcodeWithPcDestinationRestoresCpsrWithoutBranching()
+    {
+        var bus = new MemoryBus();
+        bus.Write32(GbaMemoryMap.EwramStart, 0xE129_F000);     // msr cpsr_c, r0
+        bus.Write32(GbaMemoryMap.EwramStart + 4, 0xE169_F001); // msr spsr_c, r1
+        bus.Write32(GbaMemoryMap.EwramStart + 8, 0xE15F_F000); // cmp pc, pc, r0
+        var cpu = new Arm7Tdmi(bus)
+        {
+            [0] = (uint)CpuMode.Fiq,
+            [1] = (uint)CpuMode.System,
+            [8] = 0x1111_1111,
+            [15] = GbaMemoryMap.EwramStart
+        };
+
+        cpu.Step();
+        cpu[8] = 0x2222_2222;
+        cpu.Step();
+        cpu.Step();
+
+        Assert.Equal(CpuMode.System, cpu.Mode);
+        Assert.Equal(0x1111_1111u, cpu[8]);
+        Assert.Equal(GbaMemoryMap.EwramStart + 12, cpu.Pc);
+    }
+
+    [Fact]
+    public void SwitchingFiqModeBanksRegistersEightThroughTwelve()
+    {
+        var bus = new MemoryBus();
+        bus.Write32(GbaMemoryMap.EwramStart, 0xE129_F000);     // msr cpsr_c, r0
+        bus.Write32(GbaMemoryMap.EwramStart + 4, 0xE129_F001); // msr cpsr_c, r1
+        bus.Write32(GbaMemoryMap.EwramStart + 8, 0xE129_F000); // msr cpsr_c, r0
+        var cpu = new Arm7Tdmi(bus)
+        {
+            [0] = (uint)CpuMode.Fiq,
+            [1] = (uint)CpuMode.System,
+            [8] = 0x1111_1111,
+            [12] = 0x2222_2222,
+            [15] = GbaMemoryMap.EwramStart
+        };
+
+        cpu.Step();
+        Assert.Equal(0u, cpu[8]);
+        Assert.Equal(0u, cpu[12]);
+        cpu[8] = 0xAAAA_AAAA;
+        cpu[12] = 0xBBBB_BBBB;
+
+        cpu.Step();
+        Assert.Equal(0x1111_1111u, cpu[8]);
+        Assert.Equal(0x2222_2222u, cpu[12]);
+
+        cpu.Step();
+        Assert.Equal(0xAAAA_AAAAu, cpu[8]);
+        Assert.Equal(0xBBBB_BBBBu, cpu[12]);
     }
 
     [Fact]

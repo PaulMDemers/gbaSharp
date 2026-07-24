@@ -10,7 +10,9 @@ with real-BIOS and no-BIOS execution paths.
 
 Current release evidence:
 
-- 318/318 unit tests pass.
+- 324/324 unit tests pass.
+- The ARM and Thumb groups in the MIT-licensed jsmolka `gba-tests` suite both
+  report `All tests passed`.
 - The curated official real-BIOS set has no active high-priority crash target.
 - 55/55 standard gameplay routes match strict local baselines.
 - 24/24 strict longplay routes match local baselines.
@@ -54,6 +56,9 @@ Before publishing `0.1.0`:
 - Continue the Ruby title-audio timing comparison against MAME or hardware.
 - Audit Game Pak prefetch, bus contention, RTC behavior, and remaining open-bus
   approximations when a focused test or retail route exposes a discrepancy.
+- Continue classifying the environment-sensitive jsmolka BIOS, memory, save,
+  NES, and unsafe-access groups independently from the now-green ARM/Thumb CPU
+  conformance groups.
 
 ## Peripheral Milestone
 

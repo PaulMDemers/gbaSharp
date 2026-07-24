@@ -11,6 +11,8 @@ public sealed class Arm7Tdmi
     private readonly uint[] _registers = new uint[16];
     private readonly Dictionary<CpuMode, BankedRegisters> _bankedRegisters = [];
     private readonly Dictionary<CpuMode, uint> _savedProgramStatusRegisters = [];
+    private readonly uint[] _sharedHighRegisters = new uint[5];
+    private readonly uint[] _fiqHighRegisters = new uint[5];
     private bool _noBiosIrqActive;
     private uint _noBiosIrqReturnPc;
     private uint _noBiosIrqExitLr;
@@ -97,6 +99,8 @@ public sealed class Arm7Tdmi
     public void Reset(bool useBios)
     {
         Array.Clear(_registers);
+        Array.Clear(_sharedHighRegisters);
+        Array.Clear(_fiqHighRegisters);
         _bankedRegisters.Clear();
         _savedProgramStatusRegisters.Clear();
         _noBiosIrqActive = false;
@@ -492,9 +496,19 @@ public sealed class Arm7Tdmi
         var setFlags = (instruction & (1u << 20)) != 0;
         var rn = (int)((instruction >> 16) & 0xF);
         var rd = (int)((instruction >> 12) & 0xF);
-        var operand1 = ReadRegisterWithPipeline(rn);
+        var registerShift = !immediate && (instruction & (1u << 4)) != 0;
+        var operand1 = registerShift && rn == 15 ? Pc + 8u : ReadRegisterWithPipeline(rn);
         var shifter = DecodeArmShifterOperand(instruction, immediate, updateCarry: setFlags);
         var operand2 = shifter.Value;
+        if (setFlags
+            && rd == 15
+            && opcode is >= 0x8 and <= 0xB
+            && Mode is not CpuMode.User and not CpuMode.System)
+        {
+            var spsr = GetSpsr(Mode);
+            ApplyCpsr(spsr);
+            return 1;
+        }
 
         switch (opcode)
         {
@@ -639,11 +653,11 @@ public sealed class Arm7Tdmi
         }
         else if (byteTransfer)
         {
-            _bus.Write8(effectiveAddress, (byte)ReadRegisterWithPipeline(rd));
+            _bus.Write8(effectiveAddress, (byte)ReadArmStoreRegister(rd));
         }
         else
         {
-            _bus.Write32(effectiveAddress, ReadRegisterWithPipeline(rd));
+            _bus.Write32(effectiveAddress, ReadArmStoreRegister(rd));
         }
 
         if ((!preIndex || writeBack) && !(load && rn == rd))
@@ -693,7 +707,7 @@ public sealed class Arm7Tdmi
                 return EnterUndefinedInstructionException();
             }
 
-            _bus.Write16(effectiveAddress, (ushort)ReadRegisterWithPipeline(rd));
+            _bus.Write16(effectiveAddress, (ushort)ReadArmStoreRegister(rd));
         }
 
         if ((!preIndex || writeBack) && !(load && rn == rd))
@@ -716,7 +730,7 @@ public sealed class Arm7Tdmi
         var rd = (int)((instruction >> 12) & 0xF);
         var rm = (int)(instruction & 0xF);
         var address = ReadRegisterWithPipeline(rn);
-        var storeValue = ReadRegisterWithPipeline(rm);
+        var storeValue = ReadArmStoreRegister(rm);
 
         var accessBytes = byteTransfer ? 1 : 4;
         var accessCyclesExtra = AccessCyclesExtra(address, accessBytes) * 2;
@@ -776,7 +790,7 @@ public sealed class Arm7Tdmi
             }
             else
             {
-                _bus.Write32(address, ReadRegisterWithPipeline(15));
+                _bus.Write32(address, ReadArmStoreRegister(15));
             }
         }
         else
@@ -807,7 +821,7 @@ public sealed class Arm7Tdmi
                 else
                 {
                     accessCyclesExtra += AccessCyclesExtra(address, 4, transferIndex > 0);
-                    var value = userModeTransfer ? ReadUserRegister(register) : ReadRegisterWithPipeline(register);
+                    var value = userModeTransfer ? ReadUserRegister(register) : ReadArmStoreRegister(register);
                     if (writeBack && register == rn && transferIndex > 0)
                     {
                         value = writeBackAddress;
@@ -1388,6 +1402,7 @@ public sealed class Arm7Tdmi
         var registerList = instruction & 0xFF;
         var address = _registers[rb] & ~3u;
         var transfers = CountBits(registerList);
+        var writeBackAddress = _registers[rb] + (uint)(transfers * 4);
         var accessCyclesExtra = 0;
         var transferIndex = 0;
 
@@ -1400,7 +1415,7 @@ public sealed class Arm7Tdmi
             }
             else
             {
-                _bus.Write32(address, Pc + 2);
+                _bus.Write32(address, Pc + 4);
             }
 
             _registers[rb] += 0x40;
@@ -1422,7 +1437,10 @@ public sealed class Arm7Tdmi
             else
             {
                 accessCyclesExtra += AccessCyclesExtra(address, 4, transferIndex > 0);
-                _bus.Write32(address, _registers[register]);
+                var value = register == rb && transferIndex > 0
+                    ? writeBackAddress
+                    : _registers[register];
+                _bus.Write32(address, value);
             }
 
             address += 4;
@@ -1431,7 +1449,7 @@ public sealed class Arm7Tdmi
 
         if (!load || (registerList & (1 << (int)rb)) == 0)
         {
-            _registers[rb] += (uint)(transfers * 4);
+            _registers[rb] = writeBackAddress;
         }
 
         return (load ? 3 + transfers : 2 + transfers) + accessCyclesExtra;
@@ -1461,6 +1479,12 @@ public sealed class Arm7Tdmi
     {
         ValidateRegister(register);
         return register == 15 ? Pc + (ThumbState ? 2u : 4u) : _registers[register];
+    }
+
+    private uint ReadArmStoreRegister(int register)
+    {
+        ValidateRegister(register);
+        return register == 15 ? Pc + 8u : _registers[register];
     }
 
     private void CaptureInstructionFetchCycles(uint address, int bytes)
@@ -1535,6 +1559,11 @@ public sealed class Arm7Tdmi
     private uint ReadUserRegister(int register)
     {
         ValidateRegister(register);
+        if (Mode == CpuMode.Fiq && register is >= 8 and <= 12)
+        {
+            return _sharedHighRegisters[register - 8];
+        }
+
         if (register is 13 or 14 && Mode is not CpuMode.User and not CpuMode.System)
         {
             return _bankedRegisters.GetValueOrDefault(CpuMode.User).Get(register);
@@ -1546,6 +1575,12 @@ public sealed class Arm7Tdmi
     private void WriteUserRegister(int register, uint value)
     {
         ValidateRegister(register);
+        if (Mode == CpuMode.Fiq && register is >= 8 and <= 12)
+        {
+            _sharedHighRegisters[register - 8] = value;
+            return;
+        }
+
         if (register is 13 or 14 && Mode is not CpuMode.User and not CpuMode.System)
         {
             var banked = _bankedRegisters.GetValueOrDefault(CpuMode.User);
@@ -2533,9 +2568,40 @@ public sealed class Arm7Tdmi
         }
 
         SaveBankedRegisters(Mode);
+        SwitchFiqHighRegisterBank(Mode, mode);
         Mode = mode;
         RestoreBankedRegisters(mode);
         Cpsr = BuildCpsr();
+    }
+
+    private void SwitchFiqHighRegisterBank(CpuMode currentMode, CpuMode nextMode)
+    {
+        if (currentMode == CpuMode.Fiq && nextMode != CpuMode.Fiq)
+        {
+            SaveHighRegisters(_fiqHighRegisters);
+            RestoreHighRegisters(_sharedHighRegisters);
+        }
+        else if (currentMode != CpuMode.Fiq && nextMode == CpuMode.Fiq)
+        {
+            SaveHighRegisters(_sharedHighRegisters);
+            RestoreHighRegisters(_fiqHighRegisters);
+        }
+    }
+
+    private void SaveHighRegisters(uint[] bank)
+    {
+        for (var register = 8; register <= 12; register++)
+        {
+            bank[register - 8] = _registers[register];
+        }
+    }
+
+    private void RestoreHighRegisters(uint[] bank)
+    {
+        for (var register = 8; register <= 12; register++)
+        {
+            _registers[register] = bank[register - 8];
+        }
     }
 
     private void SaveBankedRegisters(CpuMode mode)

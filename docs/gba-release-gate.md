@@ -244,3 +244,14 @@ The source-built `tests\TestRoms\DispcntLayerLatch` pair confirms DISPCNT BG0
 enable timing at scanline boundaries. gbaSharp, mGBA, and MAME 0.288 agree on
 rows 79-118 for early-HDraw writes and rows 80-119 for HBlank writes. Two
 exact-pixel timing tests bring the suite to 318/318.
+
+The ARM and Thumb CPU groups from Julian Smolka's MIT-licensed `gba-tests`
+suite now both report `All tests passed`. Six focused regressions cover the
+FIQ r8-r12 bank, Thumb empty-list and base-in-list STM behavior, ARM
+register-shift PC reads, test-opcode SPSR restoration, and ARM store-PC
+pipeline values, bringing the maintained suite to 324/324. The strict retail
+blast-radius run remains 5/5 exact: four routes in
+`artifacts\cpu-architecture-regression-4-20260724` plus Doom at frame 9,000 in
+`artifacts\cpu-architecture-regression-20260724`. Other external `gba-tests`
+groups remain independently classified rather than being included in this CPU
+conformance claim.

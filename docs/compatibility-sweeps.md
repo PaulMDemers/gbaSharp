@@ -443,6 +443,25 @@ all render rows 79-118 when the writes occur just after HDraw begins, and rows
 lock the current-line and following-line cases without requiring a renderer
 change.
 
+The 2026-07-24 CPU conformance pass runs the ARM and Thumb groups from Julian
+Smolka's MIT-licensed
+[`gba-tests`](https://github.com/jsmolka/gba-tests) suite. ARM advanced from
+failure 223 through 225 and 356 to `All tests passed`; Thumb advanced from
+failure 229 through 230 to `All tests passed`. The fixes cover FIQ banking for
+r8-r12, user-bank block transfers from FIQ mode, PC values stored by ARM and
+empty-list Thumb transfers, ARM register-shift pipeline reads, malformed
+test-opcode SPSR restoration, and Thumb STM base-in-list writeback. Six focused
+unit tests bring the suite to 324/324.
+
+Retail blast-radius checks remain exact at all five checkpoints. Sonic Advance,
+Mario Kart, Zelda: The Minish Cap, and The Powerpuff Girls are 4/4 `pass,
+match` in `artifacts\cpu-architecture-regression-4-20260724`; Doom retains its
+frame-9,000 baseline hash in
+`artifacts\cpu-architecture-regression-20260724`. The external suite's BIOS,
+memory, save, NES, and unsafe-access groups are tracked separately because they
+depend on BIOS selection, save-backend configuration, or open-bus/environment
+behavior; this result does not claim those groups pass.
+
 ## Save Probes
 
 `save-probe` exercises the detected save backend for each ROM and verifies that exported save data can be loaded into a fresh bus:

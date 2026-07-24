@@ -7,7 +7,9 @@ frontend for hands-on testing.
 ## Current Status
 
 - Current release line: `0.1.0` preview under the MIT license.
-- Core tests: 318 passing.
+- Core tests: 324 passing.
+- ARM and Thumb CPU conformance groups from the MIT-licensed jsmolka
+  `gba-tests` suite report `All tests passed`.
 - Curated official boot sweep: 300/300 titles boot in the best-known aligned
   real-BIOS pass.
 - Standard deep gameplay gate: 55/55 strict baseline matches.
